@@ -26,13 +26,14 @@
   --shadow:0 1px 2px rgba(20,24,23,.08),0 10px 30px rgba(20,24,23,.14);
   --f-sans:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
   --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --hs-shadow:#5B6560; --hs-light:#FFFFFF; --contour:#8A6A3E; --adm:#4F5A9E;
   --r:10px; color-scheme:light;
 }
 @media (prefers-color-scheme: dark){:root{
   --paper:#121615; --sheet:#1A1F1E; --land:#1E2523; --bldg:#323B38; --ink:#E5E9E6; --ink-2:#A0A9A5; --ink-3:#6E7874;
   --line:#343D3A; --hair:#29312F; --accent:#8D9BFF; --accent-ink:#0F1330; --accent-soft:rgba(141,155,255,.16); --danger:#FF7B71;
   --c-arch:#FF6E61; --c-public:#3DC2C8; --c-park:#6CC47D; --c-street:#E7B23B; --c-interior:#B98BE7; --c-etc:#9BA59F;
-  --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 34px rgba(0,0,0,.45); color-scheme:dark}}
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 34px rgba(0,0,0,.45); --hs-shadow:#000000; --hs-light:#4A5552; --contour:#C9A46A; --adm:#A9B2F0; color-scheme:dark}}
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
 body{background:var(--paper);color:var(--ink);font-family:var(--f-sans);font-size:14px;line-height:1.5;overflow:hidden;-webkit-tap-highlight-color:transparent}
@@ -63,7 +64,24 @@ button{cursor:pointer}
 .tools button{border:0;background:none;width:38px;height:38px;display:grid;place-items:center;color:var(--ink);font:600 11px var(--f-mono)}
 .tools button + button{border-top:1px solid var(--hair)}
 .tools button[aria-pressed="true"]{background:var(--ink);color:var(--sheet)}
-.zhint{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:var(--sheet);border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:12px;color:var(--ink-2);white-space:nowrap;box-shadow:var(--shadow);z-index:2;pointer-events:none}
+.zhint{position:absolute;left:50%;top:50px;transform:translateX(-50%);background:var(--sheet);border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:12px;color:var(--ink-2);white-space:nowrap;box-shadow:var(--shadow);z-index:2;pointer-events:none}
+.crumb{position:absolute;left:12px;top:12px;max-width:calc(100% - 76px);display:flex;align-items:center;gap:2px;background:var(--sheet);border:1px solid var(--line);border-radius:999px;padding:5px 12px 5px 10px;font-size:12.5px;box-shadow:var(--shadow);z-index:2;white-space:nowrap;overflow:hidden}
+.crumb svg{flex:none;margin-right:5px;color:var(--adm)}
+.crumb span{overflow:hidden;text-overflow:ellipsis}
+.crumb .sep{color:var(--ink-3);margin:0 3px;flex:none}
+.crumb .lv1{color:var(--ink-2)}.crumb .lv2{color:var(--ink-2)}.crumb .lv3{font-weight:700;color:var(--ink)}
+.seg{display:flex;background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:3px;gap:2px;margin:2px 0 8px}
+.seg button{flex:1;border:0;background:none;padding:6px 10px;border-radius:999px;font-size:13px;font-weight:500;color:var(--ink-2)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--sheet)}
+.zone{border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:10px}
+.zone header{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.zone h3{margin:0;font-size:15px;font-weight:700;flex:1}
+.zone h3 small{font-family:var(--f-mono);font-size:11px;font-weight:400;color:var(--ink-3);margin-left:6px}
+.dong{display:grid;grid-template-columns:minmax(64px,auto) 1fr;gap:6px 10px;align-items:start;padding:7px 0;border-top:1px dashed var(--hair)}
+.dong .dn{font-size:12px;font-weight:600;color:var(--adm);padding-top:4px}
+.dong .rs{display:flex;flex-wrap:wrap;gap:5px;min-width:0}
+.dong .rs button{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:var(--sheet);border-radius:999px;padding:3px 10px 3px 7px;font-size:12.5px;max-width:100%}
+.dong .rs button span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .offline{position:absolute;left:16px;right:16px;top:50%;transform:translateY(-50%);max-width:360px;margin:0 auto;background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:18px;box-shadow:var(--shadow);z-index:3}
 .offline h3{margin:0 0 6px;font-size:15px}.offline p{margin:0;color:var(--ink-2);font-size:13px}
 
@@ -96,6 +114,7 @@ body.placing .mk{pointer-events:none;opacity:.55}
 .placebar .sub{font-family:var(--f-mono);font-size:11px;color:var(--ink-2);font-weight:400;display:block;margin-top:2px}
 .placebar .row{display:flex;gap:8px;flex-wrap:wrap}
 .placebar .row .btn.pri{flex:1}
+.placebar .seg{margin:0}
 
 /* sheets */
 .panel{position:fixed;z-index:8;background:var(--sheet);box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden}
@@ -216,17 +235,20 @@ body.placing .mk{pointer-events:none;opacity:.55}
     <div id="map" aria-label="3D 답사 지도"></div>
     <div class="tools" role="group" aria-label="지도 보기">
       <button id="t3d" aria-pressed="true" title="3D / 2D 전환">3D</button>
+      <button id="tTer" aria-pressed="true" title="지형·등고선">지형</button>
       <button id="tSat" aria-pressed="false" title="위성 사진">위성</button>
       <button id="tMe" title="현재 위치" aria-label="현재 위치"><svg width="17" height="17" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 1v3M8 12v3M1 8h3M12 8h3" stroke="currentColor" stroke-width="1.6"/></svg></button>
       <button id="tFit" title="전체 기록 보기" aria-label="전체 기록 보기"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>
     </div>
+    <div class="crumb" id="crumb" hidden aria-live="polite"><svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.5h12v9H2z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-dasharray="3 1.5 1 1.5"/><circle cx="8" cy="8" r="1.6" fill="currentColor"/></svg><span id="crumbTxt"></span></div>
     <div class="zhint" id="zhint" hidden>확대하면 건물이 입체로 보여요</div>
     <div class="offline" id="offline" hidden><h3>지도를 불러오지 못했어요</h3><p>인터넷 연결을 확인한 뒤 새로고침해 주세요. 기록은 이 기기에 그대로 남아 있어요.</p></div>
   </div>
   <button class="fab" id="addBtn"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>기록 추가</button>
   <div class="placebar" id="placebar" hidden>
-    <p id="placeMsg">기록할 건물을 탭하세요<span class="sub">빈 곳을 탭하면 그 지점으로 정해져요</span></p>
-    <div class="row"><button class="btn" id="placeCancel">취소</button><button class="btn" id="placeMe">현재 위치</button><button class="btn pri" id="placeOk" disabled>이 위치로</button></div>
+    <div class="seg" id="pmode" role="group" aria-label="고르는 방식"><button data-m="building" aria-pressed="true">건물</button><button data-m="land" aria-pressed="false">땅 구획</button><button data-m="area" aria-pressed="false">범위 그리기</button></div>
+    <p id="placeMsg">기록할 건물을 탭하세요</p>
+    <div class="row"><button class="btn" id="placeCancel">취소</button><button class="btn" id="placeUndo" hidden>되돌리기</button><button class="btn" id="placeMe">현재 위치</button><button class="btn pri" id="placeOk" disabled>이 위치로</button></div>
   </div>
   <aside class="panel" id="panel" hidden></aside>
   <div class="toast" id="toast" hidden role="status"></div>
@@ -235,6 +257,7 @@ body.placing .mk{pointer-events:none;opacity:.55}
 </div>
 
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/maplibre-contour@0.1.0/dist/index.min.js"></script>
 <script>
 (() => {
 'use strict';
@@ -252,6 +275,7 @@ const STYLE_LIGHT = 'https://tiles.openfreemap.org/styles/positron';
 const STYLE_DARK = 'https://tiles.openfreemap.org/styles/dark';
 const SAT_TILES = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 const NOMI = 'https://nominatim.openstreetmap.org';
+const DEM_URL = 'https://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png';
 
 const $ = (s, r=document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -317,7 +341,8 @@ function hydrate(root){
 
 /* ---------------- state ---------------- */
 const S = { recs: [], cats: new Set(CATS.map(c => c.id)), selId: null, selDay: null, panel: null, draft: null,
-  placing: null, pick: null, is3D: true, sat: false, mapReady: false, me: null };
+  placing: null, pick: null, is3D: true, sat: false, mapReady: false, me: null, terrain: true, hasDem: false };
+try { if(localStorage.getItem('dapsa3d.terrain') === '0') S.terrain = false; S.listMode = localStorage.getItem('dapsa3d.listMode') || 'date'; } catch(_){}
 const panel = $('#panel');
 function visible(){ return S.recs.filter(r => S.cats.has(CAT[r.cat] ? r.cat : 'etc')); }
 async function reload(){ S.recs = (await DB.allRecs()).filter(r => r && r.id); renderAll(); }
@@ -350,6 +375,7 @@ async function initMap(){
   map.on('load', setupLayers);
   map.on('error', e => { if(!S.mapReady && e && e.error && /style/i.test(String(e.error.message||''))) $('#offline').hidden = false; });
   map.on('zoom', onZoom);
+  map.on('moveend', scheduleCrumb);
   map.on('click', onMapClick);
   map.on('dragstart', () => stopOrbit());
 }
@@ -368,6 +394,7 @@ function setupLayers(){
   }
   map.addSource('sat', {type:'raster', tiles:[SAT_TILES], tileSize:256, maxzoom:19, attribution:'위성 © Esri, Maxar, Earthstar Geographics'});
   map.addLayer({id:'sat', type:'raster', source:'sat', layout:{visibility:'none'}}, FIRST_SYM);
+  setupTerrain(st);
   map.addSource('routes', {type:'geojson', data: FC()});
   map.addLayer({id:'routes', type:'line', source:'routes', filter:['!=', ['get','on'], true], layout:{'line-cap':'round','line-join':'round'}, paint:{'line-color': cssVar('--ink-2'), 'line-width': 2, 'line-dasharray':[2, 2], 'line-opacity': 0.75}}, FIRST_SYM);
   map.addLayer({id:'routes-on', type:'line', source:'routes', filter:['==', ['get','on'], true], layout:{'line-cap':'round','line-join':'round'}, paint:{'line-color': cssVar('--accent'), 'line-width': 4.5}}, FIRST_SYM);
@@ -380,13 +407,101 @@ function setupLayers(){
         'fill-extrusion-opacity': 0.9,
       }}, FIRST_SYM);
   }
+  const underB = map.getLayer('bldg3d') ? 'bldg3d' : FIRST_SYM;
+  if(SRC) for(const sl of ['landcover', 'landuse', 'park']) map.addLayer({id:'q-' + sl, type:'fill', source:SRC, 'source-layer': sl, minzoom: 11, paint:{'fill-opacity': 0}}, 'sat');
+  map.addSource('sites', {type:'geojson', data: FC()});
+  map.addLayer({id:'sites-fill', type:'fill', source:'sites', paint:{'fill-color':['get','color'], 'fill-opacity':['case', ['to-boolean', ['get','sel']], 0.34, 0.2]}}, underB);
+  map.addLayer({id:'sites-line', type:'line', source:'sites', filter:['==', ['get','kind'], 'land'], layout:{'line-join':'round'}, paint:{'line-color':['get','color'], 'line-width':['case', ['to-boolean', ['get','sel']], 3, 1.8]}}, underB);
+  map.addLayer({id:'sites-line-area', type:'line', source:'sites', filter:['==', ['get','kind'], 'area'], layout:{'line-join':'round'}, paint:{'line-color':['get','color'], 'line-width':['case', ['to-boolean', ['get','sel']], 3, 1.8], 'line-dasharray':[2, 1.4]}}, underB);
   map.addSource('visited', {type:'geojson', data: FC()});
   map.addLayer({id:'visited', type:'fill-extrusion', source:'visited', paint:{'fill-extrusion-color':['get','color'], 'fill-extrusion-height':['get','h'], 'fill-extrusion-base':['get','b'], 'fill-extrusion-opacity':0.95}}, FIRST_SYM);
+  setupAdmin(st);
   map.addSource('picked', {type:'geojson', data: FC()});
-  map.addLayer({id:'picked', type:'fill-extrusion', source:'picked', paint:{'fill-extrusion-color': cssVar('--accent'), 'fill-extrusion-height':['get','h'], 'fill-extrusion-base':['get','b'], 'fill-extrusion-opacity':0.92}}, FIRST_SYM);
+  map.addSource('drawpts', {type:'geojson', data: FC()});
+  map.addLayer({id:'picked-fill', type:'fill', source:'picked', filter:['in', ['get','kind'], ['literal', ['land', 'area']]], paint:{'fill-color': cssVar('--accent'), 'fill-opacity': 0.26}}, map.getLayer('bldg3d') ? 'bldg3d' : FIRST_SYM);
+  map.addLayer({id:'picked-line', type:'line', source:'picked', filter:['in', ['get','kind'], ['literal', ['land', 'area', 'line']]], layout:{'line-join':'round', 'line-cap':'round'}, paint:{'line-color': cssVar('--accent'), 'line-width': 2.6}});
+  map.addLayer({id:'drawpts', type:'circle', source:'drawpts', paint:{'circle-radius':['case', ['to-boolean', ['get','first']], 7, 5], 'circle-color': cssVar('--sheet'), 'circle-stroke-color': cssVar('--accent'), 'circle-stroke-width': 2.4}});
+  map.addLayer({id:'picked', type:'fill-extrusion', source:'picked', filter:['==', ['get','kind'], 'building'], paint:{'fill-extrusion-color': cssVar('--accent'), 'fill-extrusion-height':['get','h'], 'fill-extrusion-base':['get','b'], 'fill-extrusion-opacity':0.92}}, FIRST_SYM);
   S.mapReady = true;
-  onZoom(); renderMap();
+  onZoom(); renderMap(); scheduleCrumb();
   if(!S.didFit){ S.didFit = true; fitAll(false); }
+}
+function setupTerrain(st){
+  try {
+    let demTiles = DEM_URL, contourTiles = null;
+    if(window.mlcontour){
+      try {
+        const ds = new mlcontour.DemSource({url: DEM_URL, encoding: 'terrarium', maxzoom: 14, worker: true, cacheSize: 120, timeoutMs: 15000});
+        ds.setupMaplibre(maplibregl);
+        demTiles = ds.sharedDemProtocolUrl;
+        contourTiles = ds.contourProtocolUrl({
+          multiplier: 1,
+          thresholds: {11: [100, 500], 12: [50, 250], 13: [20, 100], 14: [10, 50], 15: [5, 25]},
+          contourLayer: 'contours', elevationKey: 'ele', levelKey: 'level', extent: 4096, buffer: 1,
+        });
+      } catch(_){ demTiles = DEM_URL; contourTiles = null; }
+    }
+    const dem = {type:'raster-dem', encoding:'terrarium', tiles:[demTiles], tileSize:256, maxzoom:14, attribution:'지형 © Mapzen Terrain Tiles (SRTM 등)'};
+    map.addSource('dem', dem);
+    const demHs = {...dem}; delete demHs.attribution; map.addSource('dem-hs', demHs);
+    map.addLayer({id:'hillshade', type:'hillshade', source:'dem-hs', paint:{
+      'hillshade-exaggeration': 0.32, 'hillshade-shadow-color': cssVar('--hs-shadow'), 'hillshade-highlight-color': cssVar('--hs-light'), 'hillshade-accent-color': cssVar('--hs-shadow'), 'hillshade-illumination-direction': 315,
+    }}, 'sat');
+    if(contourTiles){
+      map.addSource('contours', {type:'vector', tiles:[contourTiles], maxzoom:15});
+      const sym = (st.layers || []).find(l => l.type === 'symbol' && l.layout && Array.isArray(l.layout['text-font']));
+      const font = sym ? sym.layout['text-font'] : ['Noto Sans Regular'];
+      map.addLayer({id:'contour-lines', type:'line', source:'contours', 'source-layer':'contours', minzoom:11,
+        paint:{'line-color': cssVar('--contour'), 'line-width': ['match', ['get','level'], 1, 1.1, 0.5], 'line-opacity': ['match', ['get','level'], 1, 0.75, 0.45]}}, FIRST_SYM);
+      map.addLayer({id:'contour-labels', type:'symbol', source:'contours', 'source-layer':'contours', minzoom:12, filter:['>', ['get','level'], 0],
+        layout:{'symbol-placement':'line', 'text-size':10, 'text-font': font, 'text-field':['concat', ['number-format', ['get','ele'], {}], ' m'], 'symbol-spacing': 320},
+        paint:{'text-color': cssVar('--ink-2'), 'text-halo-color': cssVar('--paper'), 'text-halo-width': 1.4}}, FIRST_SYM);
+    }
+    S.hasDem = true;
+    setTerrain(S.terrain);
+  } catch(_){ S.hasDem = false; $('#tTer').hidden = true; }
+}
+function setupAdmin(st){
+  if(!SRC) return;
+  try {
+    const notSea = ['!', ['to-boolean', ['get','maritime']]];
+    const lvl = ['to-number', ['get','admin_level']];
+    const below = map.getLayer('bldg3d') ? 'bldg3d' : FIRST_SYM;
+    // Korean map convention: 시·도 = 이점쇄선, 시·군·구 = 일점쇄선, 읍·면·동 = 점선
+    map.addLayer({id:'adm-dong', type:'line', source:SRC, 'source-layer':'boundary', minzoom:12, filter:['all', notSea, ['>=', lvl, 8], ['<=', lvl, 9]],
+      paint:{'line-color': cssVar('--adm'), 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 0.8, 16, 1.4], 'line-dasharray': [1, 2], 'line-opacity': 0.8}}, below);
+    map.addLayer({id:'adm-gu', type:'line', source:SRC, 'source-layer':'boundary', minzoom:8.5, filter:['all', notSea, ['>=', lvl, 5], ['<=', lvl, 7]],
+      paint:{'line-color': cssVar('--adm'), 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 1, 14, 2], 'line-dasharray': [6, 2, 1.5, 2], 'line-opacity': 0.85}}, below);
+    map.addLayer({id:'adm-sido', type:'line', source:SRC, 'source-layer':'boundary', minzoom:5, filter:['all', notSea, ['<=', lvl, 4], ['>=', lvl, 3]],
+      paint:{'line-color': cssVar('--adm'), 'line-width': ['interpolate', ['linear'], ['zoom'], 5, 1.2, 12, 3], 'line-dasharray': [6, 2, 1.5, 2, 1.5, 2], 'line-opacity': 0.9}}, below);
+    const sym = (st.layers || []).find(l => l.type === 'symbol' && l.layout && Array.isArray(l.layout['text-font']));
+    const font = sym ? sym.layout['text-font'] : ['Noto Sans Regular'];
+    const nm = ['coalesce', ['get','name:ko'], ['get','name']];
+    map.addLayer({id:'zone-gu', type:'symbol', source:SRC, 'source-layer':'place', minzoom:10, maxzoom:15.5, filter:['in', ['get','class'], ['literal', ['borough', 'suburb']]],
+      layout:{'text-field': nm, 'text-font': font, 'text-size': ['interpolate', ['linear'], ['zoom'], 10, 12, 14, 15], 'text-letter-spacing': 0.12, 'text-padding': 8, 'symbol-sort-key': ['coalesce', ['get','rank'], 10]},
+      paint:{'text-color': cssVar('--adm'), 'text-halo-color': cssVar('--paper'), 'text-halo-width': 1.8}});
+    map.addLayer({id:'zone-dong', type:'symbol', source:SRC, 'source-layer':'place', minzoom:13, filter:['in', ['get','class'], ['literal', ['quarter', 'neighbourhood', 'village']]],
+      layout:{'text-field': nm, 'text-font': font, 'text-size': ['interpolate', ['linear'], ['zoom'], 13, 11, 17, 13], 'text-letter-spacing': 0.06, 'text-padding': 6},
+      paint:{'text-color': cssVar('--adm'), 'text-halo-color': cssVar('--paper'), 'text-halo-width': 1.6, 'text-opacity': 0.9}});
+  } catch(_){}
+}
+function setTerrain(on){
+  S.terrain = !!on; $('#tTer').setAttribute('aria-pressed', S.terrain);
+  try { localStorage.setItem('dapsa3d.terrain', S.terrain ? '1' : '0'); } catch(_){}
+  if(!S.mapReady && !S.hasDem) return;
+  try {
+    map.setTerrain(S.terrain ? {source:'dem', exaggeration: 1} : null);
+    for(const id of ['hillshade', 'contour-lines', 'contour-labels']) if(map.getLayer(id)) map.setLayoutProperty(id, 'visibility', S.terrain ? 'visible' : 'none');
+  } catch(_){}
+}
+function elevAt(lng, lat){
+  try {
+    if(!S.terrain || typeof map.queryTerrainElevation !== 'function') return null;
+    const v = map.queryTerrainElevation([lng, lat]);
+    if(v == null || !Number.isFinite(v)) return null;
+    const ex = (map.getTerrain && map.getTerrain() && map.getTerrain().exaggeration) || 1;
+    return Math.round(v / ex);
+  } catch(_){ return null; }
 }
 function applyThemeColors(){
   if(!S.mapReady) return;
@@ -395,6 +510,13 @@ function applyThemeColors(){
     map.setPaintProperty('routes', 'line-color', cssVar('--ink-2'));
     map.setPaintProperty('routes-on', 'line-color', cssVar('--accent'));
     map.setPaintProperty('picked', 'fill-extrusion-color', cssVar('--accent'));
+    map.setPaintProperty('picked-fill', 'fill-color', cssVar('--accent')); map.setPaintProperty('picked-line', 'line-color', cssVar('--accent'));
+    map.setPaintProperty('drawpts', 'circle-color', cssVar('--sheet')); map.setPaintProperty('drawpts', 'circle-stroke-color', cssVar('--accent'));
+    if(map.getLayer('hillshade')){ map.setPaintProperty('hillshade', 'hillshade-shadow-color', cssVar('--hs-shadow')); map.setPaintProperty('hillshade', 'hillshade-highlight-color', cssVar('--hs-light')); map.setPaintProperty('hillshade', 'hillshade-accent-color', cssVar('--hs-shadow')); }
+    if(map.getLayer('contour-lines')) map.setPaintProperty('contour-lines', 'line-color', cssVar('--contour'));
+    for(const id of ['adm-dong','adm-gu','adm-sido']) if(map.getLayer(id)) map.setPaintProperty(id, 'line-color', cssVar('--adm'));
+    for(const id of ['zone-gu','zone-dong']) if(map.getLayer(id)){ map.setPaintProperty(id, 'text-color', cssVar('--adm')); map.setPaintProperty(id, 'text-halo-color', cssVar('--paper')); }
+    if(map.getLayer('contour-labels')){ map.setPaintProperty('contour-labels', 'text-color', cssVar('--ink-2')); map.setPaintProperty('contour-labels', 'text-halo-color', cssVar('--paper')); }
   } catch(_){}
   renderMap();
 }
@@ -433,13 +555,17 @@ function renderMap(){
   const routes = [];
   for(const [day, rs] of byDay(list.filter(hasLoc))) if(day && rs.length >= 2) routes.push({type:'Feature', properties:{on: day === S.selDay}, geometry:{type:'LineString', coordinates: rs.map(r => [r.lng, r.lat])}});
   setData('routes', routes);
-  // visited footprints, extruded in category colour
-  const vis = [];
-  for(const r of list) if(r.bld && Array.isArray(r.bld.ring) && r.bld.ring.length >= 4){
-    const ring = scaleRing(r.bld.ring, 1.02);
-    vis.push({type:'Feature', properties:{color: catColor(r.cat), h: (+r.bld.h || 8) + 0.8, b: +r.bld.b || 0}, geometry:{type:'Polygon', coordinates:[ring]}});
+  // visited buildings extruded, land parcels and drawn areas as flat fills — all in category colour
+  const vis = [], sites = [];
+  for(const r of list){
+    const sh = shapeOf(r); if(!sh) continue;
+    const color = catColor(r.cat), sel = r.id === S.selId;
+    for(const p of sh.polys){
+      if(sh.kind === 'building') vis.push({type:'Feature', properties:{color, h: (+p.h || 8) + 0.8, b: +p.b || 0}, geometry:{type:'Polygon', coordinates:[scaleRing(p.ring, 1.02)]}});
+      else sites.push({type:'Feature', properties:{color, kind: sh.kind, sel}, geometry:{type:'Polygon', coordinates:[p.ring]}});
+    }
   }
-  setData('visited', vis);
+  setData('visited', vis); setData('sites', sites);
 }
 function fitAll(animate=true){
   if(!map) return;
@@ -457,6 +583,7 @@ $('#t3d').onclick = () => {
   map.easeTo({pitch: S.is3D ? 55 : 0, bearing: S.is3D ? map.getBearing() : 0, zoom: S.is3D && map.getZoom() < 15.2 ? 15.5 : map.getZoom(), duration: 700});
   onZoom();
 };
+$('#tTer').onclick = () => { setTerrain(!S.terrain); toast(S.terrain ? '지형과 등고선을 켰어요' : '지형을 껐어요 · 평평한 지면'); };
 $('#tSat').onclick = () => {
   if(!S.mapReady) return;
   S.sat = !S.sat; $('#tSat').setAttribute('aria-pressed', S.sat);
@@ -524,30 +651,202 @@ function nearbyNames(pt){
   for(const [, n] of cand) if(!names.includes(n)) names.push(n);
   return names.slice(0, 4);
 }
-function startPlacing(forWhat){
+/* shapes: building(s), land parcel, drawn area */
+const LAND_KO = {park:'공원', garden:'정원', grass:'녹지', wood:'숲', forest:'숲', farmland:'농지', farm:'농지', wetland:'습지', sand:'모래밭', beach:'해변', school:'학교', university:'대학교', college:'대학', kindergarten:'유치원', hospital:'병원', residential:'주거지', commercial:'상업지', retail:'상업지', industrial:'공업지', cemetery:'묘지', military:'군사시설', stadium:'경기장', pitch:'운동장', playground:'놀이터', track:'트랙', theme_park:'테마파크', zoo:'동물원', railway:'철도 부지', garages:'차고지', bus_station:'버스터미널', library:'도서관', golf_course:'골프장', recreation_ground:'여가 부지', nature_reserve:'자연보호구역', national_park:'국립공원', protected_area:'보호구역', quarry:'채석장', construction:'공사 부지', parking:'주차장', village_green:'마을 녹지', allotments:'텃밭', meadow:'초지', scrub:'관목지', ice:'빙하', rock:'암석지'};
+const PARKY = ['park','garden','grass','wood','forest','nature_reserve','national_park','golf_course','recreation_ground','village_green','meadow','protected_area'];
+const PY = 3.3058;
+function ringAreaM2(ring){
+  if(!ring || ring.length < 4) return 0;
+  const lng0 = ring[0][0], la0 = ring[0][1], k = R*D2R, c = Math.cos(la0*D2R);
+  let a = 0;
+  for(let i=0, j=ring.length-1; i<ring.length; j=i++){
+    const xi = (ring[i][0]-lng0)*c*k, yi = (ring[i][1]-la0)*k, xj = (ring[j][0]-lng0)*c*k, yj = (ring[j][1]-la0)*k;
+    a += xj*yi - xi*yj;
+  }
+  return Math.abs(a/2);
+}
+function ringPerimM(ring){ let p = 0; for(let i=1; i<ring.length; i++) p += hav({lng:ring[i-1][0], lat:ring[i-1][1]}, {lng:ring[i][0], lat:ring[i][1]}); return p; }
+function fmtArea(m2){
+  m2 = Math.round(m2 || 0);
+  if(m2 >= 10000) return `${(m2/10000).toFixed(m2 >= 100000 ? 1 : 2)}ha (${m2.toLocaleString('ko-KR')}㎡)`;
+  return `${m2.toLocaleString('ko-KR')}㎡ (${Math.round(m2/PY).toLocaleString('ko-KR')}평)`;
+}
+const fmtLen = m => m >= 1000 ? `${(m/1000).toFixed(2)}km` : `${Math.round(m)}m`;
+function closeRing(r){ const f = r[0], l = r[r.length-1]; return (f[0] === l[0] && f[1] === l[1]) ? r : [...r, [f[0], f[1]]]; }
+function shapeOf(r){
+  if(!r) return null;
+  if(r.shape && Array.isArray(r.shape.polys) && r.shape.polys.length) return r.shape;
+  if(r.bld && Array.isArray(r.bld.ring) && r.bld.ring.length >= 4) return {kind:'building', polys:[r.bld], area: ringAreaM2(r.bld.ring)};
+  return null;
+}
+function shapeSummary(sh){
+  if(!sh) return '';
+  if(sh.kind === 'building'){ const h = Math.max(0, ...sh.polys.map(p => +p.h || 0)); return `건물 ${sh.polys.length}동 · 바닥면적 약 ${fmtArea(sh.area)}${h ? ` · 높이 약 ${Math.round(h)}m` : ''}`; }
+  if(sh.kind === 'land') return `땅 구획${sh.label ? ` · ${sh.label}` : ''} · 면적 약 ${fmtArea(sh.area)}`;
+  return `직접 그린 범위 · 면적 약 ${fmtArea(sh.area)}${sh.perim ? ` · 둘레 ${fmtLen(sh.perim)}` : ''}`;
+}
+function shapeBounds(sh){ const b = new maplibregl.LngLatBounds(); for(const p of sh.polys) for(const c of p.ring) b.extend(c); return b; }
+function shapeCenter(polys){
+  let A = 0, X = 0, Y = 0;
+  for(const p of polys){ const a = ringAreaM2(p.ring) || 1e-9; const c = centroid(p.ring); A += a; X += c[0]*a; Y += c[1]*a; }
+  let c = [X/A, Y/A];
+  const big = polys.reduce((m, p) => ringAreaM2(p.ring) > ringAreaM2(m.ring) ? p : m, polys[0]);
+  if(!polys.some(p => inRing(c, p.ring))){
+    c = centroid(big.ring);
+    if(!inRing(c, big.ring)){ const r = big.ring; for(let i=1; i<r.length; i++){ const m = [(r[i-1][0]+r[i][0])/2, (r[i-1][1]+r[i][1])/2]; const q = [m[0]*0.8 + c[0]*0.2, m[1]*0.8 + c[1]*0.2]; if(inRing(q, r)){ c = q; break; } } }
+  }
+  return c;
+}
+let turfP = null;
+function needTurf(){
+  if(window.turf) return Promise.resolve(window.turf);
+  if(!turfP) turfP = new Promise(res => { const sc = document.createElement('script'); sc.src = 'https://unpkg.com/@turf/turf@7.1.0/turf.min.js'; sc.onload = () => res(window.turf || null); sc.onerror = () => res(null); document.head.appendChild(sc); });
+  return turfP;
+}
+async function unionRings(rings){
+  if(rings.length < 2) return rings;
+  const T = await needTurf(); if(!T) return rings;
+  try {
+    const feats = rings.map(r => T.polygon([closeRing(r)]));
+    let u = null;
+    try { u = T.union(T.featureCollection(feats)); } catch(_){ u = null; }
+    if(!u){ u = feats[0]; for(let i=1; i<feats.length; i++) u = T.union(u, feats[i]) || u; }
+    const g = u && u.geometry; if(!g) return rings;
+    return (g.type === 'Polygon' ? [g.coordinates] : g.coordinates).map(p => p[0]).filter(r => r && r.length >= 4);
+  } catch(_){ return rings; }
+}
+const bboxOf = r => { let a=Infinity,b=Infinity,c=-Infinity,d=-Infinity; for(const [x,y] of r){ if(x<a)a=x; if(y<b)b=y; if(x>c)c=x; if(y>d)d=y; } return [a,b,c,d]; };
+const bboxHit = (p, q, e=2e-6) => !(p[2] < q[0]-e || q[2] < p[0]-e || p[3] < q[1]-e || q[3] < p[1]-e);
+async function pickLand(e){
+  const ids = ['q-landcover','q-landuse','q-park'].filter(id => map.getLayer(id));
+  let fs = [];
+  try { fs = map.queryRenderedFeatures(e.point, {layers: ids}); } catch(_){}
+  let best = null, ba = Infinity;
+  for(const f of fs){ const ring = largestRing(f.geometry); if(!ring) continue; const a = ringAreaM2(ring); if(a > 0 && a < ba){ ba = a; best = {f, ring}; } }
+  if(!best) return null;
+  const f = best.f, pr = f.properties || {};
+  const nm = g => (g.properties && (g.properties['name:ko'] || g.properties.name)) || '';
+  const name = nm(f);
+  const cls = (pr.subclass && LAND_KO[pr.subclass]) ? pr.subclass : (pr.class || '');
+  let rings = [best.ring];
+  try {
+    if(f.id != null || name){
+      const pieces = map.querySourceFeatures(SRC, {sourceLayer: f.sourceLayer})
+        .filter(g => (f.id != null && g.id === f.id) || (f.id == null && name && nm(g) === name && (g.properties||{}).class === pr.class))
+        .map(g => largestRing(g.geometry)).filter(Boolean).map(r => ({r, bb: bboxOf(r)}));
+      const got = [{r: best.ring, bb: bboxOf(best.ring)}];
+      let grew = true;
+      while(grew && got.length < 30){
+        grew = false;
+        for(const pc of pieces){ if(got.includes(pc)) continue; if(got.some(g => bboxHit(g.bb, pc.bb))){ got.push(pc); grew = true; } }
+      }
+      rings = got.map(g => g.r);
+    }
+  } catch(_){}
+  rings = await unionRings(rings);
+  rings = rings.map(slimRing).sort((x, y) => ringAreaM2(y) - ringAreaM2(x)).slice(0, 12);
+  const area = Math.round(rings.reduce((t, r) => t + ringAreaM2(r), 0));
+  return {polys: rings.map(ring => ({ring})), area, cls, label: [LAND_KO[cls] || (cls ? cls.replace(/_/g, ' ') : '구획'), name].filter(Boolean).join(' · '), name};
+}
+function bldAt(e){
+  let feats = [];
+  try { if(map.getLayer('bldg3d')) feats = map.queryRenderedFeatures(e.point, {layers:['bldg3d']}); } catch(_){}
+  if(!feats.length) return null;
+  const ring = largestRing(feats[0].geometry); if(!ring) return null;
+  const pr = feats[0].properties || {};
+  return {ring: slimRing(ring), h: Math.max(3, +(pr.render_height ?? 6) || 6), b: Math.max(0, +(pr.render_min_height ?? 0) || 0)};
+}
+function startPlacing(forWhat, mode){
   stopOrbit();
-  S.placing = {for: forWhat}; S.pick = null;
+  const d = S.draft, sh = forWhat === 'draft' ? shapeOf(d) : null;
+  const P = {for: forWhat, mode: mode || (sh ? sh.kind : 'building'), blds: [], point: null, land: null, pts: [], names: []};
+  if(sh){
+    if(sh.kind === 'building') P.blds = sh.polys.map(p => ({ring: p.ring, h: p.h, b: p.b}));
+    else if(sh.kind === 'land') P.land = {polys: sh.polys, area: sh.area, cls: sh.cls, label: sh.label, name: ''};
+    else P.pts = sh.polys[0].ring.slice(0, -1);
+  } else if(forWhat === 'draft' && hasLoc(d)) P.point = {lng: d.lng, lat: d.lat};
+  S.placing = P;
   document.body.classList.add('placing');
   panel.hidden = true; applyPerm();
-  $('#placebar').hidden = false; $('#placeOk').disabled = true;
-  $('#placeMsg').innerHTML = '기록할 건물을 탭하세요<span class="sub">빈 곳을 탭하면 그 지점으로 정해져요</span>';
-  const d = S.draft;
-  if(forWhat === 'draft' && hasLoc(d)) map.flyTo({center:[d.lng, d.lat], zoom: Math.max(map.getZoom(), 17.2), pitch: S.is3D ? 55 : 0, duration: 700});
+  $('#placebar').hidden = false;
+  try { map.doubleClickZoom.disable(); } catch(_){}
+  if(sh) map.fitBounds(shapeBounds(sh), {padding:{top:80, bottom:220, left:40, right:40}, maxZoom: 18.2, pitch: S.is3D ? 50 : 0, duration: 700});
+  else if(forWhat === 'draft' && hasLoc(d)) map.flyTo({center:[d.lng, d.lat], zoom: Math.max(map.getZoom(), 17.2), pitch: S.is3D ? 55 : 0, duration: 700});
   else if(map.getZoom() < 15.5) toast('건물이 보이도록 확대한 뒤 탭하세요');
+  renderPlacing();
 }
 function endPlacing(){
-  S.placing = null; S.pick = null; document.body.classList.remove('placing');
-  $('#placebar').hidden = true; setData('picked', []);
+  S.placing = null; document.body.classList.remove('placing');
+  $('#placebar').hidden = true; setData('picked', []); setData('drawpts', []);
   if(S.pickPin){ S.pickPin.remove(); S.pickPin = null; }
+  try { map.doubleClickZoom.enable(); } catch(_){}
   applyPerm();
 }
-function showPick(){
-  const p = S.pick; if(!p) return;
-  if(p.bld) setData('picked', [{type:'Feature', properties:{h: p.bld.h + 1.2, b: p.bld.b}, geometry:{type:'Polygon', coordinates:[scaleRing(p.bld.ring, 1.03)]}}]);
-  else setData('picked', []);
-  if(!S.pickPin){ const el = document.createElement('div'); el.className = 'pin'; S.pickPin = new maplibregl.Marker({element: el}).setLngLat([p.lng, p.lat]).addTo(map); } else S.pickPin.setLngLat([p.lng, p.lat]);
-  $('#placeMsg').innerHTML = `${p.bld ? `건물을 골랐어요 · 높이 약 ${Math.round(p.bld.h)}m` : '이 지점으로 할까요?'}${p.names.length ? ` · ${esc(p.names[0])}` : ''}<span class="sub">${fmtCoord(p.lat, p.lng)} · 다른 곳을 탭하면 바뀌어요</span>`;
-  $('#placeOk').disabled = false;
+function placingShape(){
+  const P = S.placing; if(!P) return null;
+  if(P.mode === 'building' && P.blds.length) return {kind:'building', polys: P.blds.map(p => ({ring: p.ring, h: p.h, b: p.b})), area: Math.round(P.blds.reduce((t, p) => t + ringAreaM2(p.ring), 0))};
+  if(P.mode === 'land' && P.land) return {kind:'land', polys: P.land.polys, area: P.land.area, cls: P.land.cls, label: P.land.label};
+  if(P.mode === 'area' && P.pts.length >= 3){ const ring = closeRing(P.pts.map(c => [+c[0].toFixed(6), +c[1].toFixed(6)])); return {kind:'area', polys:[{ring}], area: Math.round(ringAreaM2(ring)), perim: Math.round(ringPerimM(ring))}; }
+  return null;
+}
+function renderPlacing(){
+  const P = S.placing; if(!P) return;
+  for(const b of document.querySelectorAll('#pmode button')) b.setAttribute('aria-pressed', b.dataset.m === P.mode);
+  const sh = placingShape();
+  const feats = [];
+  if(sh) for(const p of sh.polys) feats.push({type:'Feature', properties:{kind: sh.kind, h: (+p.h || 0) + 1.2, b: +p.b || 0}, geometry:{type:'Polygon', coordinates:[sh.kind === 'building' ? scaleRing(p.ring, 1.03) : p.ring]}});
+  if(P.mode === 'area' && P.pts.length >= 2 && P.pts.length < 3) feats.push({type:'Feature', properties:{kind:'line'}, geometry:{type:'LineString', coordinates: P.pts}});
+  setData('picked', feats);
+  setData('drawpts', P.mode === 'area' ? P.pts.map((c, i) => ({type:'Feature', properties:{first: i === 0}, geometry:{type:'Point', coordinates: c}})) : []);
+  const pt = (P.mode === 'building' && !P.blds.length) ? P.point : null;
+  if(pt){ if(!S.pickPin){ const el = document.createElement('div'); el.className = 'pin'; S.pickPin = new maplibregl.Marker({element: el}).setLngLat([pt.lng, pt.lat]).addTo(map); } else S.pickPin.setLngLat([pt.lng, pt.lat]); }
+  else if(S.pickPin){ S.pickPin.remove(); S.pickPin = null; }
+  let msg = '', sub = '';
+  if(P.mode === 'building'){
+    if(P.blds.length){ msg = shapeSummary(sh); sub = '다른 건물을 탭하면 추가돼요 · 고른 건물을 다시 탭하면 빠져요'; }
+    else if(P.point){ msg = '이 지점으로 할까요?'; sub = `${fmtCoord(P.point.lat, P.point.lng)} · 건물을 탭하면 건물로 정해져요`; }
+    else { msg = '기록할 건물을 탭하세요'; sub = '여러 동을 함께 고를 수 있어요 · 빈 곳을 탭하면 그 지점으로 정해져요'; }
+  } else if(P.mode === 'land'){
+    if(P.landBusy){ msg = '구획을 찾는 중…'; sub = ''; }
+    else if(P.land){ msg = shapeSummary(sh); sub = '다른 곳을 탭하면 그 구획으로 바뀌어요'; }
+    else if(P.landMiss){ msg = '이곳엔 지도에 땅 구획 정보가 없어요'; sub = "'범위 그리기'로 직접 그려 주세요"; }
+    else { msg = '땅 구획을 탭하세요'; sub = '공원·학교·주거지처럼 지도에 그려진 구획을 통째로 골라요'; }
+  } else {
+    if(sh){ msg = `꼭짓점 ${P.pts.length}개 · 면적 약 ${fmtArea(sh.area)}`; sub = `둘레 ${fmtLen(sh.perim)} · 계속 탭해 꼭짓점을 더하거나 완료를 누르세요`; }
+    else { msg = '범위의 꼭짓점을 차례로 탭하세요'; sub = P.pts.length ? `꼭짓점 ${P.pts.length}개 · 3개부터 범위가 닫혀요` : '필지나 답사 구역의 모서리를 따라 탭하세요 · 위성 사진을 켜면 따라 그리기 쉬워요'; }
+  }
+  $('#placeMsg').innerHTML = `${esc(msg)}${sub ? `<span class="sub">${esc(sub)}</span>` : ''}`;
+  $('#placeUndo').hidden = P.mode !== 'area'; $('#placeUndo').disabled = !P.pts.length;
+  $('#placeMe').hidden = P.mode !== 'building';
+  $('#placeOk').disabled = !(sh || (P.mode === 'building' && P.point));
+  $('#placeOk').textContent = P.mode === 'area' ? '완료' : '이 위치로';
+}
+async function placingClick(e){
+  const P = S.placing; if(!P) return;
+  const ll = [e.lngLat.lng, e.lngLat.lat];
+  if(P.mode === 'building'){
+    const i = P.blds.findIndex(x => inRing(ll, x.ring));
+    if(i >= 0){ P.blds.splice(i, 1); }
+    else {
+      const b = bldAt(e);
+      if(b){ if(P.blds.length >= 12){ toast('건물은 12동까지 고를 수 있어요'); return; } P.blds.push(b); P.point = null; P.names = [...new Set([...P.names, ...nearbyNames(e.point)])].slice(0, 5); }
+      else if(!P.blds.length){ P.point = {lng: ll[0], lat: ll[1]}; P.names = nearbyNames(e.point); }
+      else toast('건물이 아닌 곳이에요 · 고른 건물을 빼려면 그 건물을 다시 탭하세요');
+    }
+  } else if(P.mode === 'land'){
+    P.landMiss = false; P.landBusy = true; renderPlacing();
+    const L = await pickLand(e);
+    if(S.placing !== P) return;
+    P.landBusy = false;
+    if(L){ P.land = L; P.names = [...new Set([L.name, ...nearbyNames(e.point)].filter(Boolean))].slice(0, 5); }
+    else { P.land = null; P.landMiss = true; }
+  } else {
+    if(P.pts.length >= 3){ const f = map.project(P.pts[0]); if(Math.hypot(f.x - e.point.x, f.y - e.point.y) < 18){ $('#placeOk').click(); return; } }
+    if(P.pts.length >= 80){ toast('꼭짓점은 80개까지예요'); return; }
+    P.pts.push(ll);
+    if(P.pts.length === 1) P.names = nearbyNames(e.point);
+  }
+  renderPlacing();
 }
 function onMapClick(e){
   const tgt = e.originalEvent && e.originalEvent.target;
@@ -556,40 +855,49 @@ function onMapClick(e){
     if(S.selDay || S.selId){ S.selDay = null; S.selId = null; if(S.panel === 'detail') closePanel(); renderMap(); }
     return;
   }
-  let feats = [];
-  try { if(map.getLayer('bldg3d')) feats = map.queryRenderedFeatures(e.point, {layers:['bldg3d']}); } catch(_){}
-  let lng = e.lngLat.lng, lat = e.lngLat.lat, bld = null;
-  if(feats.length){
-    const ring = largestRing(feats[0].geometry);
-    if(ring){
-      let c = centroid(ring); if(!inRing(c, ring)) c = [lng, lat];
-      lng = c[0]; lat = c[1];
-      const pr = feats[0].properties || {};
-      bld = {ring: slimRing(ring), h: Math.max(3, +(pr.render_height ?? 6) || 6), b: Math.max(0, +(pr.render_min_height ?? 0) || 0)};
-    }
-  }
-  S.pick = {lng, lat, bld, names: nearbyNames(e.point)};
-  showPick();
+  placingClick(e);
 }
+document.getElementById('pmode').addEventListener('click', e => {
+  const b = e.target.closest('[data-m]'); const P = S.placing; if(!b || !P) return;
+  P.mode = b.dataset.m; P.landMiss = false;
+  if(P.mode === 'land' && map.getZoom() < 14) toast('조금 더 확대하면 구획을 고르기 쉬워요');
+  if(P.mode === 'area' && !P.pts.length) toast('위성 사진을 켜면 필지 모서리를 따라 그리기 쉬워요', 3600);
+  renderPlacing();
+});
+$('#placeUndo').onclick = () => { const P = S.placing; if(P && P.pts.length){ P.pts.pop(); renderPlacing(); } };
 $('#placeCancel').onclick = () => { const f = S.placing && S.placing.for; endPlacing(); if(f === 'draft' && S.draft){ openPanel('edit'); } };
-$('#placeMe').onclick = () => locate(true, ll => { if(S.placing){ S.pick = {lng: ll[0], lat: ll[1], bld: null, names: []}; showPick(); toast('현재 위치예요. 건물을 탭하면 더 정확해져요'); } });
+$('#placeMe').onclick = () => locate(true, ll => { const P = S.placing; if(P && P.mode === 'building'){ P.blds = []; P.point = {lng: ll[0], lat: ll[1]}; P.names = []; renderPlacing(); toast('현재 위치예요 · 건물을 탭하면 더 정확해져요'); } });
 $('#placeOk').onclick = () => {
-  const p = S.pick, f = S.placing && S.placing.for; if(!p) return;
+  const P = S.placing; if(!P) return;
+  const sh = placingShape();
+  let lng, lat;
+  if(sh) [lng, lat] = shapeCenter(sh.polys);
+  else if(P.mode === 'building' && P.point){ lng = P.point.lng; lat = P.point.lat; }
+  else return;
+  const f = P.for, names = P.names || [];
   endPlacing();
   if(f === 'new' || !S.draft){ S.draft = blankDraft(); if(S.pendingName){ S.draft.name = S.pendingName; S.pendingName = ''; } }
   const d = S.draft;
-  d.lat = p.lat; d.lng = p.lng; d.bld = p.bld; d.locSrc = p.bld ? '건물 선택' : '지점 선택'; d.photoGps = null; d.exifMsg = '';
-  d.names = [...new Set([...(p.names||[]), ...(d.names||[])])].slice(0, 5);
+  if(hasLoc(d) && hav(d, {lng, lat}) > 200){ if(d.autoRegion) d.region = ''; if(d.autoDong) d.dong = ''; }
+  d.lat = lat; d.lng = lng; d.shape = sh;
+  d.bld = sh && sh.kind === 'building' ? sh.polys[0] : null;
+  d.elev = elevAt(lng, lat);
+  d.locSrc = sh ? ({building:'건물 선택', land:'땅 구획 선택', area:'직접 그린 범위'})[sh.kind] : '지점 선택';
+  d.photoGps = null; d.exifMsg = '';
+  d.names = [...new Set([...names, ...(d.names||[])])].filter(Boolean).slice(0, 5);
   if(!d.name && d.names.length === 1) d.name = d.names[0];
+  if(sh && sh.kind === 'land' && !d.id && !d.catTouched && PARKY.includes(sh.cls)) d.cat = 'park';
+  if(sh && sh.kind === 'area' && !d.id && !d.catTouched && d.cat === 'arch') d.cat = 'street';
   openPanel('edit');
   fillFromReverse(d);
 };
 async function fillFromReverse(d){
-  if(String(d.region||'').trim() && String(d.address||'').trim()) return;
+  if(String(d.region||'').trim() && String(d.address||'').trim() && String(d.dong||'').trim()) return;
   const g = await reverseGeo(d.lat, d.lng);
   if(!g || S.draft !== d) return;
-  if(!String(d.region||'').trim() && g.region) d.region = g.region;
+  if(!String(d.region||'').trim() && g.region){ d.region = g.region; d.autoRegion = true; }
   if(!String(d.address||'').trim() && g.address) d.address = g.address;
+  if(!String(d.dong||'').trim() && g.dong){ d.dong = g.dong; d.autoDong = true; }
   if(g.name && !d.names.includes(g.name)) d.names.unshift(g.name);
   if(S.panel === 'edit') keepScroll(renderEditor);
 }
@@ -605,8 +913,46 @@ async function reverseGeo(lat, lng){
     const region = metro ? [short(a.city), a.borough || a.city_district || a.county].filter(Boolean).join(' ')
       : [short(a.province || a.state), a.city || a.county || a.town, a.borough].filter(Boolean).join(' ');
     const address = [a.road, a.house_number].filter(Boolean).join(' ');
-    return {region, address, name: j.name || ''};
+    return {region, address, name: j.name || '', dong: pickDong(a), parts: crumbParts(a)};
   } catch(_){ return null; }
+}
+function pickDong(a){
+  const c = [a.quarter, a.suburb, a.neighbourhood, a.village, a.town, a.hamlet].filter(Boolean);
+  return c.find(x => /(동|읍|면|가|리)$/.test(x) && x !== a.borough) || '';
+}
+function crumbParts(a){
+  const metro = /(특별시|광역시|특별자치시)$/.test(a.city || '');
+  const top = metro ? a.city : (a.province || a.state || '');
+  const mid = metro ? (a.borough || a.city_district || a.county || '') : [a.city || a.county || a.town, a.borough].filter(Boolean).join(' ');
+  return [top, mid, pickDong(a)].filter(Boolean);
+}
+const CRUMB = {timer: 0, last: null, cache: new Map(), seq: 0};
+function scheduleCrumb(){
+  clearTimeout(CRUMB.timer);
+  CRUMB.timer = setTimeout(updateCrumb, 1100);
+}
+async function updateCrumb(){
+  if(!map) return;
+  const z = map.getZoom(), el = $('#crumb');
+  if(z < 9.5){ el.hidden = true; return; }
+  const c = map.getCenter(), zb = z >= 13 ? 3 : 2;
+  const key = `${c.lat.toFixed(zb)},${c.lng.toFixed(zb)},${zb}`;
+  if(key === CRUMB.last && !el.hidden) return;
+  CRUMB.last = key;
+  let parts = CRUMB.cache.get(key);
+  if(!parts){
+    const seq = ++CRUMB.seq;
+    try {
+      const r = await fetch(`${NOMI}/reverse?format=jsonv2&lat=${c.lat.toFixed(5)}&lon=${c.lng.toFixed(5)}&zoom=${z >= 13 ? 16 : 10}&addressdetails=1&accept-language=ko`);
+      if(!r.ok) throw 0; const j = await r.json(); parts = crumbParts(j.address || {});
+      if(z < 13) parts = parts.slice(0, 2);
+      CRUMB.cache.set(key, parts);
+    } catch(_){ return; }
+    if(seq !== CRUMB.seq) return;
+  }
+  if(!parts || !parts.length){ el.hidden = true; return; }
+  $('#crumbTxt').innerHTML = parts.map((p, i) => `${i ? '<span class="sep">›</span>' : ''}<span class="lv${i+1}">${esc(p)}</span>`).join('');
+  el.hidden = false;
 }
 async function searchPlaces(q){
   let vb = '';
@@ -663,7 +1009,7 @@ function applyExif(ex, heic){
   const d = S.draft; if(!d) return;
   if(ex && Number.isFinite(ex.lat)){
     d.exifMsg = '';
-    if(!hasLoc(d)){ d.lat = ex.lat; d.lng = ex.lng; d.bld = null; d.locSrc = '사진 위치'; d.photoGps = null; fillFromReverse(d);
+    if(!hasLoc(d)){ d.lat = ex.lat; d.lng = ex.lng; d.bld = null; d.shape = null; d.elev = null; d.locSrc = '사진 위치'; d.photoGps = null; fillFromReverse(d);
       d.exifMsg = '사진 위치로 정했어요. "지도에서 건물 고르기"로 건물을 콕 집으면 더 정확해져요.'; }
     else if(hav(d, ex) > 150) d.photoGps = {lat: ex.lat, lng: ex.lng};
   } else if(!hasLoc(d) && !d.photoGps){
@@ -717,7 +1063,11 @@ function selectRec(id){
   stopOrbit();
   S.selId = id; S.selDay = r.date || null;
   openPanel('detail'); renderMap();
-  if(hasLoc(r)){
+  const shp = shapeOf(r);
+  if(shp && shp.kind !== 'building'){
+    const wide = window.innerWidth >= 900;
+    map.fitBounds(shapeBounds(shp), {padding: wide ? {top:80, bottom:80, left:60, right:460} : {top:70, bottom: Math.round(window.innerHeight*0.5), left:30, right:30}, maxZoom: 18, pitch: S.is3D ? 45 : 0, duration: 700});
+  } else if(hasLoc(r)){
     const off = window.innerWidth >= 900 ? [-200, 0] : [0, -Math.round(window.innerHeight*0.22)];
     map.easeTo({center:[r.lng, r.lat], zoom: Math.max(map.getZoom(), 16.3), pitch: S.is3D ? 55 : 0, offset: off, duration: 700});
   }
@@ -726,12 +1076,12 @@ function renderDetail(){
   const r = S.recs.find(x => x.id === S.selId); if(!r){ closePanel(); return; }
   const c = CAT[r.cat] || CAT.etc;
   const same = r.date ? S.recs.filter(x => x.date === r.date).sort(sortVisit) : [];
-  const spec = [['Architect','건축가', r.architect], ['Completed','준공', r.year], ['Program','용도', r.use], ['Structure','구조·재료', r.material], ['Visited','방문', dayLabel(r.date) + (r.time ? ' ' + r.time : '')], ['Height','높이', r.bld ? `약 ${Math.round(r.bld.h)} m` : '']].filter(x => x[2]);
+  const spec = [['Architect','건축가', r.architect], ['Completed','준공', r.year], ['Program','용도', r.use], ['Structure','구조·재료', r.material], ['Visited','방문', dayLabel(r.date) + (r.time ? ' ' + r.time : '')], ['Site','범위', shapeSummary(shapeOf(r))], ['Elevation','표고', Number.isFinite(r.elev) ? `해발 약 ${r.elev} m` : '']].filter(x => x[2]);
   const photos = r.photos || [];
   panel.innerHTML = head(`${symIcon(r.cat)}<span>${esc(c.name)}${r.example ? ' · 예시' : ''}</span>`) + `<div class="scroll">
     ${photos.length ? `<div class="ph-strip">${photos.map((p,i) => `<img data-photo="${esc(p.id)}" data-ph="${i}" alt="${esc(r.name)} 사진 ${i+1}">`).join('')}</div>` : ''}
     <h2 class="p-title">${esc(r.name)}</h2>
-    <p class="p-sub">${esc([r.region, r.address].filter(Boolean).join(' · ') || '지역 미정')}</p>
+    <p class="p-sub">${esc([[r.region, r.dong].filter(Boolean).join(' '), r.address].filter(Boolean).join(' · ') || '지역 미정')}</p>
     ${r.rating ? `<div class="stars">${stars(r.rating)}</div>` : ''}
     ${spec.length ? `<dl class="spec">${spec.map(([en,ko,v]) => `<dt>${en}<br><span style="letter-spacing:0;text-transform:none">${ko}</span></dt><dd>${esc(v)}</dd>`).join('')}</dl>` : ''}
     ${r.memo ? `<p class="memo">${esc(r.memo)}</p>` : ''}
@@ -750,7 +1100,7 @@ function renderDetail(){
   hydrate(panel);
 }
 
-function blankDraft(){ return {id:null, name:'', cat:'arch', date: todayStr(), time:'', lat:null, lng:null, bld:null, region:'', address:'', architect:'', year:'', use:'', material:'', rating:0, memo:'', tags:'', photos:[], uploaded:[], removed:[], uploading:0, names:[], locSrc:'', photoGps:null, exifMsg:''}; }
+function blankDraft(){ return {id:null, name:'', cat:'arch', date: todayStr(), time:'', lat:null, lng:null, bld:null, region:'', dong:'', address:'', architect:'', year:'', use:'', material:'', rating:0, memo:'', tags:'', photos:[], uploaded:[], removed:[], uploading:0, names:[], locSrc:'', photoGps:null, exifMsg:''}; }
 function openEditor(id){
   const r = id && S.recs.find(x => x.id === id);
   S.draft = r ? {...blankDraft(), ...r, tags:(r.tags||[]).join(', '), photos:[...(r.photos||[])], uploaded:[], removed:[], uploading:0, names:[], id:r.id} : blankDraft();
@@ -771,9 +1121,9 @@ function renderEditor(){
     </div>
     <div class="fld"><span class="lab">위치</span>
       <div class="locbox">
-        <div class="locnow${hasLoc(d) ? '' : ' none'}">${hasLoc(d) ? fmtCoord(d.lat, d.lng) + (d.locSrc ? `<span class="locsrc">${esc(d.locSrc)}${d.bld ? ` · 높이 약 ${Math.round(d.bld.h)}m` : ''}</span>` : '') : '아직 위치가 없어요'}</div>
+        <div class="locnow${hasLoc(d) ? '' : ' none'}">${hasLoc(d) ? fmtCoord(d.lat, d.lng) + (d.locSrc ? `<span class="locsrc">${esc(d.locSrc)}${shapeOf(d) ? `</span><span class="locsrc" style="display:block;margin:2px 0 0">${esc(shapeSummary(shapeOf(d)))}` : ''}${Number.isFinite(d.elev) ? ` · 표고 약 ${d.elev}m` : ''}</span>` : '') : '아직 위치가 없어요'}</div>
         <div class="locbtns">
-          <button type="button" class="btn sm ${hasLoc(d) ? '' : 'acc'}" data-act="place">${hasLoc(d) ? '지도에서 다시 고르기' : '지도에서 건물 고르기'}</button>
+          <button type="button" class="btn sm ${hasLoc(d) ? '' : 'acc'}" data-act="place">${hasLoc(d) ? '지도에서 다시 고르기' : '지도에서 고르기 · 건물·땅·범위'}</button>
           <button type="button" class="btn sm" data-act="photoLoc">사진으로</button>
           <button type="button" class="btn sm" data-act="meLoc">현재 위치</button>
         </div>
@@ -783,7 +1133,8 @@ function renderEditor(){
     <div class="fld"><span class="lab">종류</span><div class="cats" role="group" aria-label="종류">${CATS.map(c => `<button type="button" data-act="cat" data-cat="${c.id}" aria-pressed="${d.cat===c.id}">${symIcon(c.id)}${c.name}</button>`).join('')}</div></div>
     <div class="row2"><div class="fld"><label for="f-date">방문 날짜</label><input type="date" id="f-date" data-f="date" value="${esc(d.date)}"></div>
       <div class="fld"><label for="f-time">시각 (동선 순서)</label><input type="time" id="f-time" data-f="time" value="${esc(d.time)}"></div></div>
-    <div class="row2">${fld('region','지역','부산 해운대구')}${fld('address','주소','선택')}</div>
+    <div class="row2">${fld('region','시·구','부산 해운대구')}${fld('dong','동·읍·면','우동')}</div>
+    ${fld('address','주소','선택')}
     <datalist id="regionList">${regions.map(x => `<option value="${esc(x)}">`).join('')}</datalist>
     <div class="section-t">Building data · 건축 정보</div>
     <div class="row2">${fld('architect','건축가')}${fld('year','준공 연도')}</div>
@@ -810,8 +1161,9 @@ async function saveDraft(){
   const prev = d.id && S.recs.find(r => r.id === d.id);
   const rec = {
     id: d.id || newId(), name: d.name.trim(), cat: d.cat, date: d.date || '', time: d.time || '',
-    lat: +(+d.lat).toFixed(6), lng: +(+d.lng).toFixed(6), bld: d.bld || null,
-    region: String(d.region||'').trim(), address: String(d.address||'').trim(), architect: String(d.architect||'').trim(), year: String(d.year||'').trim(), use: String(d.use||'').trim(), material: String(d.material||'').trim(),
+    lat: +(+d.lat).toFixed(6), lng: +(+d.lng).toFixed(6), bld: d.bld || null, shape: d.shape || null,
+    elev: Number.isFinite(d.elev) ? d.elev : (prev && Number.isFinite(prev.elev) && hav(prev, d) < 30 ? prev.elev : elevAt(+d.lng, +d.lat)),
+    region: String(d.region||'').trim(), dong: String(d.dong||'').trim(), address: String(d.address||'').trim(), architect: String(d.architect||'').trim(), year: String(d.year||'').trim(), use: String(d.use||'').trim(), material: String(d.material||'').trim(),
     rating: d.rating || 0, memo: d.memo || '', tags: String(d.tags||'').split(/[,#\n]+/).map(s => s.trim()).filter(Boolean).slice(0, 20),
     photos: d.photos.map(p => ({id: p.id})), example: false,
     createdAt: prev ? (prev.createdAt || Date.now()) : Date.now(), updatedAt: Date.now(),
@@ -862,6 +1214,8 @@ function renderList(){
   const counts = {}; for(const r of S.recs){ const k = CAT[r.cat] ? r.cat : 'etc'; counts[k] = (counts[k]||0)+1; }
   let h = `<div class="chips" role="group" aria-label="종류 필터">${CATS.map(c => `<button class="chip" data-act="chip" data-cat="${c.id}" aria-pressed="${S.cats.has(c.id)}">${symIcon(c.id)}${c.name} ${counts[c.id]||0}</button>`).join('')}</div>`;
   if(!S.recs.length) h += `<p class="note" style="margin-top:12px">아직 기록이 없어요. 기록 추가를 누르고 건물을 탭해 첫 장소를 남겨 보세요. Claude 답사 지도에서 내보낸 파일이 있다면 메뉴의 가져오기로 불러올 수 있어요.</p>`;
+  h += `<div class="seg" role="group" aria-label="묶는 방식"><button data-act="lmode" data-m="date" aria-pressed="${S.listMode !== 'zone'}">날짜별</button><button data-act="lmode" data-m="zone" aria-pressed="${S.listMode === 'zone'}">구역별</button></div>`;
+  if(S.listMode === 'zone'){ panel.innerHTML = head('기록 목록') + `<div class="scroll">${h}${zoneListHTML(list)}</div>`; return; }
   const days = [...byDay(list)].sort((a,b) => (b[0]||'').localeCompare(a[0]||''));
   let curM = null;
   for(const [day, rs] of days){
@@ -875,6 +1229,36 @@ function renderList(){
   panel.innerHTML = head('기록 목록') + `<div class="scroll">${h}</div>`;
 }
 
+function zoneSplit(r){
+  const t = String(r.region||'').trim().split(/\s+/).filter(Boolean);
+  return {sido: t[0] || '지역 미정', gu: t.slice(1).join(' ') || '구 미정', dong: String(r.dong||'').trim() || '동 미정'};
+}
+function zoneListHTML(list){
+  const tree = new Map();
+  for(const r of list){
+    const z = zoneSplit(r);
+    if(!tree.has(z.sido)) tree.set(z.sido, new Map());
+    const g = tree.get(z.sido); if(!g.has(z.gu)) g.set(z.gu, new Map());
+    const dd = g.get(z.gu); if(!dd.has(z.dong)) dd.set(z.dong, []);
+    dd.get(z.dong).push(r);
+  }
+  const cnt = m => [...m.values()].reduce((s, v) => s + (Array.isArray(v) ? v.length : cnt(v)), 0);
+  const bySize = (a, b) => cnt(b[1] instanceof Map ? b[1] : new Map([[0, b[1]]])) - cnt(a[1] instanceof Map ? a[1] : new Map([[0, a[1]]])) || String(a[0]).localeCompare(String(b[0]), 'ko');
+  let h = '';
+  for(const [sido, gus] of [...tree].sort(bySize)){
+    h += `<section class="month"><h2>${esc(sido)} · ${cnt(gus)}곳</h2>`;
+    for(const [gu, dongs] of [...gus].sort(bySize)){
+      const ids = [...dongs.values()].flat().filter(hasLoc).map(r => r.id);
+      h += `<article class="zone"><header><h3>${esc(gu)}<small>${cnt(dongs)}곳 · ${dongs.size}개 동</small></h3>${ids.length ? `<button class="btn sm" data-act="zoneMap" data-ids="${esc(ids.join(','))}">구역 보기</button>` : ''}</header>`;
+      for(const [dong, rs] of [...dongs].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0], 'ko'))){
+        h += `<div class="dong"><span class="dn">${esc(dong)}</span><div class="rs">${[...rs].sort(sortVisit).map(r => `<button data-goto="${esc(r.id)}">${symIcon(r.cat, 12)}<span>${esc(r.name)}</span></button>`).join('')}</div></div>`;
+      }
+      h += `</article>`;
+    }
+    h += `</section>`;
+  }
+  return h || '';
+}
 /* menu: export / import */
 function renderMenu(){
   const ex = S.recs.filter(r => r.example).length;
@@ -886,7 +1270,8 @@ function renderMenu(){
       <button class="btn" data-act="import">가져오기 · 답사 지도 JSON 파일</button>
       ${ex ? `<button class="btn danger" data-act="clearEx">예시 기록 ${ex}개 지우기</button>` : ''}
     </div>
-    <p class="hint" style="margin-top:14px">지도 © OpenFreeMap · OpenMapTiles · OpenStreetMap 기여자. 위성 사진 © Esri.</p>
+    <p class="hint" style="margin-top:14px">지형은 약 30m 간격 위성 측량 자료(SRTM 등)라 옹벽·계단 같은 세부 단차는 나타나지 않아요. 표고는 참고용이에요.</p>
+    <p class="hint" style="margin-top:8px">지도 © OpenFreeMap · OpenMapTiles · OpenStreetMap 기여자. 지형 © Mapzen Terrain Tiles. 위성 사진 © Esri.</p>
   </div>`;
 }
 const blobToDataURL = b => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(b); });
@@ -902,6 +1287,19 @@ async function exportData(withPhotos){
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
   toast(`기록 ${recs.length}개를 내보냈어요`);
 }
+function cleanShape(sh){
+  if(!sh || !Array.isArray(sh.polys) || !['building','land','area'].includes(sh.kind)) return null;
+  const polys = sh.polys.slice(0, 24).map(p => {
+    if(!p || !Array.isArray(p.ring)) return null;
+    const ring = p.ring.filter(c => Array.isArray(c) && c.length >= 2 && Number.isFinite(+c[0]) && Number.isFinite(+c[1])).slice(0, 400).map(c => [+(+c[0]).toFixed(6), +(+c[1]).toFixed(6)]);
+    if(ring.length < 4) return null;
+    const o = {ring}; if(Number.isFinite(+p.h) && p.h !== null) o.h = +p.h; if(Number.isFinite(+p.b) && p.b !== null) o.b = +p.b; return o;
+  }).filter(Boolean);
+  if(!polys.length) return null;
+  const o = {kind: sh.kind, polys, area: Math.round(+sh.area || polys.reduce((t, p) => t + ringAreaM2(p.ring), 0))};
+  if(sh.label) o.label = String(sh.label).slice(0, 60); if(sh.cls) o.cls = String(sh.cls).slice(0, 40); if(Number.isFinite(+sh.perim) && sh.perim !== null) o.perim = Math.round(+sh.perim);
+  return o;
+}
 function cleanRec(r){
   const s = v => String(v ?? '').slice(0, 2000);
   const lat = +r.lat, lng = +r.lng;
@@ -909,8 +1307,8 @@ function cleanRec(r){
   if(r.bld && Array.isArray(r.bld.ring) && r.bld.ring.length >= 4) bld = {ring: r.bld.ring.filter(p => Array.isArray(p) && p.length >= 2).map(p => [+p[0], +p[1]]).slice(0, 400), h: +r.bld.h || 6, b: +r.bld.b || 0};
   return {
     id: s(r.id).slice(0, 120), name: s(r.name).slice(0, 120), cat: CAT[r.cat] ? r.cat : 'etc', date: /^\d{4}-\d{2}-\d{2}$/.test(r.date||'') ? r.date : '', time: /^\d{2}:\d{2}$/.test(r.time||'') ? r.time : '',
-    lat: Number.isFinite(lat) ? lat : null, lng: Number.isFinite(lng) ? lng : null, bld,
-    region: s(r.region), address: s(r.address), architect: s(r.architect), year: s(r.year), use: s(r.use), material: s(r.material),
+    lat: Number.isFinite(lat) ? lat : null, lng: Number.isFinite(lng) ? lng : null, bld, shape: cleanShape(r.shape), elev: Number.isFinite(+r.elev) && r.elev !== null && r.elev !== '' ? Math.round(+r.elev) : null,
+    region: s(r.region), dong: s(r.dong).slice(0, 40), address: s(r.address), architect: s(r.architect), year: s(r.year), use: s(r.use), material: s(r.material),
     rating: Math.max(0, Math.min(5, Math.round(+r.rating || 0))), memo: s(r.memo), tags: Array.isArray(r.tags) ? r.tags.map(t => s(t).slice(0, 40)).slice(0, 20) : [],
     photos: Array.isArray(r.photos) ? r.photos.filter(p => p && p.id).map(p => ({id: s(p.id).slice(0, 80)})) : [],
     example: !!r.example, createdAt: +r.createdAt || Date.now(), updatedAt: +r.updatedAt || Date.now(),
@@ -968,10 +1366,10 @@ panel.addEventListener('click', async e => {
     case 'place': startPlacing('draft'); break;
     case 'findName': searchFor = 'draft'; searchRes = []; searchMsg = ''; searchQ = d ? d.name : ''; openPanel('search'); if(searchQ) doSearch(searchQ); break;
     case 'sug': if(d){ d.name = d.names[+b.dataset.i] || d.name; keepScroll(renderEditor); } break;
-    case 'prevLoc': { const p = prevMatch(); if(p && d){ for(const k of ['region','address','architect','year','use','material']) if(!String(d[k]||'').trim() && p[k]) d[k] = p[k]; if(!d.id) d.cat = p.cat; d.lat = p.lat; d.lng = p.lng; d.bld = p.bld || null; d.locSrc = '지난 방문'; keepScroll(renderEditor); } break; }
+    case 'prevLoc': { const p = prevMatch(); if(p && d){ for(const k of ['region','address','architect','year','use','material']) if(!String(d[k]||'').trim() && p[k]) d[k] = p[k]; if(!d.dong && p.dong) d.dong = p.dong; if(!d.id) d.cat = p.cat; d.lat = p.lat; d.lng = p.lng; d.bld = p.bld || null; d.shape = p.shape || null; d.elev = Number.isFinite(p.elev) ? p.elev : null; d.locSrc = '지난 방문'; keepScroll(renderEditor); } break; }
     case 'photoLoc': $('#f-photo') && $('#f-photo').click(); break;
-    case 'meLoc': locate(true, ll => { if(S.draft === d){ d.lat = ll[1]; d.lng = ll[0]; d.bld = null; d.locSrc = '현재 위치'; fillFromReverse(d); keepScroll(renderEditor); toast('현재 위치로 정했어요. 건물을 고르면 더 정확해져요'); } }); break;
-    case 'usePhotoGps': if(d && d.photoGps){ d.lat = d.photoGps.lat; d.lng = d.photoGps.lng; d.bld = null; d.photoGps = null; d.locSrc = '사진 위치'; keepScroll(renderEditor); } break;
+    case 'meLoc': locate(true, ll => { if(S.draft === d){ d.lat = ll[1]; d.lng = ll[0]; d.bld = null; d.shape = null; d.elev = null; d.locSrc = '현재 위치'; fillFromReverse(d); keepScroll(renderEditor); toast('현재 위치로 정했어요. 건물을 고르면 더 정확해져요'); } }); break;
+    case 'usePhotoGps': if(d && d.photoGps){ d.lat = d.photoGps.lat; d.lng = d.photoGps.lng; d.bld = null; d.shape = null; d.elev = null; d.photoGps = null; d.locSrc = '사진 위치'; keepScroll(renderEditor); } break;
     case 'cat': if(d){ d.cat = b.dataset.cat; for(const x of panel.querySelectorAll('.cats button')) x.setAttribute('aria-pressed', x.dataset.cat === d.cat); } break;
     case 'rate': if(d){ const n = +b.dataset.n; d.rating = d.rating === n ? 0 : n; for(const x of panel.querySelectorAll('.rate button')) x.classList.toggle('on', +x.dataset.n <= d.rating); } break;
     case 'rmph': if(d){ const [p] = d.photos.splice(+b.dataset.i, 1); if(p){ if(d.uploaded.includes(p.id)){ d.uploaded = d.uploaded.filter(x => x !== p.id); try { await DB.delPhoto(p.id); } catch(_){} } else d.removed.push(p.id); } keepScroll(renderEditor); } break;
@@ -980,6 +1378,9 @@ panel.addEventListener('click', async e => {
       closePanel(); map.flyTo({center:[x.lng, x.lat], zoom: 17.4, pitch: S.is3D ? 55 : 0, duration: 1000});
       startPlacing(f); toast('찾은 곳으로 왔어요. 기록할 건물을 탭하세요', 4000); break; }
     case 'chip': { const id = b.dataset.cat; if(S.cats.size === CATS.length) S.cats = new Set([id]); else if(S.cats.has(id)){ S.cats.delete(id); if(!S.cats.size) S.cats = new Set(CATS.map(c => c.id)); } else S.cats.add(id); renderList(); renderMap(); break; }
+    case 'lmode': S.listMode = b.dataset.m; try { localStorage.setItem('dapsa3d.listMode', S.listMode); } catch(_){} renderList(); break;
+    case 'zoneMap': { const ids = new Set(String(b.dataset.ids||'').split(',')); const rs = S.recs.filter(r => ids.has(r.id) && hasLoc(r)); if(!rs.length) break; S.selDay = null; S.selId = null; if(window.innerWidth < 900) closePanel(); renderMap();
+      const bb = new maplibregl.LngLatBounds(); rs.forEach(r => bb.extend([r.lng, r.lat])); map.fitBounds(bb, {padding:{top:90, bottom:150, left:50, right: window.innerWidth >= 900 ? 450 : 50}, maxZoom:16.5, pitch: S.is3D ? 45 : 0}); break; }
     case 'dayMap': { S.selDay = b.dataset.day; S.selId = null; const rs = S.recs.filter(r => r.date === S.selDay && hasLoc(r)); if(window.innerWidth < 900) closePanel(); renderMap();
       if(rs.length){ const bb = new maplibregl.LngLatBounds(); rs.forEach(r => bb.extend([r.lng, r.lat])); map.fitBounds(bb, {padding:{top:90, bottom:150, left:50, right: window.innerWidth >= 900 ? 450 : 50}, maxZoom:17, pitch: S.is3D ? 50 : 0}); } break; }
     case 'export': closePanel(); exportData(b.dataset.photos === '1'); break;
@@ -992,6 +1393,8 @@ panel.addEventListener('input', e => {
   S.draft[k] = e.target.value;
   if(k === 'name'){ const pl = $('#prevLoc'); if(pl) pl.innerHTML = prevLocHTML(); }
   if(k === 'date' || k === 'time') S.draft.dateTouched = true;
+  if(k === 'region') S.draft.autoRegion = false;
+  if(k === 'dong') S.draft.autoDong = false;
 });
 panel.addEventListener('change', async e => { if(e.target.id === 'f-photo'){ const files = [...e.target.files]; e.target.value = ''; await addPhotos(files); } });
 panel.addEventListener('submit', e => { e.preventDefault(); if(e.target.id === 'sForm') doSearch($('#sQ').value); });
