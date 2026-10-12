@@ -239,7 +239,7 @@ body.placing .mk{pointer-events:none;opacity:.55}
     <div class="tools" role="group" aria-label="지도 보기">
       <button id="t3d" aria-pressed="true" title="3D / 2D 전환">3D</button>
       <button id="tTer" aria-pressed="true" title="지형·등고선">지형</button>
-      <button id="tCon" aria-pressed="false" title="등고선 강조 · 건물을 반투명하게">등고</button>
+      <button id="tCon" aria-pressed="false" title="등고선·지형 음영 강조">등고</button>
       <button id="tSat" aria-pressed="false" title="위성 사진">위성</button>
       <button id="tMe" title="현재 위치" aria-label="현재 위치"><svg width="17" height="17" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 1v3M8 12v3M1 8h3M12 8h3" stroke="currentColor" stroke-width="1.6"/></svg></button>
       <button id="tFit" title="전체 기록 보기" aria-label="전체 기록 보기"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>
@@ -450,9 +450,10 @@ function setupTerrain(st){
         });
       } catch(_){ demTiles = DEM_URL; contourTiles = null; }
     }
-    const dem = {type:'raster-dem', encoding:'terrarium', tiles:[demTiles], tileSize:256, maxzoom:14, attribution:'지형 © Mapzen Terrain Tiles (SRTM 등)'};
-    map.addSource('dem', dem);
-    const demHs = {...dem}; delete demHs.attribution; map.addSource('dem-hs', demHs);
+    setupDtm();
+    const surf = S.dtm ? DEM_URL.replace('https://', 'dtm://') : demTiles;
+    map.addSource('dem', {type:'raster-dem', encoding:'terrarium', tiles:[surf], tileSize:256, maxzoom:14, attribution:'지형 © Mapzen Terrain Tiles (SRTM 등)'});
+    map.addSource('dem-hs', {type:'raster-dem', encoding:'terrarium', tiles:[surf], tileSize:256, maxzoom:14});
     map.addLayer({id:'hillshade', type:'hillshade', source:'dem-hs', paint:{
       'hillshade-exaggeration': 0.32, 'hillshade-shadow-color': cssVar('--hs-shadow'), 'hillshade-highlight-color': cssVar('--hs-light'), 'hillshade-accent-color': cssVar('--hs-shadow'), 'hillshade-illumination-direction': 315,
     }}, 'sat');
@@ -497,7 +498,7 @@ function setupAdmin(st){
 }
 function setTerrain(on){
   S.terrain = !!on; $('#tTer').setAttribute('aria-pressed', S.terrain);
-  if(!S.terrain && S.cfocus){ S.cfocus = false; $('#tCon').setAttribute('aria-pressed', false); try { localStorage.setItem('dapsa3d.cfocus', '0'); } catch(_){} if(S.mapReady){ try { if(map.getLayer('bldg3d')) map.setPaintProperty('bldg3d', 'fill-extrusion-opacity', bldgOpacity()); if(map.getLayer('visited')) map.setPaintProperty('visited', 'fill-extrusion-opacity', 0.95); if(map.getLayer('contour-lines') && map.getLayer('bldg3d')) map.moveLayer('contour-lines', 'bldg3d'); } catch(_){} } }
+  if(!S.terrain && S.cfocus){ S.cfocus = false; $('#tCon').setAttribute('aria-pressed', false); try { localStorage.setItem('dapsa3d.cfocus', '0'); } catch(_){} if(S.mapReady){ try { if(map.getLayer('bldg3d')) map.setPaintProperty('bldg3d', 'fill-extrusion-opacity', bldgOpacity()); } catch(_){} } }
   setTimeout(updateCint, 0);
   try { localStorage.setItem('dapsa3d.terrain', S.terrain ? '1' : '0'); } catch(_){}
   if(!S.mapReady && !S.hasDem) return;
@@ -506,6 +507,61 @@ function setTerrain(on){
     for(const id of ['hillshade', 'contour-lines', 'contour-labels']) if(map.getLayer(id)) map.setLayoutProperty(id, 'visibility', S.terrain ? 'visible' : 'none');
   } catch(_){}
 }
+/* The free elevation data is a satellite surface model: buildings and trees show up as small mounds that
+   poke through extruded buildings. Before the terrain mesh is built, each tile is "opened" (min filter, then
+   max filter) to shave off bumps narrower than ~40 m, then lightly blurred — a quick DSM→DTM approximation. */
+function setupDtm(){
+  if(S.dtmTried) return; S.dtmTried = true;
+  try {
+    if(typeof createImageBitmap !== 'function') return;
+    maplibregl.addProtocol('dtm', async (params, ac) => {
+      const url = params.url.replace(/^dtm:\/\//, 'https://');
+      const res = await fetch(url, {signal: ac && ac.signal});
+      if(!res.ok) throw new Error('elevation ' + res.status);
+      const buf = await res.arrayBuffer();
+      const z = +((url.match(/\/(\d+)\/\d+\/\d+\.png/) || [])[1] || 0);
+      const r = z >= 13 ? 2 : z >= 12 ? 1 : 0;
+      if(!r) return {data: buf};
+      try { return {data: await smoothDem(buf, r)}; } catch(_){ return {data: buf}; }
+    });
+    S.dtm = true;
+  } catch(_){ S.dtm = false; }
+}
+function morph(src, W, H, r, mode){ // mode: 'min' | 'max' | 'mean', separable square window of radius r, edges clamped
+  const tmp = new Float32Array(src.length), out = new Float32Array(src.length);
+  const pass = (from, to, horiz) => {
+    for(let y=0; y<H; y++) for(let x=0; x<W; x++){
+      let a = mode === 'min' ? Infinity : mode === 'max' ? -Infinity : 0, c = 0;
+      for(let k=-r; k<=r; k++){
+        let xx = horiz ? x + k : x, yy = horiz ? y : y + k;
+        if(xx < 0) xx = 0; else if(xx >= W) xx = W - 1;
+        if(yy < 0) yy = 0; else if(yy >= H) yy = H - 1;
+        const v = from[yy*W + xx];
+        if(mode === 'min'){ if(v < a) a = v; } else if(mode === 'max'){ if(v > a) a = v; } else { a += v; c++; }
+      }
+      to[y*W + x] = mode === 'mean' ? a / c : a;
+    }
+  };
+  pass(src, tmp, true); pass(tmp, out, false);
+  return out;
+}
+function decodeTerrarium(px, n){ const h = new Float32Array(n); for(let i=0; i<n; i++){ const o = i*4; h[i] = px[o]*256 + px[o+1] + px[o+2]/256 - 32768; } return h; }
+function encodeTerrarium(h, px){ for(let i=0; i<h.length; i++){ const v = Math.max(0, Math.min(65535.99, h[i] + 32768)); const o = i*4, r = Math.floor(v/256), g = Math.floor(v) - r*256; px[o] = r; px[o+1] = g; px[o+2] = Math.floor((v - Math.floor(v))*256); px[o+3] = 255; } }
+async function smoothDem(buf, r){
+  const bmp = await createImageBitmap(new Blob([buf], {type:'image/png'}), {premultiplyAlpha:'none', colorSpaceConversion:'none'});
+  const W = bmp.width, H = bmp.height;
+  const cv = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(W, H) : Object.assign(document.createElement('canvas'), {width: W, height: H});
+  const ctx = cv.getContext('2d', {willReadFrequently: true});
+  ctx.drawImage(bmp, 0, 0);
+  const img = ctx.getImageData(0, 0, W, H);
+  let h = decodeTerrarium(img.data, W*H);
+  h = morph(morph(h, W, H, r, 'min'), W, H, r, 'max');
+  h = morph(h, W, H, 1, 'mean');
+  encodeTerrarium(h, img.data);
+  ctx.putImageData(img, 0, 0);
+  const blob = cv.convertToBlob ? await cv.convertToBlob({type:'image/png'}) : await new Promise((res, rej) => cv.toBlob(b => b ? res(b) : rej(new Error('png')), 'image/png'));
+  return await blob.arrayBuffer();
+}
 const CINT = z => z < 11 ? null : z < 12 ? [100, 500] : z < 13 ? [50, 250] : z < 14 ? [20, 100] : z < 15 ? [10, 50] : [5, 25];
 function updateCint(){
   const el = $('#cint'); if(!el || !map) return;
@@ -513,7 +569,7 @@ function updateCint(){
   if(!S.terrain || !S.hasContours || !iv){ el.hidden = true; return; }
   el.innerHTML = `<i class="mn"></i>${iv[0]}m <i></i>${iv[1]}m 등고선`; el.hidden = false;
 }
-function bldgOpacity(){ return S.cfocus ? 0.22 : (S.sat ? 0.55 : 0.9); }
+function bldgOpacity(){ return S.sat ? 0.6 : (S.cfocus ? 0.82 : 0.9); }
 function setContourFocus(on){
   S.cfocus = !!on; $('#tCon').setAttribute('aria-pressed', S.cfocus);
   try { localStorage.setItem('dapsa3d.cfocus', S.cfocus ? '1' : '0'); } catch(_){}
@@ -521,12 +577,11 @@ function setContourFocus(on){
   if(S.cfocus && !S.terrain) setTerrain(true);
   try {
     if(map.getLayer('contour-lines')){
-      if(S.cfocus) map.moveLayer('contour-lines', FIRST_SYM); else if(map.getLayer('bldg3d')) map.moveLayer('contour-lines', 'bldg3d');
-      map.setPaintProperty('contour-lines', 'line-width', S.cfocus ? ['match', ['get','level'], 1, 2.4, 1.1] : ['match', ['get','level'], 1, 1.7, 0.8]);
+      map.setPaintProperty('contour-lines', 'line-width', S.cfocus ? ['match', ['get','level'], 1, 2.6, 1.2] : ['match', ['get','level'], 1, 1.7, 0.8]);
+      if(map.getLayer('contour-labels')) map.setLayoutProperty('contour-labels', 'text-size', S.cfocus ? 13 : 11);
     }
     if(map.getLayer('bldg3d')) map.setPaintProperty('bldg3d', 'fill-extrusion-opacity', bldgOpacity());
-    if(map.getLayer('visited')) map.setPaintProperty('visited', 'fill-extrusion-opacity', S.cfocus ? 0.55 : 0.95);
-    if(map.getLayer('hillshade')) map.setPaintProperty('hillshade', 'hillshade-exaggeration', S.cfocus ? 0.5 : 0.32);
+    if(map.getLayer('hillshade')) map.setPaintProperty('hillshade', 'hillshade-exaggeration', S.cfocus ? 0.55 : 0.32);
   } catch(_){}
 }
 function elevAt(lng, lat){
@@ -618,7 +673,7 @@ $('#t3d').onclick = () => {
   map.easeTo({pitch: S.is3D ? 55 : 0, bearing: S.is3D ? map.getBearing() : 0, zoom: S.is3D && map.getZoom() < 15.2 ? 15.5 : map.getZoom(), duration: 700});
   onZoom();
 };
-$('#tCon').onclick = () => { setContourFocus(!S.cfocus); toast(S.cfocus ? '등고선을 강조했어요 · 건물이 반투명해져요' : '등고선 강조를 껐어요'); };
+$('#tCon').onclick = () => { setContourFocus(!S.cfocus); toast(S.cfocus ? '등고선과 지형 음영을 강조했어요' : '등고선 강조를 껐어요'); };
 $('#tTer').onclick = () => { setTerrain(!S.terrain); toast(S.terrain ? '지형과 등고선을 켰어요' : '지형을 껐어요 · 평평한 지면'); };
 $('#tSat').onclick = () => {
   if(!S.mapReady) return;
@@ -1299,7 +1354,7 @@ function zoneListHTML(list){
 function terrainStatus(){
   if(!S.mapReady) return '지도 준비 중';
   let n = 0; try { if(map.getSource('contours')) n = map.querySourceFeatures('contours', {sourceLayer:'contours'}).length; } catch(_){}
-  return `지형 상태 · 지형 ${S.hasDem ? (S.terrain ? '켜짐' : '꺼짐') : '없음'} · 등고선 도구 ${window.mlcontour ? '정상' : '불러오지 못함'} · 지금 화면 등고선 ${S.terrain ? n + '개' : '꺼짐'}${S.demErrs ? ` · 불러오기 실패 ${S.demErrs}건` : ''} · 버전 2026-10-13`;
+  return `지형 상태 · 지형 ${S.hasDem ? (S.terrain ? '켜짐' : '꺼짐') : '없음'} · 지형 보정 ${S.dtm ? '켜짐' : '꺼짐'} · 등고선 도구 ${window.mlcontour ? '정상' : '불러오지 못함'} · 지금 화면 등고선 ${S.terrain ? n + '개' : '꺼짐'}${S.demErrs ? ` · 불러오기 실패 ${S.demErrs}건` : ''} · 버전 2026-10-13`;
 }
 function renderMenu(){
   const ex = S.recs.filter(r => r.example).length;
@@ -1312,7 +1367,7 @@ function renderMenu(){
       ${ex ? `<button class="btn danger" data-act="clearEx">예시 기록 ${ex}개 지우기</button>` : ''}
     </div>
     <p class="hint" style="margin-top:14px">${esc(terrainStatus())}</p>
-    <p class="hint" style="margin-top:14px">지형은 약 30m 간격 위성 측량 자료(SRTM 등)라 옹벽·계단 같은 세부 단차는 나타나지 않아요. 표고는 참고용이에요.</p>
+    <p class="hint" style="margin-top:14px">지형은 30~90m 간격 위성 측량 자료(SRTM 등)라 옹벽·계단 같은 세부 단차는 나타나지 않아요. 건물은 각자 바닥 중심의 지형 높이에 세워지고, 경사지에서는 아래쪽이 땅속으로 이어지게 그려져요. 표고는 참고용이에요.</p>
     <p class="hint" style="margin-top:8px">지도 © OpenFreeMap · OpenMapTiles · OpenStreetMap 기여자. 지형 © Mapzen Terrain Tiles. 위성 사진 © Esri.</p>
   </div>`;
 }
