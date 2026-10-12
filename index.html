@@ -1,0 +1,1025 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>답사 지도 3D</title>
+<meta name="description" content="답사한 건물과 장소를 3D 건물 지도 위에 기록하는 앱">
+<meta name="theme-color" content="#FAFAF8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1A1F1E" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="답사 3D">
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAAEGklEQVR42u3cvWoUURiA4c0yhVdgaWmjEEiR9PZbeQGKlYgXYCd2XoCFpV6A1ZZChBSCFoKgjaVlIKTU0mIgibM/yc6cmTnfnOftIriuO0++mXN2dvfOzk9n0rrmXgLBITgEh+AQHIJDcAgOwSE4JDgEh+AQHIJDcAgOwSE4BIcEh+AQHIJDcAgOwSE4BIfgkOAQHIJDcAgOwSE41EuLt4/g0EYZPfmAQ3BM/YTSx/CAQ3AUcB2afHjAITjKWL6mHR5wTEdGch9wCI4yxkba4QGH4ChmbCQcHnBMUEYqH9X0XsS/L18kf8yPJ58Xn06cVshYIyPc2EgyPCosMmdhcpDR1wDo8ncrLAyMaU6OEmR0X3S0foQ5GdOW0eVxKiycSqYzOcqRkfb99xaPVmFhQoSfHKXJ6OOG4V0fM8zkOP3xs6jf2uXT91d/3D84vPrj929fTQ5dahgGBByBiQw2NuCI6gOOcmtcYVit6D8Z+weHoxOpHIwQI2T4q1GTI8YJZRQZcAgOYwMOwWFsWK0U1oWDTDY5TI5MlQy8TQ5H1EECh1yQ6mbXoXDo8m0UOALX96eoc3ibzVI2IxarGvYPDnO4DjU5spORyQrF5Bj/PGK1QkbgsQHHODNj1UGGMpxWRjuV1Bpy3uQwOUa+yMjkPRSTI9Nrz2xlmBxWJdvaOzs/jfi8W3+u+tar16M84dw2uKaJI8nH7Wsigx2wcT9hUASO5N/CcLQ8HuaYjfIZ+YKuOfr4fo4viwdrD16vMvJfwUaaHH2wGGyERNkMjbeU/f1wMZvNbt+/1/c/VI+Qo+VxfSzDXTmWiOPOh2VNpG8fF5PD2Ah5QdoTkVUWux68u2/erf7hr+ePQ1+KxlutJPdxsaBtd/zWsthOBI7Ek7nxgiYh0tgK237wVp/DtSxWidgE6+ucvfqytiayZYd00/FrPI2dZDRGCBx9Xc11JNJu47zxNP48edbuvxPRRyQcm8b+tUS6vJ9y9Wm0lhHUxzy6jHrFu+UrbFPJKLAcJ0fr7YHGCOn+BmzCsRFxeFSTkVGPkHpTtd49616Im/lKnxyjLwJbrFAmMDxyvOZofM+3dzrgWD/SySgax5YzOhlF48j8OwjgyGJm5PkdBHDkvo5VcThi3QiTav0ZaxNsToYywhFURvdfem+8XZ8JEaUxt88j3jzXeh894v0cY65WIu6BtjvG7gQrqBb3kMKx8fQxyeuMm999Dsd0Liy6E4nOYggcGd6ZoXwvSG2Qw7HRgckBBxlwkAHHrnEwjQZareBicqwfIWSYHDI5BIcEh+AQHIJDcAgOwSE4BIfgEBwSHIJDcAgOwSE4BIfgEByCQ4JDcAgOwSE4BIfgEByCQ3BIcAgOwSE4BIfgEByCQ3AIDsEhwSE4BIfg0Dj9A7Gg6HD7zUphAAAAAElFTkSuQmCC">
+<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAAEGklEQVR42u3cvWoUURiA4c0yhVdgaWmjEEiR9PZbeQGKlYgXYCd2XoCFpV6A1ZZChBSCFoKgjaVlIKTU0mIgibM/yc6cmTnfnOftIriuO0++mXN2dvfOzk9n0rrmXgLBITgEh+AQHIJDcAgOwSE4JDgEh+AQHIJDcAgOwSE4BIcEh+AQHIJDcAgOwSE4BIfgkOAQHIJDcAgOwSE41EuLt4/g0EYZPfmAQ3BM/YTSx/CAQ3AUcB2afHjAITjKWL6mHR5wTEdGch9wCI4yxkba4QGH4ChmbCQcHnBMUEYqH9X0XsS/L18kf8yPJ58Xn06cVshYIyPc2EgyPCosMmdhcpDR1wDo8ncrLAyMaU6OEmR0X3S0foQ5GdOW0eVxKiycSqYzOcqRkfb99xaPVmFhQoSfHKXJ6OOG4V0fM8zkOP3xs6jf2uXT91d/3D84vPrj929fTQ5dahgGBByBiQw2NuCI6gOOcmtcYVit6D8Z+weHoxOpHIwQI2T4q1GTI8YJZRQZcAgOYwMOwWFsWK0U1oWDTDY5TI5MlQy8TQ5H1EECh1yQ6mbXoXDo8m0UOALX96eoc3ibzVI2IxarGvYPDnO4DjU5spORyQrF5Bj/PGK1QkbgsQHHODNj1UGGMpxWRjuV1Bpy3uQwOUa+yMjkPRSTI9Nrz2xlmBxWJdvaOzs/jfi8W3+u+tar16M84dw2uKaJI8nH7Wsigx2wcT9hUASO5N/CcLQ8HuaYjfIZ+YKuOfr4fo4viwdrD16vMvJfwUaaHH2wGGyERNkMjbeU/f1wMZvNbt+/1/c/VI+Qo+VxfSzDXTmWiOPOh2VNpG8fF5PD2Ah5QdoTkVUWux68u2/erf7hr+ePQ1+KxlutJPdxsaBtd/zWsthOBI7Ek7nxgiYh0tgK237wVp/DtSxWidgE6+ucvfqytiayZYd00/FrPI2dZDRGCBx9Xc11JNJu47zxNP48edbuvxPRRyQcm8b+tUS6vJ9y9Wm0lhHUxzy6jHrFu+UrbFPJKLAcJ0fr7YHGCOn+BmzCsRFxeFSTkVGPkHpTtd49616Im/lKnxyjLwJbrFAmMDxyvOZofM+3dzrgWD/SySgax5YzOhlF48j8OwjgyGJm5PkdBHDkvo5VcThi3QiTav0ZaxNsToYywhFURvdfem+8XZ8JEaUxt88j3jzXeh894v0cY65WIu6BtjvG7gQrqBb3kMKx8fQxyeuMm999Dsd0Liy6E4nOYggcGd6ZoXwvSG2Qw7HRgckBBxlwkAHHrnEwjQZareBicqwfIWSYHDI5BIcEh+AQHIJDcAgOwSE4BIfgEBwSHIJDcAgOwSE4BIfgEByCQ4JDcAgOwSE4BIfgEByCQ3BIcAgOwSE4BIfgEByCQ3AIDsEhwSE4BIfg0Dj9A7Gg6HD7zUphAAAAAElFTkSuQmCC">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: full-bleed 3D plan with a slim sheet header; records open in a side sheet (desktop) or bottom sheet (phone).
+   Same tokens and poché symbols as the Claude 답사 지도, so the two read as one system. */
+:root{
+  --paper:#EDEFEA; --sheet:#FAFAF8; --land:#DFE3DA; --bldg:#D5D9CF; --ink:#1C2120; --ink-2:#56605C; --ink-3:#8A938F;
+  --line:#C4CAC2; --hair:#D9DDD5; --accent:#2C47C4; --accent-ink:#FFFFFF; --accent-soft:rgba(44,71,196,.11); --danger:#B8342C;
+  --c-arch:#CF4237; --c-public:#13838A; --c-park:#3A8749; --c-street:#BC820C; --c-interior:#8350B0; --c-etc:#6C7671;
+  --shadow:0 1px 2px rgba(20,24,23,.08),0 10px 30px rgba(20,24,23,.14);
+  --f-sans:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --r:10px; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --paper:#121615; --sheet:#1A1F1E; --land:#1E2523; --bldg:#323B38; --ink:#E5E9E6; --ink-2:#A0A9A5; --ink-3:#6E7874;
+  --line:#343D3A; --hair:#29312F; --accent:#8D9BFF; --accent-ink:#0F1330; --accent-soft:rgba(141,155,255,.16); --danger:#FF7B71;
+  --c-arch:#FF6E61; --c-public:#3DC2C8; --c-park:#6CC47D; --c-street:#E7B23B; --c-interior:#B98BE7; --c-etc:#9BA59F;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 34px rgba(0,0,0,.45); color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-sans);font-size:14px;line-height:1.5;overflow:hidden;-webkit-tap-highlight-color:transparent}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+[hidden]{display:none!important}
+#app{position:fixed;inset:0;display:flex;flex-direction:column}
+
+.bar{display:flex;align-items:center;gap:8px;padding:calc(8px + env(safe-area-inset-top,0px)) 12px 8px 16px;background:var(--sheet);border-bottom:1px solid var(--line);z-index:5}
+.brand{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.brand h1{margin:0;font-size:16px;font-weight:700;line-height:1.2;white-space:nowrap}
+.brand p{margin:0;font-family:var(--f-mono);font-size:10.5px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand > div{min-width:0}
+.ib{border:1px solid var(--line);background:var(--sheet);width:38px;height:38px;border-radius:10px;display:grid;place-items:center;color:var(--ink);flex:none}
+.ib:hover{border-color:var(--ink-3)}
+.ib[aria-pressed="true"]{background:var(--ink);color:var(--sheet);border-color:var(--ink)}
+
+#mapwrap{position:relative;flex:1;min-height:0}
+#map{position:absolute;inset:0;background:var(--paper)}
+.maplibregl-ctrl-group{background:var(--sheet)!important;border:1px solid var(--line);box-shadow:var(--shadow)!important;border-radius:10px!important}
+.maplibregl-ctrl-group button{width:38px!important;height:36px!important}
+.maplibregl-ctrl-group button + button{border-top:1px solid var(--hair)!important}
+@media (prefers-color-scheme: dark){.maplibregl-ctrl-group button .maplibregl-ctrl-icon{filter:invert(1)}}
+.maplibregl-ctrl-attrib{font-size:10px;background:color-mix(in srgb,var(--sheet) 85%,transparent)!important;color:var(--ink-2)}
+.maplibregl-ctrl-attrib a{color:var(--ink-2)}
+.tools{position:absolute;right:10px;top:132px;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--sheet);box-shadow:var(--shadow);z-index:2}
+.tools button{border:0;background:none;width:38px;height:38px;display:grid;place-items:center;color:var(--ink);font:600 11px var(--f-mono)}
+.tools button + button{border-top:1px solid var(--hair)}
+.tools button[aria-pressed="true"]{background:var(--ink);color:var(--sheet)}
+.zhint{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:var(--sheet);border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:12px;color:var(--ink-2);white-space:nowrap;box-shadow:var(--shadow);z-index:2;pointer-events:none}
+.offline{position:absolute;left:16px;right:16px;top:50%;transform:translateY(-50%);max-width:360px;margin:0 auto;background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:18px;box-shadow:var(--shadow);z-index:3}
+.offline h3{margin:0 0 6px;font-size:15px}.offline p{margin:0;color:var(--ink-2);font-size:13px}
+
+/* markers */
+.mk{position:relative;width:24px;height:24px;padding:0;border:0;background:none;cursor:pointer;display:block}
+.mk svg{display:block;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.25))}
+.mk-l{position:absolute;left:25px;top:50%;transform:translateY(-50%);white-space:nowrap;font-size:11.5px;font-weight:600;color:var(--ink);text-shadow:0 0 3px var(--paper),0 0 3px var(--paper),0 0 2px var(--paper),0 0 1px var(--paper);pointer-events:none;display:none}
+body.z-lbl .mk-l,.mk.sel .mk-l{display:block}
+.mk.sel .mk-l{font-weight:700}
+.mk.dim{opacity:.32}
+.mk .n{position:absolute;right:-7px;top:-9px;background:var(--accent);color:var(--accent-ink);font:500 10px/1 var(--f-mono);border-radius:999px;min-width:16px;height:16px;padding:0 4px;display:grid;place-items:center}
+body.placing .mk{pointer-events:none;opacity:.55}
+.me{width:16px;height:16px;border-radius:50%;background:#2F7BF6;border:3px solid #fff;box-shadow:0 0 0 6px rgba(47,123,246,.22)}
+.pin{width:22px;height:22px;border-radius:50%;border:3px solid var(--accent);background:var(--sheet);box-shadow:var(--shadow)}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);background:var(--sheet);color:var(--ink);border-radius:8px;padding:7px 12px;font-size:13px;font-weight:500;white-space:nowrap;text-decoration:none}
+.btn.pri{background:var(--ink);border-color:var(--ink);color:var(--sheet)}
+.btn.acc{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.ghost{border-color:transparent;background:none}
+.btn.danger{color:var(--danger)}
+.btn.danger.solid{background:var(--danger);color:#fff;border-color:var(--danger)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.sm{padding:5px 10px;font-size:12px}
+.fab{position:fixed;right:16px;bottom:calc(30px + env(safe-area-inset-bottom,0px));z-index:6;border:0;border-radius:999px;background:var(--ink);color:var(--sheet);padding:13px 18px;font-weight:600;font-size:14px;box-shadow:var(--shadow);display:flex;align-items:center;gap:6px}
+
+/* placing bar */
+.placebar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(28px + env(safe-area-inset-bottom,0px));z-index:7;background:var(--sheet);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:12px;display:grid;gap:10px;width:min(480px,calc(100% - 24px))}
+.placebar p{margin:0;font-size:13.5px;font-weight:500}
+.placebar .sub{font-family:var(--f-mono);font-size:11px;color:var(--ink-2);font-weight:400;display:block;margin-top:2px}
+.placebar .row{display:flex;gap:8px;flex-wrap:wrap}
+.placebar .row .btn.pri{flex:1}
+
+/* sheets */
+.panel{position:fixed;z-index:8;background:var(--sheet);box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden}
+.panel .scroll{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:4px 18px 22px;flex:1;min-height:0}
+@media (min-width:900px){.panel{top:calc(64px + env(safe-area-inset-top,0px));right:12px;bottom:12px;width:400px;border:1px solid var(--line);border-radius:14px}.grab{display:none}}
+@media (max-width:899.98px){.panel{left:0;right:0;bottom:0;max-height:80%;border-top:1px solid var(--line);border-radius:16px 16px 0 0;padding-bottom:env(safe-area-inset-bottom,0px)}
+  .grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:8px auto 0}}
+@media (min-width:900px){body.panel-open .tools,body.panel-open .maplibregl-ctrl-top-right{margin-right:420px}}
+.p-head{display:flex;align-items:center;gap:8px;padding:10px 14px 6px 18px}
+.p-kicker{flex:1;display:flex;align-items:center;gap:6px;font-family:var(--f-mono);font-size:11.5px;color:var(--ink-2);min-width:0}
+.x{border:0;background:none;width:34px;height:34px;border-radius:8px;display:grid;place-items:center;color:var(--ink-2);font-size:22px;line-height:1}
+.x:hover{background:var(--paper)}
+.p-title{font-size:21px;line-height:1.25;margin:4px 0 2px;letter-spacing:-.01em;text-wrap:balance}
+.p-sub{margin:0;color:var(--ink-2);font-size:13px}
+.ph-strip{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;margin:6px 0 10px}
+.ph-strip img{height:200px;width:auto;max-width:none;border-radius:8px;scroll-snap-align:start;background:var(--land);cursor:zoom-in;flex:none}
+.ph-strip img:only-child{width:100%;object-fit:cover}
+.stars{color:var(--c-street);letter-spacing:2px;font-size:15px;margin:8px 0 2px}.stars .off{color:var(--line)}
+.spec{display:grid;grid-template-columns:auto 1fr;margin:14px 0;border-top:1px solid var(--ink)}
+.spec dt,.spec dd{margin:0;padding:7px 0;border-bottom:1px solid var(--hair)}
+.spec dt{font-family:var(--f-mono);font-size:10px;letter-spacing:.1em;color:var(--ink-3);text-transform:uppercase;padding-right:14px;padding-top:9px;white-space:nowrap}
+.spec dd{font-size:13.5px;min-width:0;overflow-wrap:anywhere}
+.memo{white-space:pre-wrap;font-size:14px;line-height:1.65;margin:12px 0}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.tag{font-size:12px;padding:2px 8px;border-radius:999px;background:var(--paper);border:1px solid var(--hair);color:var(--ink-2)}
+.coords{font-family:var(--f-mono);font-size:12px;color:var(--ink-2);margin:12px 0 6px;font-variant-numeric:tabular-nums}
+.links{display:flex;flex-wrap:wrap;gap:6px}
+.sameday{margin:16px 0 4px;padding:10px 12px;border:1px solid var(--hair);border-radius:8px;background:var(--paper)}
+.sameday .k{font-family:var(--f-mono);font-size:10px;letter-spacing:.1em;color:var(--ink-3);text-transform:uppercase}
+.sameday ol{margin:6px 0 0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:4px 2px;align-items:center}
+.sameday li{display:flex;align-items:center}
+.sameday li + li::before{content:"→";color:var(--ink-3);margin:0 4px}
+.sameday button{border:0;background:none;padding:2px 4px;border-radius:4px;font-size:12.5px;display:inline-flex;align-items:center;gap:4px}
+.sameday button[aria-current="true"]{font-weight:700;background:var(--accent-soft)}
+.p-actions{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}
+.confirm{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.confirm p{margin:0;flex:1;min-width:180px}
+
+.form{display:grid;gap:14px;padding-top:4px}
+.fld{display:grid;gap:5px;min-width:0}
+.fld > label,.fld > .lab{font-size:12px;font-weight:600;color:var(--ink-2)}
+.fld input[type=text],.fld input[type=date],.fld input[type=time],.fld input[type=search],.fld textarea{width:100%;border:1px solid var(--line);background:var(--paper);border-radius:8px;padding:8px 10px;font-size:14px}
+.fld textarea{min-height:96px;resize:vertical;line-height:1.55}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.namebox{display:flex;gap:6px}.namebox input{flex:1;min-width:0}
+.sugs{display:flex;flex-wrap:wrap;gap:6px}
+.sug{border:1px dashed var(--line);background:none;border-radius:999px;padding:3px 10px;font-size:12px;color:var(--ink-2)}
+.cats{display:flex;flex-wrap:wrap;gap:6px}
+.cats button{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--sheet);border-radius:999px;padding:5px 10px 5px 8px;font-size:12.5px}
+.cats button[aria-pressed="true"]{border-color:var(--ink);background:var(--paper);font-weight:600;box-shadow:inset 0 0 0 1px var(--ink)}
+.locbox{border:1px dashed var(--line);border-radius:8px;padding:10px;display:grid;gap:8px}
+.locnow{font-family:var(--f-mono);font-size:12.5px;font-variant-numeric:tabular-nums}
+.locnow.none{color:var(--ink-3);font-family:var(--f-sans)}
+.locsrc{font-family:var(--f-sans);font-size:11.5px;color:var(--ink-2);margin-left:6px}
+.locbtns{display:flex;gap:6px;flex-wrap:wrap}
+.hint{font-size:11.5px;color:var(--ink-3);margin:0;text-wrap:pretty}
+.section-t{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.12em;color:var(--ink-3);text-transform:uppercase;border-top:1px solid var(--ink);padding-top:8px;margin-top:4px}
+.rate{display:flex;gap:2px}
+.rate button{border:0;background:none;font-size:22px;color:var(--line);padding:0 2px;line-height:1}
+.rate button.on{color:var(--c-street)}
+.phedit{display:flex;gap:8px;flex-wrap:wrap}
+.phedit .th{position:relative;width:76px;height:76px;border-radius:8px;overflow:hidden;background:var(--land)}
+.phedit .th img{width:100%;height:100%;object-fit:cover}
+.phedit .th button{position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;font-size:13px;line-height:1;display:grid;place-items:center}
+.phedit label.add{width:76px;height:76px;border:1px dashed var(--line);border-radius:8px;display:grid;place-items:center;color:var(--ink-2);font-size:12px;text-align:center;cursor:pointer;line-height:1.3}
+.phedit .busy{width:76px;height:76px;border-radius:8px;background:var(--paper);display:grid;place-items:center;font-size:11px;color:var(--ink-3)}
+.err{color:var(--danger);font-size:12.5px;margin:0}
+.formbar{display:flex;gap:8px;padding:12px 18px;border-top:1px solid var(--hair);background:var(--sheet)}
+.formbar .btn.pri{flex:1}
+
+/* search & list & menu */
+.res{display:grid;gap:6px;margin-top:10px}
+.res button{text-align:left;border:1px solid var(--line);background:var(--sheet);border-radius:8px;padding:9px 11px;display:grid;gap:1px}
+.res b{font-size:13.5px;font-weight:600}
+.res span{font-size:12px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.month h2{font-family:var(--f-mono);font-size:12px;letter-spacing:.12em;font-weight:500;color:var(--ink-2);margin:18px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--ink)}
+.day{border:1px solid var(--line);border-radius:var(--r);padding:12px 14px 10px;margin-bottom:10px}
+.day header{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.day time{font-family:var(--f-mono);font-size:14px;font-weight:500}
+.day .meta{color:var(--ink-2);font-size:12px;flex:1}
+.linewrap{overflow-x:auto;margin-top:10px;padding-bottom:4px}
+.stops{list-style:none;margin:0;padding:0;display:flex;min-width:min-content}
+.stops li{position:relative;flex:none;width:118px}
+.stops li::before{content:"";position:absolute;left:0;right:0;top:15px;height:3px;background:var(--ink);opacity:.8}
+.stops li:first-child::before{left:50%}.stops li:last-child::before{right:50%}.stops li:only-child::before{display:none}
+.stops button{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;width:100%;border:0;background:none;padding:2px 6px;text-align:center}
+.stops .node{width:32px;height:32px;display:grid;place-items:center;background:var(--sheet);border-radius:50%}
+.stops .nm{font-size:12.5px;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.stops .sm{font-family:var(--f-mono);font-size:10.5px;color:var(--ink-3)}
+.menu-list{display:grid;gap:8px;margin-top:6px}
+.menu-list .btn{justify-content:flex-start;padding:10px 12px}
+.note{font-size:12.5px;color:var(--ink-2);background:var(--paper);border:1px solid var(--hair);border-radius:8px;padding:10px 12px;margin:0}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 2px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--sheet);border-radius:999px;padding:4px 10px 4px 8px;font-size:12.5px}
+.chip[aria-pressed="false"]{opacity:.42}
+
+.toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:20;background:var(--ink);color:var(--sheet);padding:9px 14px;border-radius:999px;font-size:13px;box-shadow:var(--shadow);max-width:calc(100% - 32px);text-align:center}
+.lb{position:fixed;inset:0;z-index:30;background:rgba(10,12,12,.94);display:grid;place-items:center}
+.lb img{max-width:calc(100% - 24px);max-height:calc(100% - 96px);object-fit:contain}
+.lb .x{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));right:12px;color:#fff}
+.lb .nav{position:absolute;top:50%;transform:translateY(-50%);color:#fff;font-size:28px;border:0;background:rgba(255,255,255,.1);width:44px;height:44px;border-radius:50%}
+.lb .prev{left:12px}.lb .next{right:12px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="bar">
+    <div class="brand">
+      <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><rect x="1" y="1" width="28" height="28" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 22 L12 15 L18 19 L24 9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 2.5"/><path d="M9 17V10l3-2h4v7l-3 2z" fill="var(--c-arch)"/><circle cx="18" cy="19" r="2.6" fill="var(--c-public)"/><path d="M24 6.2 L26.6 10.6 L21.4 10.6Z" fill="var(--c-park)"/></svg>
+      <div><h1>답사 지도 3D</h1><p id="stat">불러오는 중</p></div>
+    </div>
+    <button class="ib" id="bSearch" aria-label="장소 검색" title="장소 검색"><svg width="17" height="17" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+    <button class="ib" id="bList" aria-label="기록 목록" title="기록 목록"><svg width="17" height="17" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5h9M5 8h9M5 12.5h9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="2" cy="3.5" r="1.1" fill="currentColor"/><circle cx="2" cy="8" r="1.1" fill="currentColor"/><circle cx="2" cy="12.5" r="1.1" fill="currentColor"/></svg></button>
+    <button class="ib" id="bMenu" aria-label="내보내기·가져오기" title="내보내기·가져오기"><svg width="17" height="17" viewBox="0 0 16 16" aria-hidden="true"><circle cx="3" cy="8" r="1.4" fill="currentColor"/><circle cx="8" cy="8" r="1.4" fill="currentColor"/><circle cx="13" cy="8" r="1.4" fill="currentColor"/></svg></button>
+  </header>
+  <div id="mapwrap">
+    <div id="map" aria-label="3D 답사 지도"></div>
+    <div class="tools" role="group" aria-label="지도 보기">
+      <button id="t3d" aria-pressed="true" title="3D / 2D 전환">3D</button>
+      <button id="tSat" aria-pressed="false" title="위성 사진">위성</button>
+      <button id="tMe" title="현재 위치" aria-label="현재 위치"><svg width="17" height="17" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 1v3M8 12v3M1 8h3M12 8h3" stroke="currentColor" stroke-width="1.6"/></svg></button>
+      <button id="tFit" title="전체 기록 보기" aria-label="전체 기록 보기"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>
+    </div>
+    <div class="zhint" id="zhint" hidden>확대하면 건물이 입체로 보여요</div>
+    <div class="offline" id="offline" hidden><h3>지도를 불러오지 못했어요</h3><p>인터넷 연결을 확인한 뒤 새로고침해 주세요. 기록은 이 기기에 그대로 남아 있어요.</p></div>
+  </div>
+  <button class="fab" id="addBtn"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>기록 추가</button>
+  <div class="placebar" id="placebar" hidden>
+    <p id="placeMsg">기록할 건물을 탭하세요<span class="sub">빈 곳을 탭하면 그 지점으로 정해져요</span></p>
+    <div class="row"><button class="btn" id="placeCancel">취소</button><button class="btn" id="placeMe">현재 위치</button><button class="btn pri" id="placeOk" disabled>이 위치로</button></div>
+  </div>
+  <aside class="panel" id="panel" hidden></aside>
+  <div class="toast" id="toast" hidden role="status"></div>
+  <div class="lb" id="lb" hidden><img id="lbImg" alt=""><button class="x" id="lbX" aria-label="닫기">×</button><button class="nav prev" id="lbPrev" aria-label="이전 사진">‹</button><button class="nav next" id="lbNext" aria-label="다음 사진">›</button></div>
+  <input type="file" id="fImport" accept=".json,application/json" hidden>
+</div>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script>
+(() => {
+'use strict';
+/* ---------------- constants & helpers ---------------- */
+const CATS = [
+  {id:'arch', name:'건축물', shape:'square'}, {id:'public', name:'광장·공공공간', shape:'circle'},
+  {id:'park', name:'공원·조경', shape:'triangle'}, {id:'street', name:'거리·동네', shape:'diamond'},
+  {id:'interior', name:'실내·인테리어', shape:'squareO'}, {id:'etc', name:'기타', shape:'circleO'},
+];
+const CAT = Object.fromEntries(CATS.map(c => [c.id, c]));
+const WD = ['일','월','화','수','목','금','토'];
+const R = 6371008.8, D2R = Math.PI/180;
+const BUSAN = [129.06, 35.16];
+const STYLE_LIGHT = 'https://tiles.openfreemap.org/styles/positron';
+const STYLE_DARK = 'https://tiles.openfreemap.org/styles/dark';
+const SAT_TILES = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+const NOMI = 'https://nominatim.openstreetmap.org';
+
+const $ = (s, r=document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = n => String(n).padStart(2,'0');
+const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
+const dParts = s => { const [y,m,d] = String(s||'').split('-').map(Number); return {y,m,d}; };
+const dayLabel = s => { if(!s) return '날짜 없음'; const {y,m,d} = dParts(s); return `${y}.${pad(m)}.${pad(d)} ${WD[new Date(y,m-1,d).getDay()]}`; };
+const shortDay = s => { if(!s) return '—'; const {y,m,d} = dParts(s); return `${pad(m)}.${pad(d)} ${WD[new Date(y,m-1,d).getDay()]}`; };
+const hasLoc = r => r && Number.isFinite(r.lat) && Number.isFinite(r.lng);
+const fmtCoord = (lat,lng) => `${Math.abs(lat).toFixed(5)}° ${lat>=0?'N':'S'}, ${Math.abs(lng).toFixed(5)}° ${lng>=0?'E':'W'}`;
+const hav = (a, b) => { const p1=a.lat*D2R, p2=b.lat*D2R, dp=p2-p1, dl=(b.lng-a.lng)*D2R; const h=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2; return 2*R*Math.asin(Math.sqrt(h)); };
+const normName = s => String(s||'').replace(/\s+/g,'').toLowerCase();
+const regionKey = r => (String(r.region||'').trim().split(/\s+/)[0]) || '지역 미정';
+const newId = () => 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+function sortVisit(a, b){ return (a.date||'').localeCompare(b.date||'') || (a.time||'99:99').localeCompare(b.time||'99:99') || ((a.createdAt||0)-(b.createdAt||0)); }
+function byDay(list){ const m = new Map(); for(const r of [...list].sort(sortVisit)){ const k = r.date||''; if(!m.has(k)) m.set(k, []); m.get(k).push(r); } return m; }
+function symPath(shape, r){
+  switch(shape){
+    case 'square': case 'squareO': return `M${-r},${-r}h${2*r}v${2*r}h${-2*r}Z`;
+    case 'circle': case 'circleO': { const q=r*1.12; return `M${-q},0a${q},${q} 0 1,0 ${2*q},0a${q},${q} 0 1,0 ${-2*q},0Z`; }
+    case 'triangle': return `M0,${-r*1.35}L${r*1.25},${r*0.9}L${-r*1.25},${r*0.9}Z`;
+    case 'diamond': { const q=r*1.38; return `M0,${-q}L${q},0L0,${q}L${-q},0Z`; }
+  }
+  return '';
+}
+function symSVG(cat, r=6){ const c = CAT[cat] || CAT.etc; const hollow = c.shape.endsWith('O'); return `<path d="${symPath(c.shape, r)}" fill="${hollow ? 'var(--sheet)' : `var(--c-${c.id})`}" stroke="var(--c-${c.id})" stroke-width="${hollow ? 2.2 : 1}"/>`; }
+const symIcon = (cat, size=14) => `<svg width="${size}" height="${size}" viewBox="-8 -8 16 16" aria-hidden="true">${symSVG(cat, 5.2)}</svg>`;
+const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+let toastT;
+function toast(msg, ms=3200){ const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, ms); }
+function stars(n){ n = n||0; return `<span aria-label="별점 ${n}점">${'★'.repeat(n)}<span class="off">${'★'.repeat(5-n)}</span></span>`; }
+
+/* ---------------- storage (IndexedDB) ---------------- */
+const DB = {
+  db: null, mem: {recs: new Map(), photos: new Map()},
+  open(){ return new Promise((res) => {
+    try {
+      const r = indexedDB.open('dapsa-map-3d', 1);
+      r.onupgradeneeded = () => { const d = r.result; if(!d.objectStoreNames.contains('recs')) d.createObjectStore('recs', {keyPath:'id'}); if(!d.objectStoreNames.contains('photos')) d.createObjectStore('photos'); };
+      r.onsuccess = () => { DB.db = r.result; res(true); };
+      r.onerror = () => res(false);
+    } catch(_){ res(false); }
+  }); },
+  req(r){ return new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); },
+  st(name, mode='readonly'){ return DB.db.transaction(name, mode).objectStore(name); },
+  async allRecs(){ return DB.db ? DB.req(DB.st('recs').getAll()) : [...DB.mem.recs.values()]; },
+  async putRec(r){ if(DB.db) return DB.req(DB.st('recs','readwrite').put(r)); DB.mem.recs.set(r.id, r); },
+  async delRec(id){ if(DB.db) return DB.req(DB.st('recs','readwrite').delete(id)); DB.mem.recs.delete(id); },
+  async putPhoto(id, b){ if(DB.db) return DB.req(DB.st('photos','readwrite').put(b, id)); DB.mem.photos.set(id, b); },
+  async getPhoto(id){ return DB.db ? DB.req(DB.st('photos').get(id)) : DB.mem.photos.get(id); },
+  async delPhoto(id){ URLS.delete(id); if(DB.db) return DB.req(DB.st('photos','readwrite').delete(id)); DB.mem.photos.delete(id); },
+};
+const URLS = new Map();
+async function photoURL(id){
+  if(URLS.has(id)) return URLS.get(id);
+  try { const b = await DB.getPhoto(id); if(!b) return null; const u = URL.createObjectURL(b); URLS.set(id, u); return u; } catch(_){ return null; }
+}
+function hydrate(root){
+  for(const img of root.querySelectorAll('img[data-photo]')){
+    photoURL(img.dataset.photo).then(u => { if(u) img.src = u; else img.remove(); });
+  }
+}
+
+/* ---------------- state ---------------- */
+const S = { recs: [], cats: new Set(CATS.map(c => c.id)), selId: null, selDay: null, panel: null, draft: null,
+  placing: null, pick: null, is3D: true, sat: false, mapReady: false, me: null };
+const panel = $('#panel');
+function visible(){ return S.recs.filter(r => S.cats.has(CAT[r.cat] ? r.cat : 'etc')); }
+async function reload(){ S.recs = (await DB.allRecs()).filter(r => r && r.id); renderAll(); }
+function renderStat(){
+  const days = new Set(S.recs.map(r => r.date).filter(Boolean)).size;
+  $('#stat').textContent = `기록 ${S.recs.length}곳 · 답사 ${days}일 · 이 기기에 저장`;
+}
+function renderAll(){ renderStat(); renderMap(); if(S.panel === 'detail') renderDetail(); if(S.panel === 'list') renderList(); }
+
+/* ---------------- map ---------------- */
+let map, SRC = null, FIRST_SYM;
+const MK = new Map();
+const FC = f => ({type:'FeatureCollection', features: f || []});
+function setData(id, feats){ if(!S.mapReady) return; const s = map.getSource(id); if(s) s.setData(FC(feats)); }
+const catColor = c => cssVar(`--c-${CAT[c] ? c : 'etc'}`) || '#888';
+
+async function initMap(){
+  let style = STYLE_LIGHT;
+  const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+  for(const u of dark ? [STYLE_DARK, STYLE_LIGHT] : [STYLE_LIGHT]){
+    try { const r = await fetch(u); if(r.ok){ style = await r.json(); break; } } catch(_){ }
+  }
+  if(typeof style === 'string'){ $('#offline').hidden = false; }
+  map = new maplibregl.Map({
+    container: 'map', style, center: BUSAN, zoom: 11.5, pitch: 0, bearing: 0, maxPitch: 78,
+    attributionControl: {compact: true},
+    localIdeographFontFamily: "'IBM Plex Sans KR','Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif",
+  });
+  map.addControl(new maplibregl.NavigationControl({visualizePitch: true}), 'top-right');
+  map.on('load', setupLayers);
+  map.on('error', e => { if(!S.mapReady && e && e.error && /style/i.test(String(e.error.message||''))) $('#offline').hidden = false; });
+  map.on('zoom', onZoom);
+  map.on('click', onMapClick);
+  map.on('dragstart', () => stopOrbit());
+}
+function onZoom(){ const z = map.getZoom(); document.body.classList.toggle('z-lbl', z >= 14); $('#zhint').hidden = !(z < 13.6 && S.is3D) || !S.mapReady; }
+function setupLayers(){
+  const st = map.getStyle();
+  const vec = Object.entries(st.sources || {}).find(([, v]) => v.type === 'vector');
+  SRC = vec ? vec[0] : null;
+  const fs = st.layers.find(l => l.type === 'symbol'); FIRST_SYM = fs ? fs.id : undefined;
+  for(const l of st.layers){
+    try {
+      if(l['source-layer'] === 'building') map.setLayoutProperty(l.id, 'visibility', 'none');
+      const tf = l.type === 'symbol' && l.layout && l.layout['text-field'];
+      if(tf){ const j = JSON.stringify(tf); if(j.includes('name') && !/housenumber|"ref"|\{ref\}/.test(j)) map.setLayoutProperty(l.id, 'text-field', ['coalesce', ['get','name:ko'], ['get','name'], ['get','name:latin'], '']); }
+    } catch(_){}
+  }
+  map.addSource('sat', {type:'raster', tiles:[SAT_TILES], tileSize:256, maxzoom:19, attribution:'위성 © Esri, Maxar, Earthstar Geographics'});
+  map.addLayer({id:'sat', type:'raster', source:'sat', layout:{visibility:'none'}}, FIRST_SYM);
+  map.addSource('routes', {type:'geojson', data: FC()});
+  map.addLayer({id:'routes', type:'line', source:'routes', filter:['!=', ['get','on'], true], layout:{'line-cap':'round','line-join':'round'}, paint:{'line-color': cssVar('--ink-2'), 'line-width': 2, 'line-dasharray':[2, 2], 'line-opacity': 0.75}}, FIRST_SYM);
+  map.addLayer({id:'routes-on', type:'line', source:'routes', filter:['==', ['get','on'], true], layout:{'line-cap':'round','line-join':'round'}, paint:{'line-color': cssVar('--accent'), 'line-width': 4.5}}, FIRST_SYM);
+  if(SRC){
+    map.addLayer({id:'bldg3d', type:'fill-extrusion', source:SRC, 'source-layer':'building', minzoom:13.5,
+      paint:{
+        'fill-extrusion-color': cssVar('--bldg'),
+        'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 13.5, 0, 14.6, ['coalesce', ['get','render_height'], 6]],
+        'fill-extrusion-base': ['coalesce', ['get','render_min_height'], 0],
+        'fill-extrusion-opacity': 0.9,
+      }}, FIRST_SYM);
+  }
+  map.addSource('visited', {type:'geojson', data: FC()});
+  map.addLayer({id:'visited', type:'fill-extrusion', source:'visited', paint:{'fill-extrusion-color':['get','color'], 'fill-extrusion-height':['get','h'], 'fill-extrusion-base':['get','b'], 'fill-extrusion-opacity':0.95}}, FIRST_SYM);
+  map.addSource('picked', {type:'geojson', data: FC()});
+  map.addLayer({id:'picked', type:'fill-extrusion', source:'picked', paint:{'fill-extrusion-color': cssVar('--accent'), 'fill-extrusion-height':['get','h'], 'fill-extrusion-base':['get','b'], 'fill-extrusion-opacity':0.92}}, FIRST_SYM);
+  S.mapReady = true;
+  onZoom(); renderMap();
+  if(!S.didFit){ S.didFit = true; fitAll(false); }
+}
+function applyThemeColors(){
+  if(!S.mapReady) return;
+  try {
+    if(map.getLayer('bldg3d')) map.setPaintProperty('bldg3d', 'fill-extrusion-color', cssVar('--bldg'));
+    map.setPaintProperty('routes', 'line-color', cssVar('--ink-2'));
+    map.setPaintProperty('routes-on', 'line-color', cssVar('--accent'));
+    map.setPaintProperty('picked', 'fill-extrusion-color', cssVar('--accent'));
+  } catch(_){}
+  renderMap();
+}
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyThemeColors);
+
+function scaleRing(ring, k){
+  const cx = ring.reduce((s,p) => s+p[0], 0)/ring.length, cy = ring.reduce((s,p) => s+p[1], 0)/ring.length;
+  return ring.map(([x,y]) => [cx + (x-cx)*k, cy + (y-cy)*k]);
+}
+function renderMap(){
+  if(!map) return;
+  const list = visible();
+  // markers
+  const order = new Map();
+  if(S.selDay){ (byDay(list.filter(r => r.date === S.selDay && hasLoc(r))).get(S.selDay) || []).forEach((r,i) => order.set(r.id, i+1)); }
+  const ids = new Set(list.filter(hasLoc).map(r => r.id));
+  for(const [id, m] of MK) if(!ids.has(id)){ m.marker.remove(); MK.delete(id); }
+  for(const r of list.filter(hasLoc)){
+    let m = MK.get(r.id);
+    if(!m){
+      const el = document.createElement('button'); el.type = 'button'; el.className = 'mk';
+      el.addEventListener('click', ev => { ev.stopPropagation(); if(!S.placing) selectRec(el.dataset.id); });
+      const marker = new maplibregl.Marker({element: el, anchor: 'center'}).setLngLat([r.lng, r.lat]).addTo(map);
+      m = {marker, el}; MK.set(r.id, m);
+    } else m.marker.setLngLat([r.lng, r.lat]);
+    const sel = r.id === S.selId, n = order.get(r.id);
+    m.el.dataset.id = r.id;
+    m.el.innerHTML = `<svg width="24" height="24" viewBox="-12 -12 24 24" aria-hidden="true"><circle r="10.5" fill="var(--sheet)" opacity=".92"/>${sel ? '<circle r="11.2" fill="none" stroke="var(--accent)" stroke-width="2"/>' : ''}${symSVG(r.cat, sel ? 6.8 : 5.8)}</svg><span class="mk-l">${esc(r.name)}</span>${n ? `<span class="n">${n}</span>` : ''}`;
+    m.el.setAttribute('aria-label', r.name);
+    m.el.classList.toggle('sel', sel);
+    m.el.classList.toggle('dim', !!S.selDay && r.date !== S.selDay);
+    m.el.style.zIndex = sel ? 3 : n ? 2 : 1;
+  }
+  if(!S.mapReady) return;
+  // routes
+  const routes = [];
+  for(const [day, rs] of byDay(list.filter(hasLoc))) if(day && rs.length >= 2) routes.push({type:'Feature', properties:{on: day === S.selDay}, geometry:{type:'LineString', coordinates: rs.map(r => [r.lng, r.lat])}});
+  setData('routes', routes);
+  // visited footprints, extruded in category colour
+  const vis = [];
+  for(const r of list) if(r.bld && Array.isArray(r.bld.ring) && r.bld.ring.length >= 4){
+    const ring = scaleRing(r.bld.ring, 1.02);
+    vis.push({type:'Feature', properties:{color: catColor(r.cat), h: (+r.bld.h || 8) + 0.8, b: +r.bld.b || 0}, geometry:{type:'Polygon', coordinates:[ring]}});
+  }
+  setData('visited', vis);
+}
+function fitAll(animate=true){
+  if(!map) return;
+  const pts = visible().filter(hasLoc);
+  const padR = window.innerWidth >= 900 && !panel.hidden ? 430 : 40;
+  if(!pts.length){ map.jumpTo({center: BUSAN, zoom: 11.5, pitch: 0}); return; }
+  const b = new maplibregl.LngLatBounds();
+  for(const r of pts) b.extend([r.lng, r.lat]);
+  map.fitBounds(b, {padding:{top:80, bottom:130, left:40, right:padR}, maxZoom:16.6, pitch: S.is3D ? 50 : 0, duration: animate ? 800 : 0});
+}
+
+/* ---------------- map controls ---------------- */
+$('#t3d').onclick = () => {
+  S.is3D = !S.is3D; $('#t3d').setAttribute('aria-pressed', S.is3D); $('#t3d').textContent = S.is3D ? '3D' : '2D';
+  map.easeTo({pitch: S.is3D ? 55 : 0, bearing: S.is3D ? map.getBearing() : 0, zoom: S.is3D && map.getZoom() < 15.2 ? 15.5 : map.getZoom(), duration: 700});
+  onZoom();
+};
+$('#tSat').onclick = () => {
+  if(!S.mapReady) return;
+  S.sat = !S.sat; $('#tSat').setAttribute('aria-pressed', S.sat);
+  map.setLayoutProperty('sat', 'visibility', S.sat ? 'visible' : 'none');
+  if(map.getLayer('bldg3d')) map.setPaintProperty('bldg3d', 'fill-extrusion-opacity', S.sat ? 0.55 : 0.9);
+};
+$('#tFit').onclick = () => { S.selDay = null; S.selId = null; if(S.panel === 'detail') closePanel(); renderMap(); fitAll(true); };
+$('#tMe').onclick = () => locate(true);
+function locate(fly, cb){
+  if(!navigator.geolocation){ toast('이 브라우저에서는 현재 위치를 쓸 수 없어요'); return; }
+  toast('현재 위치를 찾는 중…', 6000);
+  navigator.geolocation.getCurrentPosition(p => {
+    $('#toast').hidden = true;
+    const ll = [p.coords.longitude, p.coords.latitude];
+    if(!S.me){ const el = document.createElement('div'); el.className = 'me'; S.me = new maplibregl.Marker({element: el}).setLngLat(ll).addTo(map); } else S.me.setLngLat(ll);
+    if(fly) map.flyTo({center: ll, zoom: Math.max(map.getZoom(), 17), pitch: S.is3D ? 55 : 0, duration: 900});
+    if(cb) cb(ll, p.coords.accuracy);
+  }, err => {
+    toast(err.code === 1 ? '위치 권한이 꺼져 있어요. 브라우저 설정에서 이 사이트의 위치를 허용해 주세요.' : '현재 위치를 찾지 못했어요. 잠시 후 다시 시도해 주세요.');
+  }, {enableHighAccuracy: true, timeout: 12000, maximumAge: 20000});
+}
+let orbitOn = false;
+function orbit(r){
+  stopOrbit();
+  map.flyTo({center:[r.lng, r.lat], zoom: Math.max(17.4, Math.min(18.3, map.getZoom())), pitch: 62, duration: 1100});
+  map.once('moveend', () => { orbitOn = true; map.easeTo({bearing: map.getBearing() + 150, duration: 12000, easing: t => t}); });
+}
+function stopOrbit(){ if(orbitOn){ orbitOn = false; map.stop(); } }
+
+/* ---------------- placing on a building ---------------- */
+function ringArea(r){ let a = 0; for(let i=0, j=r.length-1; i<r.length; j=i++) a += (r[j][0]+r[i][0])*(r[j][1]-r[i][1]); return a/2; }
+function largestRing(g){
+  if(!g) return null;
+  const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+  let best = null, ba = 0;
+  for(const p of polys){ const r = p[0]; if(!r || r.length < 4) continue; const a = Math.abs(ringArea(r)); if(a > ba){ ba = a; best = r; } }
+  return best;
+}
+function centroid(r0){
+  const ox = r0[0][0], oy = r0[0][1], r = r0.map(p => [p[0]-ox, p[1]-oy]);
+  let a = 0, cx = 0, cy = 0;
+  for(let i=0, j=r.length-1; i<r.length; j=i++){ const f = r[j][0]*r[i][1] - r[i][0]*r[j][1]; a += f; cx += (r[j][0]+r[i][0])*f; cy += (r[j][1]+r[i][1])*f; }
+  if(Math.abs(a) < 1e-16){ const n = r.length; return [ox + r.reduce((s,p)=>s+p[0],0)/n, oy + r.reduce((s,p)=>s+p[1],0)/n]; }
+  return [ox + cx/(3*a), oy + cy/(3*a)];
+}
+function inRing(pt, r){ let ins = false; for(let i=0, j=r.length-1; i<r.length; j=i++){ const [xi,yi] = r[i], [xj,yj] = r[j]; if(((yi>pt[1]) !== (yj>pt[1])) && (pt[0] < (xj-xi)*(pt[1]-yi)/(yj-yi)+xi)) ins = !ins; } return ins; }
+function slimRing(r){
+  let out = r.map(p => [+p[0].toFixed(6), +p[1].toFixed(6)]);
+  if(out.length > 160){ const step = Math.ceil(out.length/160); out = out.filter((_, i) => i % step === 0); out.push(out[0]); }
+  const f = out[0], l = out[out.length-1]; if(f[0] !== l[0] || f[1] !== l[1]) out.push([f[0], f[1]]);
+  return out;
+}
+function nearbyNames(pt){
+  const rr = 52, names = [];
+  let fs = [];
+  try { fs = map.queryRenderedFeatures([[pt.x-rr, pt.y-rr], [pt.x+rr, pt.y+rr]]); } catch(_){}
+  const cand = [];
+  for(const f of fs){
+    if(f.sourceLayer !== 'poi') continue;
+    const n = f.properties['name:ko'] || f.properties.name; if(!n) continue;
+    let d = 0; if(f.geometry && f.geometry.type === 'Point'){ const p = map.project(f.geometry.coordinates); d = Math.hypot(p.x-pt.x, p.y-pt.y); }
+    cand.push([d, n]);
+  }
+  cand.sort((a,b) => a[0]-b[0]);
+  for(const [, n] of cand) if(!names.includes(n)) names.push(n);
+  return names.slice(0, 4);
+}
+function startPlacing(forWhat){
+  stopOrbit();
+  S.placing = {for: forWhat}; S.pick = null;
+  document.body.classList.add('placing');
+  panel.hidden = true; applyPerm();
+  $('#placebar').hidden = false; $('#placeOk').disabled = true;
+  $('#placeMsg').innerHTML = '기록할 건물을 탭하세요<span class="sub">빈 곳을 탭하면 그 지점으로 정해져요</span>';
+  const d = S.draft;
+  if(forWhat === 'draft' && hasLoc(d)) map.flyTo({center:[d.lng, d.lat], zoom: Math.max(map.getZoom(), 17.2), pitch: S.is3D ? 55 : 0, duration: 700});
+  else if(map.getZoom() < 15.5) toast('건물이 보이도록 확대한 뒤 탭하세요');
+}
+function endPlacing(){
+  S.placing = null; S.pick = null; document.body.classList.remove('placing');
+  $('#placebar').hidden = true; setData('picked', []);
+  if(S.pickPin){ S.pickPin.remove(); S.pickPin = null; }
+  applyPerm();
+}
+function showPick(){
+  const p = S.pick; if(!p) return;
+  if(p.bld) setData('picked', [{type:'Feature', properties:{h: p.bld.h + 1.2, b: p.bld.b}, geometry:{type:'Polygon', coordinates:[scaleRing(p.bld.ring, 1.03)]}}]);
+  else setData('picked', []);
+  if(!S.pickPin){ const el = document.createElement('div'); el.className = 'pin'; S.pickPin = new maplibregl.Marker({element: el}).setLngLat([p.lng, p.lat]).addTo(map); } else S.pickPin.setLngLat([p.lng, p.lat]);
+  $('#placeMsg').innerHTML = `${p.bld ? `건물을 골랐어요 · 높이 약 ${Math.round(p.bld.h)}m` : '이 지점으로 할까요?'}${p.names.length ? ` · ${esc(p.names[0])}` : ''}<span class="sub">${fmtCoord(p.lat, p.lng)} · 다른 곳을 탭하면 바뀌어요</span>`;
+  $('#placeOk').disabled = false;
+}
+function onMapClick(e){
+  const tgt = e.originalEvent && e.originalEvent.target;
+  if(tgt && tgt.closest && tgt.closest('.mk')) return;
+  if(!S.placing){
+    if(S.selDay || S.selId){ S.selDay = null; S.selId = null; if(S.panel === 'detail') closePanel(); renderMap(); }
+    return;
+  }
+  let feats = [];
+  try { if(map.getLayer('bldg3d')) feats = map.queryRenderedFeatures(e.point, {layers:['bldg3d']}); } catch(_){}
+  let lng = e.lngLat.lng, lat = e.lngLat.lat, bld = null;
+  if(feats.length){
+    const ring = largestRing(feats[0].geometry);
+    if(ring){
+      let c = centroid(ring); if(!inRing(c, ring)) c = [lng, lat];
+      lng = c[0]; lat = c[1];
+      const pr = feats[0].properties || {};
+      bld = {ring: slimRing(ring), h: Math.max(3, +(pr.render_height ?? 6) || 6), b: Math.max(0, +(pr.render_min_height ?? 0) || 0)};
+    }
+  }
+  S.pick = {lng, lat, bld, names: nearbyNames(e.point)};
+  showPick();
+}
+$('#placeCancel').onclick = () => { const f = S.placing && S.placing.for; endPlacing(); if(f === 'draft' && S.draft){ openPanel('edit'); } };
+$('#placeMe').onclick = () => locate(true, ll => { if(S.placing){ S.pick = {lng: ll[0], lat: ll[1], bld: null, names: []}; showPick(); toast('현재 위치예요. 건물을 탭하면 더 정확해져요'); } });
+$('#placeOk').onclick = () => {
+  const p = S.pick, f = S.placing && S.placing.for; if(!p) return;
+  endPlacing();
+  if(f === 'new' || !S.draft){ S.draft = blankDraft(); if(S.pendingName){ S.draft.name = S.pendingName; S.pendingName = ''; } }
+  const d = S.draft;
+  d.lat = p.lat; d.lng = p.lng; d.bld = p.bld; d.locSrc = p.bld ? '건물 선택' : '지점 선택'; d.photoGps = null; d.exifMsg = '';
+  d.names = [...new Set([...(p.names||[]), ...(d.names||[])])].slice(0, 5);
+  if(!d.name && d.names.length === 1) d.name = d.names[0];
+  openPanel('edit');
+  fillFromReverse(d);
+};
+async function fillFromReverse(d){
+  if(String(d.region||'').trim() && String(d.address||'').trim()) return;
+  const g = await reverseGeo(d.lat, d.lng);
+  if(!g || S.draft !== d) return;
+  if(!String(d.region||'').trim() && g.region) d.region = g.region;
+  if(!String(d.address||'').trim() && g.address) d.address = g.address;
+  if(g.name && !d.names.includes(g.name)) d.names.unshift(g.name);
+  if(S.panel === 'edit') keepScroll(renderEditor);
+}
+
+/* ---------------- geocoding (OpenStreetMap Nominatim) ---------------- */
+const SHORT = {'서울특별시':'서울','부산광역시':'부산','대구광역시':'대구','인천광역시':'인천','광주광역시':'광주','대전광역시':'대전','울산광역시':'울산','세종특별자치시':'세종','경기도':'경기','강원도':'강원','강원특별자치도':'강원','충청북도':'충북','충청남도':'충남','전라북도':'전북','전북특별자치도':'전북','전라남도':'전남','경상북도':'경북','경상남도':'경남','제주특별자치도':'제주'};
+const short = s => SHORT[s] || s || '';
+async function reverseGeo(lat, lng){
+  try {
+    const r = await fetch(`${NOMI}/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&accept-language=ko`);
+    if(!r.ok) return null; const j = await r.json(); const a = j.address || {};
+    const metro = /(특별시|광역시|특별자치시)$/.test(a.city || '');
+    const region = metro ? [short(a.city), a.borough || a.city_district || a.county].filter(Boolean).join(' ')
+      : [short(a.province || a.state), a.city || a.county || a.town, a.borough].filter(Boolean).join(' ');
+    const address = [a.road, a.house_number].filter(Boolean).join(' ');
+    return {region, address, name: j.name || ''};
+  } catch(_){ return null; }
+}
+async function searchPlaces(q){
+  let vb = '';
+  try { const b = map.getBounds(); vb = `&viewbox=${[b.getWest(), b.getNorth(), b.getEast(), b.getSouth()].map(v => v.toFixed(4)).join(',')}`; } catch(_){}
+  const r = await fetch(`${NOMI}/search?format=jsonv2&q=${encodeURIComponent(q)}&accept-language=ko&limit=7&addressdetails=1${vb}`);
+  if(!r.ok) throw new Error('http');
+  const j = await r.json();
+  return j.map(x => ({name: x.name || String(x.display_name||'').split(',')[0], lat: +x.lat, lng: +x.lon, addr: x.display_name || ''})).filter(x => Number.isFinite(x.lat));
+}
+
+/* ---------------- photos & EXIF ---------------- */
+async function readExif(file){
+  try {
+    const v = new DataView(await file.slice(0, 512*1024).arrayBuffer());
+    if(v.byteLength < 4 || v.getUint16(0) !== 0xFFD8) return null;
+    let o = 2;
+    while(o + 10 < v.byteLength){
+      const mk = v.getUint16(o); if((mk & 0xFF00) !== 0xFF00) break;
+      const len = v.getUint16(o+2);
+      if(mk === 0xFFE1 && v.getUint32(o+4) === 0x45786966) return parseTiff(v, o+10);
+      if(mk === 0xFFDA) break;
+      o += 2 + len;
+    }
+  } catch(_){}
+  return null;
+}
+function parseTiff(v, t){
+  const le = v.getUint16(t) === 0x4949;
+  const u16 = p => v.getUint16(p, le), u32 = p => v.getUint32(p, le);
+  const TS = {1:1,2:1,3:2,4:4,5:8,7:1,9:4,10:8};
+  const ifd = off => { const out = {}; const p = t+off; const n = u16(p); for(let i=0;i<n;i++){ const e = p+2+i*12; out[u16(e)] = {type:u16(e+2), count:u32(e+4), vo:e+8}; } return out; };
+  const at = en => ((TS[en.type]||1)*en.count > 4) ? t + u32(en.vo) : en.vo;
+  const rat = p => { const b = u32(p+4); return b ? u32(p)/b : NaN; };
+  const ch = en => String.fromCharCode(v.getUint8(at(en)));
+  const ascii = en => { const p = at(en); let s=''; for(let i=0;i<en.count;i++){ const c=v.getUint8(p+i); if(!c) break; s += String.fromCharCode(c); } return s; };
+  const res = {};
+  try {
+    const ifd0 = ifd(u32(t+4));
+    if(ifd0[0x8825]){
+      const g = ifd(u32(ifd0[0x8825].vo));
+      const dms = en => { const p = at(en); return rat(p) + rat(p+8)/60 + rat(p+16)/3600; };
+      if(g[2] && g[4]){ let lat = dms(g[2]), lng = dms(g[4]); if(g[1] && ch(g[1]) === 'S') lat = -lat; if(g[3] && ch(g[3]) === 'W') lng = -lng;
+        if(Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0)){ res.lat = lat; res.lng = lng; } }
+    }
+    if(ifd0[0x8769]){
+      const x = ifd(u32(ifd0[0x8769].vo)); const en = x[0x9003] || x[0x9004];
+      if(en){ const m = ascii(en).match(/^(\d{4}):(\d{2}):(\d{2})[ T](\d{2}):(\d{2})/); if(m && m[1] !== '0000'){ res.date = `${m[1]}-${m[2]}-${m[3]}`; res.time = `${m[4]}:${m[5]}`; } }
+    }
+  } catch(_){}
+  return res;
+}
+const isHeic = f => /hei[cf]/i.test(f.type || '') || /\.hei[cf]$/i.test(f.name || '');
+function applyExif(ex, heic){
+  const d = S.draft; if(!d) return;
+  if(ex && Number.isFinite(ex.lat)){
+    d.exifMsg = '';
+    if(!hasLoc(d)){ d.lat = ex.lat; d.lng = ex.lng; d.bld = null; d.locSrc = '사진 위치'; d.photoGps = null; fillFromReverse(d);
+      d.exifMsg = '사진 위치로 정했어요. "지도에서 건물 고르기"로 건물을 콕 집으면 더 정확해져요.'; }
+    else if(hav(d, ex) > 150) d.photoGps = {lat: ex.lat, lng: ex.lng};
+  } else if(!hasLoc(d) && !d.photoGps){
+    d.exifMsg = heic ? 'HEIC 사진에서는 위치를 읽지 못해요. 카메라 저장 형식을 JPG로 두면 자동으로 채워져요.'
+      : "이 사진에는 위치 정보가 없어요. 카메라 설정에서 '위치 태그'를 켜 두면 다음부터 자동으로 채워져요.";
+  }
+  if(ex && ex.date && !d.id && !d.dateTouched){ d.date = ex.date; if(!d.time && ex.time) d.time = ex.time; }
+}
+async function resizeImage(file){
+  let bmp;
+  try { bmp = await createImageBitmap(file, {imageOrientation: 'from-image'}); }
+  catch(_){ bmp = await new Promise((res, rej) => { const img = new Image(); img.onload = () => res(img); img.onerror = rej; img.src = URL.createObjectURL(file); }); }
+  const W = bmp.width, H = bmp.height, k = Math.min(1, 1800/Math.max(W, H));
+  const cv = document.createElement('canvas'); cv.width = Math.round(W*k); cv.height = Math.round(H*k);
+  cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height);
+  return await new Promise((res, rej) => cv.toBlob(b => b ? res(b) : rej(new Error('encode')), 'image/jpeg', 0.84));
+}
+async function addPhotos(files){
+  const d = S.draft; if(!d || !files.length) return;
+  d.uploading += files.length; keepScroll(renderEditor);
+  for(const f of files){
+    const ex = await readExif(f); if(S.draft === d) applyExif(ex, isHeic(f));
+    try {
+      const blob = await resizeImage(f); const id = newId();
+      await DB.putPhoto(id, blob);
+      if(S.draft !== d){ await DB.delPhoto(id); continue; }
+      d.photos.push({id}); d.uploaded.push(id);
+    } catch(_){ toast(isHeic(f) ? '이 기기에서는 HEIC 사진을 열 수 없어요. JPG로 바꿔 올려 주세요.' : '사진을 저장하지 못했어요'); }
+    d.uploading--; if(S.draft === d) keepScroll(renderEditor);
+  }
+  if(S.draft === d && hasLoc(d) && d.locSrc === '사진 위치') map.flyTo({center:[d.lng, d.lat], zoom: 17, pitch: S.is3D ? 55 : 0});
+}
+
+/* ---------------- panels ---------------- */
+function openPanel(kind){
+  S.panel = kind; panel.hidden = false;
+  if(kind === 'detail') renderDetail(); else if(kind === 'edit') renderEditor(); else if(kind === 'list') renderList(); else if(kind === 'search') renderSearch(); else if(kind === 'menu') renderMenu();
+  applyPerm();
+}
+function closePanel(){ panel.hidden = true; S.panel = null; applyPerm(); }
+function keepScroll(fn){ const sc = panel.querySelector('.scroll'); const top = sc ? sc.scrollTop : 0; fn(); const sc2 = panel.querySelector('.scroll'); if(sc2) sc2.scrollTop = top; }
+function applyPerm(){
+  document.body.classList.toggle('panel-open', !panel.hidden);
+  $('#addBtn').hidden = !!S.placing || (!panel.hidden && (window.innerWidth < 900 || S.panel === 'edit'));
+}
+window.addEventListener('resize', applyPerm);
+const head = (kicker) => `<div class="grab"></div><div class="p-head"><div class="p-kicker">${kicker}</div><button class="x" data-act="close" aria-label="닫기">×</button></div>`;
+
+function selectRec(id){
+  const r = S.recs.find(x => x.id === id); if(!r) return;
+  stopOrbit();
+  S.selId = id; S.selDay = r.date || null;
+  openPanel('detail'); renderMap();
+  if(hasLoc(r)){
+    const off = window.innerWidth >= 900 ? [-200, 0] : [0, -Math.round(window.innerHeight*0.22)];
+    map.easeTo({center:[r.lng, r.lat], zoom: Math.max(map.getZoom(), 16.3), pitch: S.is3D ? 55 : 0, offset: off, duration: 700});
+  }
+}
+function renderDetail(){
+  const r = S.recs.find(x => x.id === S.selId); if(!r){ closePanel(); return; }
+  const c = CAT[r.cat] || CAT.etc;
+  const same = r.date ? S.recs.filter(x => x.date === r.date).sort(sortVisit) : [];
+  const spec = [['Architect','건축가', r.architect], ['Completed','준공', r.year], ['Program','용도', r.use], ['Structure','구조·재료', r.material], ['Visited','방문', dayLabel(r.date) + (r.time ? ' ' + r.time : '')], ['Height','높이', r.bld ? `약 ${Math.round(r.bld.h)} m` : '']].filter(x => x[2]);
+  const photos = r.photos || [];
+  panel.innerHTML = head(`${symIcon(r.cat)}<span>${esc(c.name)}${r.example ? ' · 예시' : ''}</span>`) + `<div class="scroll">
+    ${photos.length ? `<div class="ph-strip">${photos.map((p,i) => `<img data-photo="${esc(p.id)}" data-ph="${i}" alt="${esc(r.name)} 사진 ${i+1}">`).join('')}</div>` : ''}
+    <h2 class="p-title">${esc(r.name)}</h2>
+    <p class="p-sub">${esc([r.region, r.address].filter(Boolean).join(' · ') || '지역 미정')}</p>
+    ${r.rating ? `<div class="stars">${stars(r.rating)}</div>` : ''}
+    ${spec.length ? `<dl class="spec">${spec.map(([en,ko,v]) => `<dt>${en}<br><span style="letter-spacing:0;text-transform:none">${ko}</span></dt><dd>${esc(v)}</dd>`).join('')}</dl>` : ''}
+    ${r.memo ? `<p class="memo">${esc(r.memo)}</p>` : ''}
+    ${(r.tags||[]).length ? `<div class="tags">${r.tags.map(t => `<span class="tag">#${esc(t)}</span>`).join('')}</div>` : ''}
+    ${hasLoc(r) ? `<div class="coords">${fmtCoord(r.lat, r.lng)}</div>
+    <div class="links">
+      <button class="btn sm acc" data-act="orbit">건물 둘러보기</button>
+      <a class="btn sm" href="https://www.google.com/maps/search/?api=1&query=${r.lat},${r.lng}" target="_blank" rel="noopener">구글 지도</a>
+      <a class="btn sm" href="https://map.naver.com/p/search/${encodeURIComponent(r.name)}" target="_blank" rel="noopener">네이버 지도</a>
+      <a class="btn sm" href="https://map.kakao.com/link/map/${encodeURIComponent(r.name)},${r.lat},${r.lng}" target="_blank" rel="noopener">카카오맵</a>
+    </div>` : ''}
+    ${same.length > 1 ? `<div class="sameday"><span class="k">같은 날 동선 · ${esc(shortDay(r.date))}</span><ol>${same.map((x,i) => `<li><button data-goto="${esc(x.id)}" aria-current="${x.id===r.id}">${symIcon(x.cat,12)}${i+1}. ${esc(x.name)}</button></li>`).join('')}</ol></div>` : ''}
+    <div class="p-actions"><button class="btn pri" data-act="edit">수정</button><button class="btn" data-act="relocate">위치 다시 정하기</button><button class="btn danger" data-act="askDel">삭제</button></div>
+    <div class="confirm" id="confirm" hidden><p>이 기록을 삭제할까요?${photos.length ? ` 사진 ${photos.length}장도 함께 지워져요.` : ''} 되돌릴 수 없어요.</p><button class="btn sm" data-act="noDel">취소</button><button class="btn sm danger solid" data-act="del">삭제</button></div>
+  </div>`;
+  hydrate(panel);
+}
+
+function blankDraft(){ return {id:null, name:'', cat:'arch', date: todayStr(), time:'', lat:null, lng:null, bld:null, region:'', address:'', architect:'', year:'', use:'', material:'', rating:0, memo:'', tags:'', photos:[], uploaded:[], removed:[], uploading:0, names:[], locSrc:'', photoGps:null, exifMsg:''}; }
+function openEditor(id){
+  const r = id && S.recs.find(x => x.id === id);
+  S.draft = r ? {...blankDraft(), ...r, tags:(r.tags||[]).join(', '), photos:[...(r.photos||[])], uploaded:[], removed:[], uploading:0, names:[], id:r.id} : blankDraft();
+  openPanel('edit');
+}
+function fld(key, label, ph=''){ const d = S.draft; return `<div class="fld"><label for="f-${key}">${label}</label><input type="text" id="f-${key}" data-f="${key}" value="${esc(d[key])}" placeholder="${esc(ph)}" autocomplete="off"${key==='region' ? ' list="regionList"' : ''}></div>`; }
+function prevMatch(){ const d = S.draft; if(!d || !d.name.trim()) return null; return [...S.recs].filter(r => r.id !== d.id && hasLoc(r) && normName(r.name) === normName(d.name)).sort((a,b) => (b.date||'').localeCompare(a.date||''))[0] || null; }
+function prevLocHTML(){ const p = prevMatch(), d = S.draft; if(!p || (hasLoc(d) && hav(d, p) < 30)) return ''; return `<button type="button" class="btn sm" data-act="prevLoc">지난 방문(${esc(shortDay(p.date))}) 위치 쓰기</button>`; }
+function renderEditor(){
+  const d = S.draft; if(!d){ closePanel(); return; }
+  const regions = [...new Set(S.recs.map(r => r.region).filter(Boolean))];
+  panel.innerHTML = head(d.id ? '기록 수정' : '새 답사 기록') + `<div class="scroll"><form class="form" id="form" novalidate>
+    <div class="fld"><label for="f-name">장소 이름</label>
+      <div class="namebox"><input type="text" id="f-name" data-f="name" value="${esc(d.name)}" placeholder="예: 영화의전당" autocomplete="off" list="nameList" enterkeyhint="search"><button type="button" class="btn" data-act="findName">지도에서 찾기</button></div>
+      <datalist id="nameList">${[...new Set(S.recs.map(r => r.name))].map(n => `<option value="${esc(n)}">`).join('')}</datalist>
+      ${d.names.length ? `<div class="sugs">${d.names.map((n,i) => `<button type="button" class="sug" data-act="sug" data-i="${i}">${esc(n)}</button>`).join('')}</div><p class="hint">근처에서 찾은 이름이에요. 누르면 이름에 넣어요.</p>` : ''}
+      <div id="prevLoc">${prevLocHTML()}</div>
+    </div>
+    <div class="fld"><span class="lab">위치</span>
+      <div class="locbox">
+        <div class="locnow${hasLoc(d) ? '' : ' none'}">${hasLoc(d) ? fmtCoord(d.lat, d.lng) + (d.locSrc ? `<span class="locsrc">${esc(d.locSrc)}${d.bld ? ` · 높이 약 ${Math.round(d.bld.h)}m` : ''}</span>` : '') : '아직 위치가 없어요'}</div>
+        <div class="locbtns">
+          <button type="button" class="btn sm ${hasLoc(d) ? '' : 'acc'}" data-act="place">${hasLoc(d) ? '지도에서 다시 고르기' : '지도에서 건물 고르기'}</button>
+          <button type="button" class="btn sm" data-act="photoLoc">사진으로</button>
+          <button type="button" class="btn sm" data-act="meLoc">현재 위치</button>
+        </div>
+        ${d.photoGps && (!hasLoc(d) || hav(d, d.photoGps) > 150) ? `<button type="button" class="btn sm acc" data-act="usePhotoGps">사진에 찍힌 위치로 바꾸기</button>` : ''}
+        ${d.exifMsg ? `<p class="hint">${esc(d.exifMsg)}</p>` : ''}
+      </div></div>
+    <div class="fld"><span class="lab">종류</span><div class="cats" role="group" aria-label="종류">${CATS.map(c => `<button type="button" data-act="cat" data-cat="${c.id}" aria-pressed="${d.cat===c.id}">${symIcon(c.id)}${c.name}</button>`).join('')}</div></div>
+    <div class="row2"><div class="fld"><label for="f-date">방문 날짜</label><input type="date" id="f-date" data-f="date" value="${esc(d.date)}"></div>
+      <div class="fld"><label for="f-time">시각 (동선 순서)</label><input type="time" id="f-time" data-f="time" value="${esc(d.time)}"></div></div>
+    <div class="row2">${fld('region','지역','부산 해운대구')}${fld('address','주소','선택')}</div>
+    <datalist id="regionList">${regions.map(x => `<option value="${esc(x)}">`).join('')}</datalist>
+    <div class="section-t">Building data · 건축 정보</div>
+    <div class="row2">${fld('architect','건축가')}${fld('year','준공 연도')}</div>
+    <div class="row2">${fld('use','용도')}${fld('material','구조·재료')}</div>
+    <div class="section-t">Notes · 감상</div>
+    <div class="fld"><span class="lab">별점</span><div class="rate" role="group" aria-label="별점">${[1,2,3,4,5].map(n => `<button type="button" data-act="rate" data-n="${n}" class="${n<=d.rating?'on':''}" aria-label="${n}점">★</button>`).join('')}</div></div>
+    <div class="fld"><label for="f-memo">감상 메모</label><textarea id="f-memo" data-f="memo" placeholder="공간의 첫인상, 빛, 재료, 동선에서 느낀 점">${esc(d.memo)}</textarea></div>
+    ${fld('tags','태그','쉼표로 구분: 노출콘크리트, 공공건축')}
+    <div class="fld"><span class="lab">사진</span><div class="phedit">
+      ${d.photos.map((p,i) => `<div class="th"><img data-photo="${esc(p.id)}" alt=""><button type="button" data-act="rmph" data-i="${i}" aria-label="사진 빼기">×</button></div>`).join('')}
+      ${Array.from({length: d.uploading}, () => '<div class="busy">저장 중</div>').join('')}
+      <label class="add" for="f-photo">+ 사진<br>추가</label><input type="file" id="f-photo" accept="image/*" multiple hidden></div></div>
+    <p class="err" id="ferr" hidden></p>
+  </form></div>
+  <div class="formbar"><button type="button" class="btn" data-act="close">취소</button><button type="button" class="btn pri" data-act="save" id="saveBtn">${d.id ? '저장' : '기록 저장'}</button></div>`;
+  hydrate(panel);
+}
+function showErr(msg){ const el = $('#ferr'); if(el){ el.textContent = msg; el.hidden = !msg; if(msg) el.scrollIntoView({block:'nearest'}); } }
+async function saveDraft(){
+  const d = S.draft;
+  if(!d.name.trim()) return showErr('장소 이름을 적어 주세요.');
+  if(!hasLoc(d)) return showErr('위치를 정해 주세요. "지도에서 건물 고르기"를 누르고 건물을 탭하면 돼요.');
+  if(d.uploading) return showErr('사진을 저장하는 중이에요. 잠시만 기다려 주세요.');
+  const prev = d.id && S.recs.find(r => r.id === d.id);
+  const rec = {
+    id: d.id || newId(), name: d.name.trim(), cat: d.cat, date: d.date || '', time: d.time || '',
+    lat: +(+d.lat).toFixed(6), lng: +(+d.lng).toFixed(6), bld: d.bld || null,
+    region: String(d.region||'').trim(), address: String(d.address||'').trim(), architect: String(d.architect||'').trim(), year: String(d.year||'').trim(), use: String(d.use||'').trim(), material: String(d.material||'').trim(),
+    rating: d.rating || 0, memo: d.memo || '', tags: String(d.tags||'').split(/[,#\n]+/).map(s => s.trim()).filter(Boolean).slice(0, 20),
+    photos: d.photos.map(p => ({id: p.id})), example: false,
+    createdAt: prev ? (prev.createdAt || Date.now()) : Date.now(), updatedAt: Date.now(),
+  };
+  try {
+    await DB.putRec(rec);
+    for(const pid of d.removed){ try { await DB.delPhoto(pid); } catch(_){} }
+    S.draft = null; S.selId = rec.id; S.selDay = rec.date || null;
+    await reload(); openPanel('detail');
+    toast(prev ? '수정했어요' : '기록했어요');
+  } catch(_){ showErr('저장하지 못했어요. 브라우저 저장 공간을 확인해 주세요.'); }
+}
+async function cancelEdit(){
+  const d = S.draft;
+  if(d) for(const id of d.uploaded){ try { await DB.delPhoto(id); } catch(_){} }
+  S.draft = null;
+  if(d && d.id && S.recs.some(r => r.id === d.id)){ S.selId = d.id; openPanel('detail'); } else closePanel();
+}
+async function deleteRec(id){
+  const r = S.recs.find(x => x.id === id); if(!r) return;
+  await DB.delRec(id);
+  for(const p of r.photos||[]){ try { await DB.delPhoto(p.id); } catch(_){} }
+  S.selId = null; S.selDay = null; closePanel(); await reload(); toast('기록을 삭제했어요');
+}
+
+/* search */
+let searchQ = '', searchRes = [], searchMsg = '', searchFor = 'new';
+function renderSearch(){
+  panel.innerHTML = head('장소 검색') + `<div class="scroll">
+    <form id="sForm" class="fld" style="margin-top:2px"><div class="namebox"><input type="search" id="sQ" value="${esc(searchQ)}" placeholder="건물·장소 이름, 주소" autocomplete="off" enterkeyhint="search"><button class="btn pri" type="submit">검색</button></div></form>
+    <p class="hint" style="margin-top:6px">${esc(searchMsg || '찾은 곳으로 지도가 이동하면, 건물을 탭해 기록할 위치를 정하세요. 지금 보고 있는 지역을 먼저 찾아요.')}</p>
+    <div class="res">${searchRes.map((x,i) => `<button data-act="pickRes" data-i="${i}"><b>${esc(x.name)}</b><span>${esc(x.addr)}</span></button>`).join('')}</div>
+    <p class="hint" style="margin-top:14px">검색 © OpenStreetMap Nominatim</p>
+  </div>`;
+  setTimeout(() => { const q = $('#sQ'); if(q && !searchRes.length) q.focus(); }, 60);
+}
+async function doSearch(q){
+  searchQ = q.trim(); if(!searchQ) return;
+  searchMsg = '찾는 중…'; searchRes = []; renderSearch();
+  try { searchRes = await searchPlaces(searchQ); searchMsg = searchRes.length ? '' : '찾은 곳이 없어요. 이름을 줄이거나 지역 이름을 함께 적어 보세요. 못 찾으면 지도를 직접 움직여 건물을 탭해도 돼요.'; }
+  catch(_){ searchMsg = '검색하지 못했어요. 인터넷 연결을 확인하고 잠시 후 다시 시도해 주세요.'; }
+  if(S.panel === 'search') renderSearch();
+}
+
+/* list */
+function renderList(){
+  const list = visible();
+  const counts = {}; for(const r of S.recs){ const k = CAT[r.cat] ? r.cat : 'etc'; counts[k] = (counts[k]||0)+1; }
+  let h = `<div class="chips" role="group" aria-label="종류 필터">${CATS.map(c => `<button class="chip" data-act="chip" data-cat="${c.id}" aria-pressed="${S.cats.has(c.id)}">${symIcon(c.id)}${c.name} ${counts[c.id]||0}</button>`).join('')}</div>`;
+  if(!S.recs.length) h += `<p class="note" style="margin-top:12px">아직 기록이 없어요. 기록 추가를 누르고 건물을 탭해 첫 장소를 남겨 보세요. Claude 답사 지도에서 내보낸 파일이 있다면 메뉴의 가져오기로 불러올 수 있어요.</p>`;
+  const days = [...byDay(list)].sort((a,b) => (b[0]||'').localeCompare(a[0]||''));
+  let curM = null;
+  for(const [day, rs] of days){
+    const m = day ? day.slice(0,7) : '';
+    if(m !== curM){ if(curM !== null) h += '</section>'; curM = m; const {y, m:mm} = dParts(day); h += `<section class="month"><h2>${day ? `${y}년 ${mm}월` : '날짜 없음'}</h2>`; }
+    const regs = [...new Set(rs.map(regionKey).filter(k => k !== '지역 미정'))];
+    h += `<article class="day"><header><time>${esc(dayLabel(day))}</time><span class="meta">${esc(regs.join(' · ') || '지역 미정')} · ${rs.length}곳</span>${day ? `<button class="btn sm" data-act="dayMap" data-day="${esc(day)}">동선 보기</button>` : ''}</header>
+      <div class="linewrap"><ol class="stops">${rs.map((r,i) => `<li><button data-goto="${esc(r.id)}"><span class="node">${symIcon(r.cat, 22)}</span><span class="nm">${esc(r.name)}</span><span class="sm">${r.time ? esc(r.time) : String(i+1).padStart(2,'0')}</span></button></li>`).join('')}</ol></div></article>`;
+  }
+  if(curM !== null) h += '</section>';
+  panel.innerHTML = head('기록 목록') + `<div class="scroll">${h}</div>`;
+}
+
+/* menu: export / import */
+function renderMenu(){
+  const ex = S.recs.filter(r => r.example).length;
+  panel.innerHTML = head('내보내기 · 가져오기') + `<div class="scroll">
+    <p class="note">기록과 사진은 이 브라우저에만 저장돼요. 브라우저 데이터를 지우면 함께 사라지니, 가끔 내보내기 파일로 백업해 두세요. 이 파일은 Claude 답사 지도에서도 그대로 가져올 수 있어요.</p>
+    <div class="menu-list">
+      <button class="btn" data-act="export" data-photos="1">내보내기 · 사진 포함 (JSON)</button>
+      <button class="btn" data-act="export" data-photos="0">내보내기 · 사진 빼고 가볍게</button>
+      <button class="btn" data-act="import">가져오기 · 답사 지도 JSON 파일</button>
+      ${ex ? `<button class="btn danger" data-act="clearEx">예시 기록 ${ex}개 지우기</button>` : ''}
+    </div>
+    <p class="hint" style="margin-top:14px">지도 © OpenFreeMap · OpenMapTiles · OpenStreetMap 기여자. 위성 사진 © Esri.</p>
+  </div>`;
+}
+const blobToDataURL = b => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(b); });
+async function exportData(withPhotos){
+  toast('파일을 만드는 중…', 8000);
+  const recs = await DB.allRecs(); const photos = {};
+  if(withPhotos) for(const r of recs) for(const p of r.photos||[]){ try { const b = await DB.getPhoto(p.id); if(b) photos[p.id] = await blobToDataURL(b); } catch(_){} }
+  const data = {app:'dapsa-map', version:1, source:'3d', exportedAt: new Date().toISOString(), records: recs, photos};
+  const blob = new Blob([JSON.stringify(data)], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `답사기록-${todayStr()}${withPhotos ? '' : '-사진제외'}.json`;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+  toast(`기록 ${recs.length}개를 내보냈어요`);
+}
+function cleanRec(r){
+  const s = v => String(v ?? '').slice(0, 2000);
+  const lat = +r.lat, lng = +r.lng;
+  let bld = null;
+  if(r.bld && Array.isArray(r.bld.ring) && r.bld.ring.length >= 4) bld = {ring: r.bld.ring.filter(p => Array.isArray(p) && p.length >= 2).map(p => [+p[0], +p[1]]).slice(0, 400), h: +r.bld.h || 6, b: +r.bld.b || 0};
+  return {
+    id: s(r.id).slice(0, 120), name: s(r.name).slice(0, 120), cat: CAT[r.cat] ? r.cat : 'etc', date: /^\d{4}-\d{2}-\d{2}$/.test(r.date||'') ? r.date : '', time: /^\d{2}:\d{2}$/.test(r.time||'') ? r.time : '',
+    lat: Number.isFinite(lat) ? lat : null, lng: Number.isFinite(lng) ? lng : null, bld,
+    region: s(r.region), address: s(r.address), architect: s(r.architect), year: s(r.year), use: s(r.use), material: s(r.material),
+    rating: Math.max(0, Math.min(5, Math.round(+r.rating || 0))), memo: s(r.memo), tags: Array.isArray(r.tags) ? r.tags.map(t => s(t).slice(0, 40)).slice(0, 20) : [],
+    photos: Array.isArray(r.photos) ? r.photos.filter(p => p && p.id).map(p => ({id: s(p.id).slice(0, 80)})) : [],
+    example: !!r.example, createdAt: +r.createdAt || Date.now(), updatedAt: +r.updatedAt || Date.now(),
+  };
+}
+async function importData(file){
+  let j; try { j = JSON.parse(await file.text()); } catch(_){ toast('파일을 읽지 못했어요. 답사 지도에서 내보낸 JSON 파일인지 확인해 주세요.'); return; }
+  if(!j || !Array.isArray(j.records)){ toast('답사 지도 기록 파일이 아니에요.'); return; }
+  toast('가져오는 중…', 10000);
+  const cur = new Map(S.recs.map(r => [r.id, r]));
+  let add = 0, upd = 0, same = 0, nophoto = 0;
+  for(const raw of j.records){
+    if(!raw || !raw.id || !raw.name) continue;
+    const r = cleanRec(raw); const old = cur.get(r.id);
+    if(old && (old.updatedAt||0) >= (r.updatedAt||0)){ same++; continue; }
+    const keep = [];
+    for(const p of r.photos){
+      const du = j.photos && j.photos[p.id];
+      if(await DB.getPhoto(p.id)){ keep.push(p); continue; }
+      if(typeof du === 'string' && du.startsWith('data:image/')){ try { const b = await (await fetch(du)).blob(); await DB.putPhoto(p.id, b); keep.push(p); } catch(_){ nophoto++; } }
+      else nophoto++;
+    }
+    r.photos = keep;
+    await DB.putRec(r); old ? upd++ : add++;
+  }
+  await reload(); fitAll(true);
+  toast(`새 기록 ${add}개, 갱신 ${upd}개${same ? `, 이미 최신 ${same}개` : ''}${nophoto ? ` · 사진 ${nophoto}장은 파일에 없어 빠졌어요` : ''}`, 5000);
+}
+$('#fImport').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if(f) importData(f); });
+
+/* lightbox */
+let LB = {ids: [], i: 0};
+async function openLB(ids, i){ LB = {ids, i}; const u = await photoURL(ids[i]); if(!u) return; $('#lbImg').src = u; $('#lb').hidden = false; $('#lbPrev').hidden = $('#lbNext').hidden = ids.length < 2; }
+async function stepLB(n){ LB.i = (LB.i + n + LB.ids.length) % LB.ids.length; const u = await photoURL(LB.ids[LB.i]); if(u) $('#lbImg').src = u; }
+$('#lbX').onclick = () => $('#lb').hidden = true;
+$('#lbPrev').onclick = () => stepLB(-1); $('#lbNext').onclick = () => stepLB(1);
+$('#lb').addEventListener('click', e => { if(e.target.id === 'lb') $('#lb').hidden = true; });
+
+/* ---------------- panel events ---------------- */
+panel.addEventListener('click', async e => {
+  const t = e.target;
+  const go = t.closest('[data-goto]'); if(go){ selectRec(go.dataset.goto); return; }
+  const ph = t.closest('[data-ph]'); if(ph && S.panel === 'detail'){ const r = S.recs.find(x => x.id === S.selId); openLB((r.photos||[]).map(p => p.id), +ph.dataset.ph); return; }
+  const b = t.closest('[data-act]'); if(!b) return;
+  const act = b.dataset.act, d = S.draft;
+  switch(act){
+    case 'close': if(S.panel === 'edit') cancelEdit(); else if(S.panel === 'search' && searchFor === 'draft' && S.draft) openPanel('edit'); else { closePanel(); if(S.selId){ S.selId = null; S.selDay = null; renderMap(); } } break;
+    case 'edit': openEditor(S.selId); break;
+    case 'relocate': openEditor(S.selId); startPlacing('draft'); break;
+    case 'orbit': { const r = S.recs.find(x => x.id === S.selId); if(r && hasLoc(r)){ if(!S.is3D) $('#t3d').click(); orbit(r); if(window.innerWidth < 900) closePanel(); } break; }
+    case 'askDel': $('#confirm').hidden = false; break;
+    case 'noDel': $('#confirm').hidden = true; break;
+    case 'del': b.disabled = true; deleteRec(S.selId); break;
+    case 'save': saveDraft(); break;
+    case 'place': startPlacing('draft'); break;
+    case 'findName': searchFor = 'draft'; searchRes = []; searchMsg = ''; searchQ = d ? d.name : ''; openPanel('search'); if(searchQ) doSearch(searchQ); break;
+    case 'sug': if(d){ d.name = d.names[+b.dataset.i] || d.name; keepScroll(renderEditor); } break;
+    case 'prevLoc': { const p = prevMatch(); if(p && d){ for(const k of ['region','address','architect','year','use','material']) if(!String(d[k]||'').trim() && p[k]) d[k] = p[k]; if(!d.id) d.cat = p.cat; d.lat = p.lat; d.lng = p.lng; d.bld = p.bld || null; d.locSrc = '지난 방문'; keepScroll(renderEditor); } break; }
+    case 'photoLoc': $('#f-photo') && $('#f-photo').click(); break;
+    case 'meLoc': locate(true, ll => { if(S.draft === d){ d.lat = ll[1]; d.lng = ll[0]; d.bld = null; d.locSrc = '현재 위치'; fillFromReverse(d); keepScroll(renderEditor); toast('현재 위치로 정했어요. 건물을 고르면 더 정확해져요'); } }); break;
+    case 'usePhotoGps': if(d && d.photoGps){ d.lat = d.photoGps.lat; d.lng = d.photoGps.lng; d.bld = null; d.photoGps = null; d.locSrc = '사진 위치'; keepScroll(renderEditor); } break;
+    case 'cat': if(d){ d.cat = b.dataset.cat; for(const x of panel.querySelectorAll('.cats button')) x.setAttribute('aria-pressed', x.dataset.cat === d.cat); } break;
+    case 'rate': if(d){ const n = +b.dataset.n; d.rating = d.rating === n ? 0 : n; for(const x of panel.querySelectorAll('.rate button')) x.classList.toggle('on', +x.dataset.n <= d.rating); } break;
+    case 'rmph': if(d){ const [p] = d.photos.splice(+b.dataset.i, 1); if(p){ if(d.uploaded.includes(p.id)){ d.uploaded = d.uploaded.filter(x => x !== p.id); try { await DB.delPhoto(p.id); } catch(_){} } else d.removed.push(p.id); } keepScroll(renderEditor); } break;
+    case 'pickRes': { const x = searchRes[+b.dataset.i]; if(!x) break; if(searchFor === 'new'){ S.pendingName = x.name; S.draft = null; } else if(S.draft && !S.draft.name) S.draft.name = x.name;
+      const f = searchFor === 'draft' && S.draft ? 'draft' : 'new';
+      closePanel(); map.flyTo({center:[x.lng, x.lat], zoom: 17.4, pitch: S.is3D ? 55 : 0, duration: 1000});
+      startPlacing(f); toast('찾은 곳으로 왔어요. 기록할 건물을 탭하세요', 4000); break; }
+    case 'chip': { const id = b.dataset.cat; if(S.cats.size === CATS.length) S.cats = new Set([id]); else if(S.cats.has(id)){ S.cats.delete(id); if(!S.cats.size) S.cats = new Set(CATS.map(c => c.id)); } else S.cats.add(id); renderList(); renderMap(); break; }
+    case 'dayMap': { S.selDay = b.dataset.day; S.selId = null; const rs = S.recs.filter(r => r.date === S.selDay && hasLoc(r)); if(window.innerWidth < 900) closePanel(); renderMap();
+      if(rs.length){ const bb = new maplibregl.LngLatBounds(); rs.forEach(r => bb.extend([r.lng, r.lat])); map.fitBounds(bb, {padding:{top:90, bottom:150, left:50, right: window.innerWidth >= 900 ? 450 : 50}, maxZoom:17, pitch: S.is3D ? 50 : 0}); } break; }
+    case 'export': closePanel(); exportData(b.dataset.photos === '1'); break;
+    case 'import': $('#fImport').click(); break;
+    case 'clearEx': { const ex = S.recs.filter(r => r.example); for(const r of ex) await DB.delRec(r.id); await reload(); renderMenu(); toast(`예시 ${ex.length}개를 지웠어요`); break; }
+  }
+});
+panel.addEventListener('input', e => {
+  const k = e.target.dataset.f; if(!k || !S.draft) return;
+  S.draft[k] = e.target.value;
+  if(k === 'name'){ const pl = $('#prevLoc'); if(pl) pl.innerHTML = prevLocHTML(); }
+  if(k === 'date' || k === 'time') S.draft.dateTouched = true;
+});
+panel.addEventListener('change', async e => { if(e.target.id === 'f-photo'){ const files = [...e.target.files]; e.target.value = ''; await addPhotos(files); } });
+panel.addEventListener('submit', e => { e.preventDefault(); if(e.target.id === 'sForm') doSearch($('#sQ').value); });
+panel.addEventListener('keydown', e => { if(e.key === 'Enter' && e.target.id === 'f-name' && !e.isComposing){ e.preventDefault(); panel.querySelector('[data-act="findName"]').click(); } });
+
+$('#addBtn').onclick = () => { if(S.draft) for(const id of S.draft.uploaded) DB.delPhoto(id).catch(() => {}); S.draft = null; S.pendingName = ''; startPlacing('new'); };
+$('#bSearch').onclick = () => { searchFor = 'new'; if(S.panel === 'search') closePanel(); else openPanel('search'); };
+$('#bList').onclick = () => { if(S.panel === 'list') closePanel(); else openPanel('list'); };
+$('#bMenu').onclick = () => { if(S.panel === 'menu') closePanel(); else openPanel('menu'); };
+document.addEventListener('keydown', e => {
+  if(e.key !== 'Escape') return;
+  if(!$('#lb').hidden){ $('#lb').hidden = true; return; }
+  if(S.placing){ $('#placeCancel').click(); return; }
+  if(S.panel === 'edit') cancelEdit(); else if(S.panel) closePanel();
+});
+
+/* ---------------- boot ---------------- */
+(async function boot(){
+  if(!window.maplibregl){ $('#offline').hidden = false; }
+  const ok = await DB.open();
+  if(!ok) toast('이 브라우저에서는 기록을 저장할 수 없어요. 창을 닫으면 사라져요.', 6000);
+  try { if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch(_){}
+  await reload();
+  if(window.maplibregl) await initMap();
+  if(S.mapReady && !S.didFit){ S.didFit = true; fitAll(false); }
+  applyPerm();
+})();
+})();
+</script>
+</body>
+</html>
