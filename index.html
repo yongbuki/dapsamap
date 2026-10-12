@@ -26,14 +26,14 @@
   --shadow:0 1px 2px rgba(20,24,23,.08),0 10px 30px rgba(20,24,23,.14);
   --f-sans:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
   --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
-  --hs-shadow:#5B6560; --hs-light:#FFFFFF; --contour:#8A6A3E; --adm:#4F5A9E;
+  --hs-shadow:#5B6560; --hs-light:#FFFFFF; --contour:#7A4E1C; --adm:#4F5A9E;
   --r:10px; color-scheme:light;
 }
 @media (prefers-color-scheme: dark){:root{
   --paper:#121615; --sheet:#1A1F1E; --land:#1E2523; --bldg:#323B38; --ink:#E5E9E6; --ink-2:#A0A9A5; --ink-3:#6E7874;
   --line:#343D3A; --hair:#29312F; --accent:#8D9BFF; --accent-ink:#0F1330; --accent-soft:rgba(141,155,255,.16); --danger:#FF7B71;
   --c-arch:#FF6E61; --c-public:#3DC2C8; --c-park:#6CC47D; --c-street:#E7B23B; --c-interior:#B98BE7; --c-etc:#9BA59F;
-  --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 34px rgba(0,0,0,.45); --hs-shadow:#000000; --hs-light:#4A5552; --contour:#C9A46A; --adm:#A9B2F0; color-scheme:dark}}
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 34px rgba(0,0,0,.45); --hs-shadow:#000000; --hs-light:#4A5552; --contour:#E0B676; --adm:#A9B2F0; color-scheme:dark}}
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
 body{background:var(--paper);color:var(--ink);font-family:var(--f-sans);font-size:14px;line-height:1.5;overflow:hidden;-webkit-tap-highlight-color:transparent}
@@ -64,8 +64,11 @@ button{cursor:pointer}
 .tools button{border:0;background:none;width:38px;height:38px;display:grid;place-items:center;color:var(--ink);font:600 11px var(--f-mono)}
 .tools button + button{border-top:1px solid var(--hair)}
 .tools button[aria-pressed="true"]{background:var(--ink);color:var(--sheet)}
-.zhint{position:absolute;left:50%;top:50px;transform:translateX(-50%);background:var(--sheet);border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:12px;color:var(--ink-2);white-space:nowrap;box-shadow:var(--shadow);z-index:2;pointer-events:none}
+.zhint{position:absolute;left:50%;top:84px;transform:translateX(-50%);background:var(--sheet);border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:12px;color:var(--ink-2);white-space:nowrap;box-shadow:var(--shadow);z-index:2;pointer-events:none}
 .crumb{position:absolute;left:12px;top:12px;max-width:calc(100% - 76px);display:flex;align-items:center;gap:2px;background:var(--sheet);border:1px solid var(--line);border-radius:999px;padding:5px 12px 5px 10px;font-size:12.5px;box-shadow:var(--shadow);z-index:2;white-space:nowrap;overflow:hidden}
+.cint{position:absolute;left:12px;top:50px;background:var(--sheet);border:1px solid var(--line);border-radius:999px;padding:3px 10px;font:500 11px var(--f-mono);color:var(--ink-2);box-shadow:var(--shadow);z-index:2;display:flex;align-items:center;gap:6px;pointer-events:none}
+.cint i{display:inline-block;width:16px;height:0;border-top:2px solid var(--contour)}
+.cint i.mn{border-top-width:1px}
 .crumb svg{flex:none;margin-right:5px;color:var(--adm)}
 .crumb span{overflow:hidden;text-overflow:ellipsis}
 .crumb .sep{color:var(--ink-3);margin:0 3px;flex:none}
@@ -236,11 +239,13 @@ body.placing .mk{pointer-events:none;opacity:.55}
     <div class="tools" role="group" aria-label="지도 보기">
       <button id="t3d" aria-pressed="true" title="3D / 2D 전환">3D</button>
       <button id="tTer" aria-pressed="true" title="지형·등고선">지형</button>
+      <button id="tCon" aria-pressed="false" title="등고선 강조 · 건물을 반투명하게">등고</button>
       <button id="tSat" aria-pressed="false" title="위성 사진">위성</button>
       <button id="tMe" title="현재 위치" aria-label="현재 위치"><svg width="17" height="17" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 1v3M8 12v3M1 8h3M12 8h3" stroke="currentColor" stroke-width="1.6"/></svg></button>
       <button id="tFit" title="전체 기록 보기" aria-label="전체 기록 보기"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>
     </div>
     <div class="crumb" id="crumb" hidden aria-live="polite"><svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.5h12v9H2z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-dasharray="3 1.5 1 1.5"/><circle cx="8" cy="8" r="1.6" fill="currentColor"/></svg><span id="crumbTxt"></span></div>
+    <div class="cint" id="cint" hidden></div>
     <div class="zhint" id="zhint" hidden>확대하면 건물이 입체로 보여요</div>
     <div class="offline" id="offline" hidden><h3>지도를 불러오지 못했어요</h3><p>인터넷 연결을 확인한 뒤 새로고침해 주세요. 기록은 이 기기에 그대로 남아 있어요.</p></div>
   </div>
@@ -342,7 +347,7 @@ function hydrate(root){
 /* ---------------- state ---------------- */
 const S = { recs: [], cats: new Set(CATS.map(c => c.id)), selId: null, selDay: null, panel: null, draft: null,
   placing: null, pick: null, is3D: true, sat: false, mapReady: false, me: null, terrain: true, hasDem: false };
-try { if(localStorage.getItem('dapsa3d.terrain') === '0') S.terrain = false; S.listMode = localStorage.getItem('dapsa3d.listMode') || 'date'; } catch(_){}
+try { if(localStorage.getItem('dapsa3d.terrain') === '0') S.terrain = false; S.listMode = localStorage.getItem('dapsa3d.listMode') || 'date'; S.cfocus = localStorage.getItem('dapsa3d.cfocus') === '1'; } catch(_){}
 const panel = $('#panel');
 function visible(){ return S.recs.filter(r => S.cats.has(CAT[r.cat] ? r.cat : 'etc')); }
 async function reload(){ S.recs = (await DB.allRecs()).filter(r => r && r.id); renderAll(); }
@@ -373,13 +378,16 @@ async function initMap(){
   });
   map.addControl(new maplibregl.NavigationControl({visualizePitch: true}), 'top-right');
   map.on('load', setupLayers);
-  map.on('error', e => { if(!S.mapReady && e && e.error && /style/i.test(String(e.error.message||''))) $('#offline').hidden = false; });
+  map.on('error', e => {
+    if(!S.mapReady && e && e.error && /style/i.test(String(e.error.message||''))) $('#offline').hidden = false;
+    if(e && ['contours','dem','dem-hs'].includes(e.sourceId)){ S.demErrs = (S.demErrs || 0) + 1; if(S.demErrs === 3) toast('지형·등고선 자료 일부를 불러오지 못했어요 · 인터넷 연결을 확인해 주세요', 5000); }
+  });
   map.on('zoom', onZoom);
   map.on('moveend', scheduleCrumb);
   map.on('click', onMapClick);
   map.on('dragstart', () => stopOrbit());
 }
-function onZoom(){ const z = map.getZoom(); document.body.classList.toggle('z-lbl', z >= 14); $('#zhint').hidden = !(z < 13.6 && S.is3D) || !S.mapReady; }
+function onZoom(){ updateCint(); const z = map.getZoom(); document.body.classList.toggle('z-lbl', z >= 14); $('#zhint').hidden = !(z < 13.6 && S.is3D) || !S.mapReady; }
 function setupLayers(){
   const st = map.getStyle();
   const vec = Object.entries(st.sources || {}).find(([, v]) => v.type === 'vector');
@@ -423,6 +431,7 @@ function setupLayers(){
   map.addLayer({id:'drawpts', type:'circle', source:'drawpts', paint:{'circle-radius':['case', ['to-boolean', ['get','first']], 7, 5], 'circle-color': cssVar('--sheet'), 'circle-stroke-color': cssVar('--accent'), 'circle-stroke-width': 2.4}});
   map.addLayer({id:'picked', type:'fill-extrusion', source:'picked', filter:['==', ['get','kind'], 'building'], paint:{'fill-extrusion-color': cssVar('--accent'), 'fill-extrusion-height':['get','h'], 'fill-extrusion-base':['get','b'], 'fill-extrusion-opacity':0.92}}, FIRST_SYM);
   S.mapReady = true;
+  if(S.cfocus) setContourFocus(true);
   onZoom(); renderMap(); scheduleCrumb();
   if(!S.didFit){ S.didFit = true; fitAll(false); }
 }
@@ -452,12 +461,13 @@ function setupTerrain(st){
       const sym = (st.layers || []).find(l => l.type === 'symbol' && l.layout && Array.isArray(l.layout['text-font']));
       const font = sym ? sym.layout['text-font'] : ['Noto Sans Regular'];
       map.addLayer({id:'contour-lines', type:'line', source:'contours', 'source-layer':'contours', minzoom:11,
-        paint:{'line-color': cssVar('--contour'), 'line-width': ['match', ['get','level'], 1, 1.1, 0.5], 'line-opacity': ['match', ['get','level'], 1, 0.75, 0.45]}}, FIRST_SYM);
+        layout:{'line-join':'round'}, paint:{'line-color': cssVar('--contour'), 'line-width': ['match', ['get','level'], 1, 1.7, 0.8], 'line-opacity': ['match', ['get','level'], 1, 0.95, 0.7]}}, FIRST_SYM);
       map.addLayer({id:'contour-labels', type:'symbol', source:'contours', 'source-layer':'contours', minzoom:12, filter:['>', ['get','level'], 0],
-        layout:{'symbol-placement':'line', 'text-size':10, 'text-font': font, 'text-field':['concat', ['number-format', ['get','ele'], {}], ' m'], 'symbol-spacing': 320},
-        paint:{'text-color': cssVar('--ink-2'), 'text-halo-color': cssVar('--paper'), 'text-halo-width': 1.4}}, FIRST_SYM);
+        layout:{'symbol-placement':'line', 'text-size':11, 'text-font': font, 'text-field':['concat', ['number-format', ['get','ele'], {}], ' m'], 'symbol-spacing': 320},
+        paint:{'text-color': cssVar('--contour'), 'text-halo-color': cssVar('--paper'), 'text-halo-width': 1.6}}, FIRST_SYM);
     }
-    S.hasDem = true;
+    S.hasDem = true; S.hasContours = !!contourTiles;
+    if(!contourTiles){ $('#tCon').hidden = true; toast('등고선 도구를 불러오지 못했어요 · 지형 음영만 보여요', 5000); }
     setTerrain(S.terrain);
   } catch(_){ S.hasDem = false; $('#tTer').hidden = true; }
 }
@@ -487,11 +497,36 @@ function setupAdmin(st){
 }
 function setTerrain(on){
   S.terrain = !!on; $('#tTer').setAttribute('aria-pressed', S.terrain);
+  if(!S.terrain && S.cfocus){ S.cfocus = false; $('#tCon').setAttribute('aria-pressed', false); try { localStorage.setItem('dapsa3d.cfocus', '0'); } catch(_){} if(S.mapReady){ try { if(map.getLayer('bldg3d')) map.setPaintProperty('bldg3d', 'fill-extrusion-opacity', bldgOpacity()); if(map.getLayer('visited')) map.setPaintProperty('visited', 'fill-extrusion-opacity', 0.95); if(map.getLayer('contour-lines') && map.getLayer('bldg3d')) map.moveLayer('contour-lines', 'bldg3d'); } catch(_){} } }
+  setTimeout(updateCint, 0);
   try { localStorage.setItem('dapsa3d.terrain', S.terrain ? '1' : '0'); } catch(_){}
   if(!S.mapReady && !S.hasDem) return;
   try {
     map.setTerrain(S.terrain ? {source:'dem', exaggeration: 1} : null);
     for(const id of ['hillshade', 'contour-lines', 'contour-labels']) if(map.getLayer(id)) map.setLayoutProperty(id, 'visibility', S.terrain ? 'visible' : 'none');
+  } catch(_){}
+}
+const CINT = z => z < 11 ? null : z < 12 ? [100, 500] : z < 13 ? [50, 250] : z < 14 ? [20, 100] : z < 15 ? [10, 50] : [5, 25];
+function updateCint(){
+  const el = $('#cint'); if(!el || !map) return;
+  const iv = CINT(map.getZoom());
+  if(!S.terrain || !S.hasContours || !iv){ el.hidden = true; return; }
+  el.innerHTML = `<i class="mn"></i>${iv[0]}m <i></i>${iv[1]}m 등고선`; el.hidden = false;
+}
+function bldgOpacity(){ return S.cfocus ? 0.22 : (S.sat ? 0.55 : 0.9); }
+function setContourFocus(on){
+  S.cfocus = !!on; $('#tCon').setAttribute('aria-pressed', S.cfocus);
+  try { localStorage.setItem('dapsa3d.cfocus', S.cfocus ? '1' : '0'); } catch(_){}
+  if(!S.mapReady) return;
+  if(S.cfocus && !S.terrain) setTerrain(true);
+  try {
+    if(map.getLayer('contour-lines')){
+      if(S.cfocus) map.moveLayer('contour-lines', FIRST_SYM); else if(map.getLayer('bldg3d')) map.moveLayer('contour-lines', 'bldg3d');
+      map.setPaintProperty('contour-lines', 'line-width', S.cfocus ? ['match', ['get','level'], 1, 2.4, 1.1] : ['match', ['get','level'], 1, 1.7, 0.8]);
+    }
+    if(map.getLayer('bldg3d')) map.setPaintProperty('bldg3d', 'fill-extrusion-opacity', bldgOpacity());
+    if(map.getLayer('visited')) map.setPaintProperty('visited', 'fill-extrusion-opacity', S.cfocus ? 0.55 : 0.95);
+    if(map.getLayer('hillshade')) map.setPaintProperty('hillshade', 'hillshade-exaggeration', S.cfocus ? 0.5 : 0.32);
   } catch(_){}
 }
 function elevAt(lng, lat){
@@ -516,7 +551,7 @@ function applyThemeColors(){
     if(map.getLayer('contour-lines')) map.setPaintProperty('contour-lines', 'line-color', cssVar('--contour'));
     for(const id of ['adm-dong','adm-gu','adm-sido']) if(map.getLayer(id)) map.setPaintProperty(id, 'line-color', cssVar('--adm'));
     for(const id of ['zone-gu','zone-dong']) if(map.getLayer(id)){ map.setPaintProperty(id, 'text-color', cssVar('--adm')); map.setPaintProperty(id, 'text-halo-color', cssVar('--paper')); }
-    if(map.getLayer('contour-labels')){ map.setPaintProperty('contour-labels', 'text-color', cssVar('--ink-2')); map.setPaintProperty('contour-labels', 'text-halo-color', cssVar('--paper')); }
+    if(map.getLayer('contour-labels')){ map.setPaintProperty('contour-labels', 'text-color', cssVar('--contour')); map.setPaintProperty('contour-labels', 'text-halo-color', cssVar('--paper')); }
   } catch(_){}
   renderMap();
 }
@@ -583,12 +618,13 @@ $('#t3d').onclick = () => {
   map.easeTo({pitch: S.is3D ? 55 : 0, bearing: S.is3D ? map.getBearing() : 0, zoom: S.is3D && map.getZoom() < 15.2 ? 15.5 : map.getZoom(), duration: 700});
   onZoom();
 };
+$('#tCon').onclick = () => { setContourFocus(!S.cfocus); toast(S.cfocus ? '등고선을 강조했어요 · 건물이 반투명해져요' : '등고선 강조를 껐어요'); };
 $('#tTer').onclick = () => { setTerrain(!S.terrain); toast(S.terrain ? '지형과 등고선을 켰어요' : '지형을 껐어요 · 평평한 지면'); };
 $('#tSat').onclick = () => {
   if(!S.mapReady) return;
   S.sat = !S.sat; $('#tSat').setAttribute('aria-pressed', S.sat);
   map.setLayoutProperty('sat', 'visibility', S.sat ? 'visible' : 'none');
-  if(map.getLayer('bldg3d')) map.setPaintProperty('bldg3d', 'fill-extrusion-opacity', S.sat ? 0.55 : 0.9);
+  if(map.getLayer('bldg3d')) map.setPaintProperty('bldg3d', 'fill-extrusion-opacity', bldgOpacity());
 };
 $('#tFit').onclick = () => { S.selDay = null; S.selId = null; if(S.panel === 'detail') closePanel(); renderMap(); fitAll(true); };
 $('#tMe').onclick = () => locate(true);
@@ -1260,6 +1296,11 @@ function zoneListHTML(list){
   return h || '';
 }
 /* menu: export / import */
+function terrainStatus(){
+  if(!S.mapReady) return '지도 준비 중';
+  let n = 0; try { if(map.getSource('contours')) n = map.querySourceFeatures('contours', {sourceLayer:'contours'}).length; } catch(_){}
+  return `지형 상태 · 지형 ${S.hasDem ? (S.terrain ? '켜짐' : '꺼짐') : '없음'} · 등고선 도구 ${window.mlcontour ? '정상' : '불러오지 못함'} · 지금 화면 등고선 ${S.terrain ? n + '개' : '꺼짐'}${S.demErrs ? ` · 불러오기 실패 ${S.demErrs}건` : ''} · 버전 2026-10-13`;
+}
 function renderMenu(){
   const ex = S.recs.filter(r => r.example).length;
   panel.innerHTML = head('내보내기 · 가져오기') + `<div class="scroll">
@@ -1270,6 +1311,7 @@ function renderMenu(){
       <button class="btn" data-act="import">가져오기 · 답사 지도 JSON 파일</button>
       ${ex ? `<button class="btn danger" data-act="clearEx">예시 기록 ${ex}개 지우기</button>` : ''}
     </div>
+    <p class="hint" style="margin-top:14px">${esc(terrainStatus())}</p>
     <p class="hint" style="margin-top:14px">지형은 약 30m 간격 위성 측량 자료(SRTM 등)라 옹벽·계단 같은 세부 단차는 나타나지 않아요. 표고는 참고용이에요.</p>
     <p class="hint" style="margin-top:8px">지도 © OpenFreeMap · OpenMapTiles · OpenStreetMap 기여자. 지형 © Mapzen Terrain Tiles. 위성 사진 © Esri.</p>
   </div>`;
