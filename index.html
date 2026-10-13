@@ -186,6 +186,8 @@ body.placing .mk{pointer-events:none;opacity:.55}
 #sunDate{border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:6px;padding:5px 8px;font:13px var(--f-mono);justify-self:start}
 #sunbar .seg button{padding:6px 4px}
 #sunMsg{font-size:13px}
+#pmode button{padding:6px 4px;font-size:12.5px}
+#flrow .stp{display:inline-flex;align-items:center;gap:6px}#flrow .stp b{font:600 15px var(--f-mono);min-width:44px;text-align:center}
 .obj{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:8px 0;border-top:1px dashed var(--hair)}
 .obj.off{opacity:.55}
 .obj .ok{font:600 10.5px var(--f-mono);color:var(--sheet);background:var(--draw);border-radius:4px;padding:2px 6px}
@@ -344,6 +346,10 @@ body.placing .toast{bottom:auto;top:calc(66px + env(safe-area-inset-top,0px))}
       <button class="btn sm" id="nAdd">점 추가</button>
       <label id="nOrthoWrap"><input type="checkbox" id="nOrtho"> 직각</label>
       <button class="btn sm" id="nClose" hidden>닫고 완료</button>
+    </div>
+    <div class="numrow" id="flrow" hidden>
+      <span class="stp"><button class="btn sm" id="flM" aria-label="한 층 빼기">−</button><b id="flV">3층</b><button class="btn sm" id="flP" aria-label="한 층 더하기">+</button></span>
+      <label>층고<select id="flFh" aria-label="층고"><option value="auto">용도에 맞게</option><option value="2.9">2.9m</option><option value="3.0">3.0m</option><option value="3.3">3.3m</option><option value="3.6">3.6m</option><option value="4.2">4.2m</option></select></label>
     </div>
     <div class="numrow" id="hfixrow" hidden>
       <label>실제<input type="number" id="hfFl" min="1" max="200" step="1" placeholder="층" aria-label="실제 층수">층</label>
@@ -732,7 +738,7 @@ function applyThemeColors(){
   if(!S.mapReady) return;
   try {
     if(map.getLayer('bldg3d')) map.setPaintProperty('bldg3d', 'fill-extrusion-color', cssVar('--bldg'));
-    if(map.getLayer('vw-bldg')) map.setPaintProperty('vw-bldg', 'fill-extrusion-color', cssVar('--bldg'));
+    if(map.getLayer('vw-bldg') && !FLP) map.setPaintProperty('vw-bldg', 'fill-extrusion-color', cssVar('--bldg'));
     if(map.getLayer('vw-parcel-line')) map.setPaintProperty('vw-parcel-line', 'line-color', cssVar('--parcel'));
     if(map.getLayer('vw-parcel-label')){ map.setPaintProperty('vw-parcel-label', 'text-color', cssVar('--parcel')); map.setPaintProperty('vw-parcel-label', 'text-halo-color', cssVar('--paper')); }
     map.setPaintProperty('routes', 'line-color', cssVar('--ink-2'));
@@ -991,7 +997,7 @@ function bldAt(e){
   try { if(map.getLayer('vw-bldg')) feats = map.queryRenderedFeatures(e.point, {layers:['vw-bldg']}); } catch(_){}
   if(feats.length){
     const k = feats[0].properties && feats[0].properties.k, v = k && VW.bldg.get(k);
-    if(v){ const ring = largestRing(v.geom); if(ring) return {ring: slimRing(ring), h: v.h, b: 0, name: v.name, floors: v.floors, src: v.src, fh: v.fh, use: v.use, fixFl: v.fix ? v.fix.fl : null}; }
+    if(v){ const ring = largestRing(v.geom); if(ring) return {ring: slimRing(ring), h: v.h, b: 0, name: v.name, floors: v.floors, src: v.src, fh: v.fh, use: v.use, fixFl: v.fix ? v.fix.fl : null, estN: v.estN || 0, estFl: v.estFl || null}; }
   }
   try { if(map.getLayer('bldg3d')) feats = map.queryRenderedFeatures(e.point, {layers:['bldg3d']}); } catch(_){}
   if(!feats.length) return null;
@@ -1007,7 +1013,7 @@ function modesFor(forWhat){
   if(forWhat === 'mass') return ['area'];
   if(forWhat === 'section') return ['line'];
   if(forWhat === 'stall') return ['stall'];
-  if(forWhat === 'measure') return ['mdist', 'marea', 'mpick', 'mheight'];
+  if(forWhat === 'measure') return ['mdist', 'marea', 'mpick', 'mheight', 'mfloor'];
   if(forWhat === 'draw') return ['dpoly', 'drect'];
   return ['building', 'land', 'area'];
 }
@@ -1039,7 +1045,7 @@ function startPlacing(forWhat, mode, opts = {}){
 function endPlacing(){
   S.placing = null; document.body.classList.remove('placing');
   $('#placebar').hidden = true; setData('picked', []); setData('drawpts', []); setData('meas', []); setData('meas-lbl', []);
-  $('#numrow').hidden = true; $('#hfixrow').hidden = true; $('#tMeas').setAttribute('aria-pressed', 'false');
+  $('#numrow').hidden = true; $('#hfixrow').hidden = true; $('#flrow').hidden = true; floorPaint(false); $('#tMeas').setAttribute('aria-pressed', 'false');
   if(S.pickPin){ S.pickPin.remove(); S.pickPin = null; }
   try { map.doubleClickZoom.enable(); } catch(_){}
   applyPerm();
@@ -1425,7 +1431,7 @@ async function loadVw(){
             const fl = +(p.gro_flo_co ?? p.GRO_FLO_CO ?? p.grnd_flr ?? 0) || 0, ui = useInfo(p.bdtyp_cd ?? p.BDTYP_CD ?? p.bdtyp_code), h0 = fl > 0 ? Math.max(3, fl*ui.fh) : 6, src = fl > 0 ? 'vw' : 'none';
             const v = {geom: f.geometry, h: h0, base: h0, src, baseSrc: src, floors: fl || null, fh: ui.fh, use: ui.name, name: [p.buld_nm || p.BULD_NM, p.buld_nm_dc || p.BULD_NM_DC].filter(Boolean).join(' ').trim()};
             VW.bldg.set(k, v); vwIdxAdd(k, v); }
-          vwFillMissing(); vwApplyFixes(); bchg = true;
+          vwFillMissing(); vwApplyFixes(); vwEstimate(); bchg = true;
           setData('vw-bldg', vwBldgFeatures());
           if(S.hideEx) applyHideExisting();
         } else if(kind === 'parcel'){
@@ -1895,7 +1901,7 @@ function zoneListHTML(list){
 function terrainStatus(){
   if(!S.mapReady) return '지도 준비 중';
   let n = 0; try { if(map.getSource('contours')) n = map.querySourceFeatures('contours', {sourceLayer:'contours'}).length; } catch(_){}
-  return `지형 상태 · 지형 ${S.hasDem ? (S.terrain ? '켜짐' : '꺼짐') : '없음'} · 지형 보정 ${S.dtm ? '켜짐' : '꺼짐'} · 등고선 도구 ${window.mlcontour ? '정상' : '불러오지 못함'} · 지금 화면 등고선 ${S.terrain ? n + '개' : '꺼짐'}${S.demErrs ? ` · 불러오기 실패 ${S.demErrs}건` : ''} · 브이월드 ${VW.key ? (VW.ok === false ? '오류' : VW.ok ? '연결됨' : '확인 중') : '미연결'} (건물 ${VW.bldg.size} · 필지 ${VW.parcel.size}) · 대지 ${S.sites.length} · 버전 2026-10-13f`;
+  return `지형 상태 · 지형 ${S.hasDem ? (S.terrain ? '켜짐' : '꺼짐') : '없음'} · 지형 보정 ${S.dtm ? '켜짐' : '꺼짐'} · 등고선 도구 ${window.mlcontour ? '정상' : '불러오지 못함'} · 지금 화면 등고선 ${S.terrain ? n + '개' : '꺼짐'}${S.demErrs ? ` · 불러오기 실패 ${S.demErrs}건` : ''} · 브이월드 ${VW.key ? (VW.ok === false ? '오류' : VW.ok ? '연결됨' : '확인 중') : '미연결'} (건물 ${VW.bldg.size} · 필지 ${VW.parcel.size}) · 대지 ${S.sites.length} · 버전 2026-10-13g`;
 }
 function renderMenu(){
   const ex = S.recs.filter(r => r.example).length;
@@ -1910,7 +1916,7 @@ function renderMenu(){
       ${HFIX.list.length ? `<button class="btn" data-act="hfixClear">직접 고친 건물 높이 ${HFIX.list.length}개 · 모두 원래대로</button>` : ''}
     </div>
     <p class="hint" style="margin-top:14px">${esc(terrainStatus())}</p>
-    <p class="hint" style="margin-top:14px">지형은 30~90m 간격 위성 측량 자료(SRTM 등)라 옹벽·계단 같은 세부 단차는 나타나지 않아요. 건물은 각자 바닥 중심의 지형 높이에 세워지고, 경사지에서는 아래쪽이 땅속으로 이어지게 그려져요. 해발 높이는 등고선과 같은 지형 자료에서 바로 읽어서 화면 위치나 확대와 상관없이 같은 값이 나와요(오차 수 m). 건물 높이는 국가 건물 자료의 층수 × 용도별 층고(공동주택 2.9m, 단독 3.0m, 근생 3.6m, 업무 3.8m, 공장·창고 6m 등)로 어림하고, 층수가 없으면 오픈스트리트맵 높이를 써요. 틀린 건물은 자 버튼 → 높이에서 실제 층수로 고칠 수 있어요.</p>
+    <p class="hint" style="margin-top:14px">지형은 30~90m 간격 위성 측량 자료(SRTM 등)라 옹벽·계단 같은 세부 단차는 나타나지 않아요. 건물은 각자 바닥 중심의 지형 높이에 세워지고, 경사지에서는 아래쪽이 땅속으로 이어지게 그려져요. 해발 높이는 등고선과 같은 지형 자료에서 바로 읽어서 화면 위치나 확대와 상관없이 같은 값이 나와요(오차 수 m). 건물 높이는 국가 건물 자료의 층수 × 용도별 층고(공동주택 2.9m, 단독 3.0m, 근생 3.6m, 업무 3.8m, 공장·창고 6m 등)로 어림하고, 층수가 없으면 오픈스트리트맵 높이를, 그것도 없으면 가까이 있는 비슷한 크기 건물들로 추정해요. 틀리거나 추정인 건물은 자 버튼 → 높이 또는 층수 입력에서 실제 층수로 고칠 수 있어요.</p>
     <p class="hint" style="margin-top:8px">지도 © OpenFreeMap · OpenMapTiles · OpenStreetMap 기여자. 3D 모델 표시 three.js. 국가공간정보 © 브이월드(국토교통부). 지형 © Mapzen Terrain Tiles. 위성 사진 © 브이월드 · Esri.</p>
   </div>`;
 }
@@ -3307,7 +3313,7 @@ async function removeObj(s, o){
 }
 
 /* ---------- measuring & drafting on the map ---------- */
-const DRAFT_LBL = {mdist:'거리', marea:'넓이', mpick:'골라 재기', mheight:'높이', dpoly:'선·도형', drect:'사각형'};
+const DRAFT_LBL = {mfloor:'층수 입력', mdist:'거리', marea:'넓이', mpick:'골라 재기', mheight:'높이', dpoly:'선·도형', drect:'사각형'};
 function measureFeatures(P){
   const feats = [], lbls = [], pts = P.pts, closedArea = P.mode === 'marea' && pts.length >= 3, rect = P.mode === 'drect' && P.rect;
   if(['mdist', 'marea', 'dpoly', 'drect'].includes(P.mode)){
@@ -3321,6 +3327,7 @@ function measureFeatures(P){
   if(P.mode === 'mpick') for(const pk of P.picks || []) for(const ring of pk.rings){ feats.push({type:'Feature', properties:{}, geometry:{type:'Polygon', coordinates:[ring]}}, {type:'Feature', properties:{}, geometry:{type:'LineString', coordinates: ring}}); lbls.push(...segLabels(ring.slice(0, -1), true, false)); lbls.push({type:'Feature', properties:{t: fmtA2(ringAreaM2(ring)), r: 0}, geometry:{type:'Point', coordinates: centroid(ring)}}); }
   if(P.mode === 'mheight'){ (P.hpts || []).forEach(h => { feats.push({type:'Feature', properties:{snap: !!h.ring}, geometry:{type:'Point', coordinates: h.ll}}); lbls.push({type:'Feature', properties:{t: h.label, r: 0}, geometry:{type:'Point', coordinates: h.ll}}); if(h.ring) feats.push({type:'Feature', properties:{}, geometry:{type:'LineString', coordinates: h.ring}}); });
     if(P.hpts && P.hpts.length === 2) feats.push({type:'Feature', properties:{}, geometry:{type:'LineString', coordinates: P.hpts.map(h => h.ll)}}); }
+  if(P.mode === 'mfloor' && P.lastRing) feats.push({type:'Feature', properties:{}, geometry:{type:'LineString', coordinates: P.lastRing}});
   setData('meas', feats); setData('meas-lbl', lbls);
 }
 function rectFrom(A, B, C){ // rectangle on edge AB, extended toward C by its perpendicular distance
@@ -3344,6 +3351,10 @@ function measureMsg(P){
     if(!pk.length) return ['면적을 볼 필지·건물·매스·대지를 탭하세요', '여러 개를 탭하면 합계를 보여 줘요 · 다시 탭하면 빠져요'];
     const a = pk.reduce((t, p) => t + p.area, 0), per = pk.reduce((t, p) => t + p.rings.reduce((u, r) => u + ringPerimM(r), 0), 0);
     return [pk.length === 1 ? `${pk[0].label} · ${fmtA2(a)} (${(a/PY2).toFixed(1)}평)` : `${pk.length}개 합계 ${fmtA2(a)} (${(a/PY2).toFixed(1)}평)`, pk.length === 1 ? `둘레 ${fmtD(per)} · 다른 것을 탭하면 더해져요` : pk.map(p => `${p.label} ${fmtA2(p.area)}`).join(' · ')];
+  }
+  if(P.mode === 'mfloor'){
+    const n = heightCounts(), lack = n.est + n.none;
+    return [`층수를 정하고 건물을 차례로 탭하세요 · 지금 ${P.fl || 3}층`, `${lack ? `이 화면에 자료 없는 건물 ${lack}동(주황 추정 ${n.est} · 빨강 ${n.none})` : '이 화면 건물은 모두 자료가 있어요'} · 파랑 = 내가 고침 ${n.fix}동 · 회색 = 자료 있음`];
   }
   if(P.mode === 'mheight'){
     const h = P.hpts || [];
@@ -3371,9 +3382,9 @@ function heightPoint(e){
   if(s) for(const [i, m] of (s.masses || []).entries()) if(inRing(ll, m.ring)){ const c = centroid(m.ring), z0 = elevF(c[0], c[1]), h = (+m.base || 0) + (+m.floors || 1)*(+m.fh || 3); return {ll: c, z: (z0 ?? 0) + h, ring: m.ring, label: `${m.name || `매스 ${i + 1}`} ${h.toFixed(1)}m`, detail: `${m.name || '매스'} 높이 ${h.toFixed(1)}m (${m.floors}층 × ${(+m.fh || 3).toFixed(1)}m${+m.base ? ` + 띄움 ${(+m.base).toFixed(1)}m` : ''})`}; }
   const b = bldAt(e);
   if(b){ const c = centroid(b.ring), ip = innerPoint(b.ring), z0 = elevF(c[0], c[1]), top = z0 != null ? z0 + b.h : null;
-    const src = b.src === 'fix' ? '내가 고친 높이' : b.src === 'vw' ? `지상 ${b.floors}층 × ${b.fh}m${b.use ? ` · ${b.use}` : ''}로 어림` : b.src === 'osm' ? '오픈스트리트맵 높이' : '층수 자료가 없어 6m로 그렸어요';
+    const src = b.src === 'fix' ? '내가 고친 높이' : b.src === 'vw' ? `지상 ${b.floors}층 × ${b.fh}m${b.use ? ` · ${b.use}` : ''}로 어림` : b.src === 'osm' ? '오픈스트리트맵 높이' : b.src === 'est' ? (b.estN ? `층수 자료가 없어 주변 ${b.estN}동으로 추정 · 약 ${b.estFl || '?'}층` : '층수 자료가 없어 작은 부속 건물로 봤어요') : '층수 자료도 주변 자료도 없어 6m로 그렸어요';
     return {ll: c, z: top ?? b.h, ring: b.ring, label: `건물 ${b.h.toFixed(1)}m`, detail: `건물 높이 약 ${b.h.toFixed(1)}m (${src})${z0 != null ? ` · 바닥 해발 ${z0.toFixed(1)}m` : ''}`,
-      bfix: {lng: ip[0], lat: ip[1], ring: b.ring, h: b.h, floors: b.src === 'fix' ? (b.fixFl || null) : (b.floors || null), fh: b.fh || 3.3, src: b.src, oid: b.oid ?? null}}; }
+      bfix: {lng: ip[0], lat: ip[1], ring: b.ring, h: b.h, floors: b.src === 'fix' ? (b.fixFl || null) : b.src === 'est' ? (b.estFl || null) : (b.floors || null), fh: b.fh || 3.3, src: b.src, oid: b.oid ?? null}}; }
   const z = elevF(ll[0], ll[1]);
   return {ll, z: z ?? 0, label: z != null ? `해발 ${z.toFixed(1)}m` : '높이 없음', detail: z != null ? `이 지점 해발 약 ${z.toFixed(1)}m (지형 자료는 30~90m 간격이라 ±수 m 오차)` : '지형이 꺼져 있거나 자료가 없어요'};
 }
@@ -3392,6 +3403,7 @@ function areaPick(e){
   return null;
 }
 async function draftClick(e, P){
+  if(P.mode === 'mfloor'){ floorTap(e, P); return; }
   if(P.mode === 'mheight'){ await elevAsync(e.lngLat.lng, e.lngLat.lat); const h = heightPoint(e); P.hpts = (P.hpts && P.hpts.length < 2) ? [...P.hpts, h] : [h]; return; }
   if(P.mode === 'mpick'){ const pk = areaPick(e); if(!pk){ toast('여기엔 고를 필지·건물이 없어요 · 넓이 모드로 직접 그려 보세요'); return; }
     P.picks = P.picks || []; const i = P.picks.findIndex(x => x.key === pk.key); if(i >= 0) P.picks.splice(i, 1); else { pk.area = pk.area ?? pk.rings.reduce((t, r) => t + ringAreaM2(r), 0); P.picks.push(pk); } return; }
@@ -3450,13 +3462,16 @@ function renderDraft(P){
   $('#hfixrow').hidden = !hb;
   if(hb && P._hf !== hb){ P._hf = hb; $('#hfFl').value = hb.floors || ''; $('#hfH').value = hb.h.toFixed(1); }
   if(hb) $('#hfReset').hidden = hb.src !== 'fix';
+  $('#flrow').hidden = P.mode !== 'mfloor'; if(P.mode === 'mfloor'){ P.fl = P.fl || 3; $('#flV').textContent = `${P.fl}층`; }
+  floorPaint(P.mode === 'mfloor');
   $('#placeUndo').hidden = false;
-  $('#placeUndo').disabled = !(P.pts.length || P.rect || (P.hpts && P.hpts.length) || (P.picks && P.picks.length));
+  $('#placeUndo').disabled = !(P.pts.length || P.rect || (P.hpts && P.hpts.length) || (P.picks && P.picks.length) || (P.mode === 'mfloor' && P.fhist && P.fhist.length));
   $('#placeMe').hidden = true;
   $('#placeOk').disabled = draw ? !(P.rect || (P.mode === 'dpoly' && P.pts.length >= 2)) : false;
   $('#placeOk').textContent = draw ? '완료' : '끝내기';
 }
 function draftUndo(P){
+  if(P.mode === 'mfloor'){ if(P.fhist && P.fhist.length){ HFIX.list = P.fhist.pop(); hfixSave(); applyHfix(); toast('하나 되돌렸어요', 1200); } return; }
   if(P.rect){ P.rect = null; P.rectDepth = null; }
   else if(P.mode === 'mheight' && P.hpts && P.hpts.length) P.hpts.pop();
   else if(P.mode === 'mpick' && P.picks && P.picks.length) P.picks.pop();
@@ -3542,7 +3557,7 @@ function vwIdxAdd(k, v){ const rs = vwOuterRings(v.geom); if(!rs.length) return;
 function vwBldgAt(lng, lat){ const l = VWI.get(Math.floor(lng/VWI_S) + ':' + Math.floor(lat/VWI_S)); if(!l) return null;
   for(const k of l){ const v = VW.bldg.get(k); if(!v || !v.bb || lng < v.bb[0] || lng > v.bb[2] || lat < v.bb[1] || lat > v.bb[3]) continue; if(vwOuterRings(v.geom).some(r => inRing([lng, lat], r))) return {k, v}; }
   return null; }
-const vwBldgFeatures = () => [...VW.bldg].map(([k, v]) => ({type:'Feature', properties:{k, h: v.h}, geometry: v.geom}));
+const vwBldgFeatures = () => [...VW.bldg].map(([k, v]) => ({type:'Feature', properties:{k, h: v.h, s: v.src}, geometry: v.geom}));
 function innerPoint(ring){ // a point surely inside the footprint (the centroid of an L or U shape can fall outside)
   const c = centroid(ring); if(inRing(c, ring)) return c;
   const y = c[1], xs = []; for(let i = 1; i < ring.length; i++){ const [x1, y1] = ring[i-1], [x2, y2] = ring[i]; if((y1 <= y) !== (y2 <= y)) xs.push(x1 + (y - y1)*(x2 - x1)/(y2 - y1)); }
@@ -3571,7 +3586,7 @@ function osmApplyFixes(){
   for(const [id, h] of HFIX.osm){ try { map.setFeatureState({source: SRC, sourceLayer:'building', id}, {h}); HFIX.applied.add(id); } catch(_){} }
 }
 const osmH = f => { const fx = f.id != null ? HFIX.osm.get(f.id) : null; return fx || Math.max(3, +(f.properties && f.properties.render_height) || 6); };
-function applyHfix(){ vwApplyFixes(); if(S.mapReady){ setData('vw-bldg', vwBldgFeatures()); osmApplyFixes(); } SUNCTX = null; renderMap(); }
+function applyHfix(){ vwApplyFixes(); vwEstimate(); if(S.mapReady){ setData('vw-bldg', vwBldgFeatures()); osmApplyFixes(); } SUNCTX = null; renderMap(); }
 function hfixPut(f, hb){ HFIX.list = HFIX.list.filter(x => !inRing([+x.lng, +x.lat], hb.ring) && !(hb.oid != null && x.osm === hb.oid)); if(f) HFIX.list.push(f); hfixSave(); applyHfix(); }
 function liveBld(p){ // a recorded building drawn over the live one, so the two never disagree
   const ip = innerPoint(p.ring);
@@ -3811,8 +3826,49 @@ $('#sunBld').onchange = e => { S.sun.bld = e.target.checked; scheduleSun(); };
 $('#sunTer').onchange = e => { S.sun.ter = e.target.checked; scheduleSun(); };
 $('#sunNow').onclick = () => { S.sun.day = 'today'; S.sun.h = Math.round(kstNowH()*12)/12; S.sun.touched = true; renderSunbar(); scheduleSun(); };
 
+
+/* ---------- buildings without storey data: estimate from the neighbours, then let me survey them quickly ---------- */
+function bldMeta(v){ if(!v.c){ const r = largestRing(v.geom); if(!r) return false; v.c = innerPoint(r); v.a = ringAreaM2(r); } return true; }
+function setBase(v, h, src, n, fl){ v.base = h; v.baseSrc = src; v.estN = n || 0; v.estFl = fl || null; if(v.src !== 'fix'){ v.h = h; v.src = src; } }
+function vwEstimate(){
+  for(const [k, v] of VW.bldg){
+    if(v.baseSrc !== 'none' && v.baseSrc !== 'est') continue;
+    if(!bldMeta(v)) continue;
+    if(v.a < 20){ setBase(v, 3, 'est', 0, 1); continue; } // kiosks, sheds, toilets
+    const L = mkLocal(v.c[0], v.c[1]), ci = Math.floor(v.c[0]/VWI_S), cj = Math.floor(v.c[1]/VWI_S), seen = new Set(), cand = [];
+    for(let i = ci - 1; i <= ci + 1; i++) for(let j = cj - 1; j <= cj + 1; j++){ const l = VWI.get(i + ':' + j); if(!l) continue;
+      for(const kk of l){ if(kk === k || seen.has(kk)) continue; seen.add(kk); const u = VW.bldg.get(kk); if(!u) continue;
+        const known = u.src === 'fix' ? u.h : (u.baseSrc === 'vw' || u.baseSrc === 'osm') ? u.base : null; if(known == null || !bldMeta(u)) continue;
+        const q = L.f(u.c[0], u.c[1]), d = Math.hypot(q[0], q[1]); if(d > 90) continue;
+        cand.push({h: known, w: Math.exp(-Math.abs(Math.log((u.a + 20)/(v.a + 20))))/(d + 15)}); } }
+    if(cand.length < 3){ if(v.baseSrc === 'est') setBase(v, 6, 'none'); continue; }
+    cand.sort((a, b) => a.h - b.h); const tw = cand.reduce((t, c) => t + c.w, 0); let acc = 0, med = cand[0].h;
+    for(const c of cand){ acc += c.w; if(acc >= tw/2){ med = c.h; break; } } // weighted median: close, similar-sized buildings count most
+    const fh = v.fh || 3.0, fl = Math.max(1, Math.min(60, Math.round(med/fh)));
+    setBase(v, Math.max(3, fl*fh), 'est', cand.length, fl);
+  }
+}
+function heightCounts(){ const c = {vw: 0, osm: 0, est: 0, none: 0, fix: 0}; if(!map) return c; const b = map.getBounds();
+  for(const v of VW.bldg.values()){ if(!v.bb) continue; if(b.contains([(v.bb[0] + v.bb[2])/2, (v.bb[1] + v.bb[3])/2])) c[v.src] = (c[v.src] || 0) + 1; } return c; }
+let FLP = false;
+function floorPaint(on){
+  if(on === FLP || !S.mapReady || !map.getLayer('vw-bldg')) return; FLP = on;
+  try { map.setPaintProperty('vw-bldg', 'fill-extrusion-color', on ? ['match', ['get','s'], 'fix', cssVar('--accent'), 'est', '#E8A33D', 'none', '#D9534F', cssVar('--bldg')] : cssVar('--bldg')); } catch(_){}
+  if(on && map.getZoom() < 15.6) toast('16단계쯤 확대하면 건물마다 색이 보여요', 3000);
+}
+function floorTap(e, P){
+  const b = bldAt(e); if(!b){ toast('건물을 탭하세요'); return; }
+  const sel = $('#flFh').value, fh = sel === 'auto' ? (b.fh || 3.0) : +sel, fl = P.fl || 3, h = Math.round(fl*fh*10)/10, ip = innerPoint(b.ring);
+  P.fhist = P.fhist || []; P.fhist.push(HFIX.list.map(x => ({...x}))); if(P.fhist.length > 40) P.fhist.shift();
+  hfixPut({lng: +ip[0].toFixed(7), lat: +ip[1].toFixed(7), h, fl, osm: b.oid ?? null, t: Date.now()}, {ring: b.ring, oid: b.oid ?? null});
+  P.lastRing = b.ring;
+  toast(`${fl}층 · ${h.toFixed(1)}m로 고쳤어요`, 1200);
+}
+$('#flM').onclick = () => { const P = S.placing; if(P && P.mode === 'mfloor'){ P.fl = Math.max(1, (P.fl || 3) - 1); renderPlacing(); } };
+$('#flP').onclick = () => { const P = S.placing; if(P && P.mode === 'mfloor'){ P.fl = Math.min(120, (P.fl || 3) + 1); renderPlacing(); } };
+
 /* ---------------- boot ---------------- */
-if(/[?&]debug/.test(location.search)) window.__dbg = {demSample, DEMT, demXY, sunTimes, sunDir, shadowObj, shadowPoly, projPt, terrBlocked, sunDateStr, renderSunbar, elevAsync, migrateElev, cleanRec, S, openPanel, blankObsDraft, sectionSVG, renderStudio, saveSite, curSite, selectSite, envelopeCells, massStats, refreshMassStats, startPlacing, measureMsg, measureFeatures, rectFrom, parseDXF, inv5187, tm5187, modelAreas, cleanSite, objCardHTML, startObjEdit, hav, ringAreaM2, mkLocal, numAdd, finishDraft, useInfo, vwIdxAdd, vwBldgAt, innerPoint, liveBld, HFIX, hfixPut, vwApplyFixes, VW, renderDraft};
+if(/[?&]debug/.test(location.search)) window.__dbg = {vwEstimate, floorTap, heightCounts, demSample, DEMT, demXY, sunTimes, sunDir, shadowObj, shadowPoly, projPt, terrBlocked, sunDateStr, renderSunbar, elevAsync, migrateElev, cleanRec, S, openPanel, blankObsDraft, sectionSVG, renderStudio, saveSite, curSite, selectSite, envelopeCells, massStats, refreshMassStats, startPlacing, measureMsg, measureFeatures, rectFrom, parseDXF, inv5187, tm5187, modelAreas, cleanSite, objCardHTML, startObjEdit, hav, ringAreaM2, mkLocal, numAdd, finishDraft, useInfo, vwIdxAdd, vwBldgAt, innerPoint, liveBld, HFIX, hfixPut, vwApplyFixes, VW, renderDraft};
 (async function boot(){
   if(!window.maplibregl){ $('#offline').hidden = false; }
   const ok = await DB.open();
