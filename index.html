@@ -183,6 +183,9 @@ body.placing .mk{pointer-events:none;opacity:.55}
 .objctl b{font:500 12px var(--f-mono);color:var(--ink);min-width:42px;text-align:right}
 #objbar{max-height:58vh;overflow:auto}
 .objrot{display:grid;gap:6px}
+#sunDate{border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:6px;padding:5px 8px;font:13px var(--f-mono);justify-self:start}
+#sunbar .seg button{padding:6px 4px}
+#sunMsg{font-size:13px}
 .obj{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:8px 0;border-top:1px dashed var(--hair)}
 .obj.off{opacity:.55}
 .obj .ok{font:600 10.5px var(--f-mono);color:var(--sheet);background:var(--draw);border-radius:4px;padding:2px 6px}
@@ -316,6 +319,7 @@ body.placing .toast{bottom:auto;top:calc(66px + env(safe-area-inset-top,0px))}
       <button id="tCon" aria-pressed="false" title="등고선·지형 음영 강조">등고</button>
       <button id="tSat" aria-pressed="false" title="위성 사진">위성</button>
       <button id="tMeas" aria-pressed="false" title="거리·넓이·높이 재기" aria-label="거리·넓이·높이 재기"><svg width="17" height="17" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.8 10.6l8.8-8.8 3.6 3.6-8.8 8.8z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M4.4 8l1.4 1.4M6.4 6l1.4 1.4M8.4 4l1.4 1.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></button>
+      <button id="tSun" aria-pressed="false" title="빛·그림자 (시간대별)" aria-label="빛·그림자 시간대별로 보기"><svg width="17" height="17" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6L13 13M3 13l1.4-1.4M11.6 4.4L13 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
       <button id="tMe" title="현재 위치" aria-label="현재 위치"><svg width="17" height="17" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 1v3M8 12v3M1 8h3M12 8h3" stroke="currentColor" stroke-width="1.6"/></svg></button>
       <button id="tFit" title="전체 기록 보기" aria-label="전체 기록 보기"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>
     </div>
@@ -365,6 +369,13 @@ body.placing .toast{bottom:auto;top:calc(66px + env(safe-area-inset-top,0px))}
       <label id="oOpWrap">진하기<input type="range" id="oOp" min="0.1" max="1" step="0.05"></label>
     </div>
     <div class="row"><button class="btn danger" id="oDel">삭제</button><button class="btn pri" id="oDone">완료</button></div>
+  </div>
+  <div class="placebar" id="sunbar" hidden>
+    <div class="seg" id="sunDays" role="group" aria-label="날짜"><button data-d="winter">동지</button><button data-d="equinox">춘·추분</button><button data-d="summer">하지</button><button data-d="today">오늘</button><button data-d="date">날짜</button></div>
+    <input type="date" id="sunDate" hidden aria-label="날짜 고르기">
+    <div class="objctl"><button class="btn sm" id="sunPlay" aria-label="하루 재생">▶</button><input type="range" id="sunT" min="4" max="20.5" step="0.0833" value="12" aria-label="시각"><b id="sunTv">12:00</b></div>
+    <p id="sunMsg"></p>
+    <div class="objctl"><label><input type="checkbox" id="sunBld" checked> 건물 그림자</label><label><input type="checkbox" id="sunTer" checked> 산·언덕 그늘</label><button class="btn sm" id="sunNow">지금</button><button class="btn sm" id="sunOff">끄기</button></div>
   </div>
   <aside class="panel" id="panel" hidden></aside>
   <div class="toast" id="toast" hidden role="status"></div>
@@ -552,6 +563,7 @@ function setupLayers(){
   setupVwLayers(underB);
   setupStudioLayers(underB);
   setupDraftLayers(underB);
+  setupSunLayers();
   map.addSource('picked', {type:'geojson', data: FC()});
   map.addSource('drawpts', {type:'geojson', data: FC()});
   map.addLayer({id:'picked-fill', type:'fill', source:'picked', filter:['in', ['get','kind'], ['literal', ['land', 'area']]], paint:{'fill-color': cssVar('--accent'), 'fill-opacity': 0.26}}, map.getLayer('bldg3d') ? 'bldg3d' : FIRST_SYM);
@@ -650,7 +662,7 @@ function setupDtm(){
       if(!res.ok) throw new Error('elevation ' + res.status);
       const buf = await res.arrayBuffer();
       const z = +((url.match(/\/(\d+)\/\d+\/\d+\.png/) || [])[1] || 0);
-      const r = z >= 13 ? 2 : z >= 12 ? 1 : 0;
+      const r = z >= 14 ? 2 : z >= 13 ? 1 : 0;
       if(!r) return {data: buf};
       try { return {data: await smoothDem(buf, r)}; } catch(_){ return {data: buf}; }
     });
@@ -715,15 +727,7 @@ function setContourFocus(on){
     if(map.getLayer('hillshade')) map.setPaintProperty('hillshade', 'hillshade-exaggeration', S.cfocus ? 0.55 : 0.32);
   } catch(_){}
 }
-function elevAt(lng, lat){
-  try {
-    if(!S.terrain || typeof map.queryTerrainElevation !== 'function') return null;
-    const v = map.queryTerrainElevation([lng, lat]);
-    if(v == null || !Number.isFinite(v)) return null;
-    const ex = (map.getTerrain && map.getTerrain() && map.getTerrain().exaggeration) || 1;
-    return Math.round((v + terrCenter()) / ex); // absolute metres above sea level
-  } catch(_){ return null; }
-}
+function elevAt(lng, lat){ const v = demSample(lng, lat, 'raw'); return v == null ? null : Math.round(v); } // absolute, same data as the contour lines
 function applyThemeColors(){
   if(!S.mapReady) return;
   try {
@@ -742,6 +746,7 @@ function applyThemeColors(){
     for(const id of ['zone-gu','zone-dong']) if(map.getLayer(id)){ map.setPaintProperty(id, 'text-color', cssVar('--adm')); map.setPaintProperty(id, 'text-halo-color', cssVar('--paper')); }
     if(map.getLayer('contour-labels')){ map.setPaintProperty('contour-labels', 'text-color', cssVar('--contour')); map.setPaintProperty('contour-labels', 'text-halo-color', cssVar('--paper')); }
     draftTheme();
+    if(S.sun && S.sun.on) scheduleSun();
   } catch(_){}
   renderMap();
 }
@@ -1150,7 +1155,7 @@ function onMapClick(e){
 document.getElementById('pmode').addEventListener('click', e => {
   const b = e.target.closest('[data-m]'); const P = S.placing; if(!b || !P) return;
   P.mode = b.dataset.m; P.landMiss = false;
-  if(P.for === 'measure' || P.for === 'draw'){ P.pts = []; P.snaps = []; P.rect = null; P.hpts = []; P.picks = []; P.closed = false; if(P.mode === 'mheight') needTerrain(); }
+  if(P.for === 'measure' || P.for === 'draw'){ P.pts = []; P.snaps = []; P.rect = null; P.hpts = []; P.picks = []; P.closed = false; }
   if(P.mode === 'land' && map.getZoom() < 14) toast('조금 더 확대하면 구획을 고르기 쉬워요');
   if(P.mode === 'area' && !P.pts.length) toast('위성 사진을 켜면 필지 모서리를 따라 그리기 쉬워요', 3600);
   renderPlacing();
@@ -1172,7 +1177,7 @@ $('#placeOk').onclick = () => {
     else if(P.point){ olng = P.point.lng; olat = P.point.lat; } else return;
     const f0 = P.for; endPlacing();
     if(f0 === 'newObs' || !S.draft) S.draft = blankObsDraft();
-    const od = S.draft; od.lat = olat; od.lng = olng; od.path = path; od.elev = elevAt(olng, olat); od.locSrc = path ? '이동 경로' : '관찰 지점';
+    const od = S.draft; od.lat = olat; od.lng = olng; od.path = path; od.elev = elevAt(olng, olat); od.ev = od.elev != null ? 2 : 0; if(od.elev == null) fillElev(od, olng, olat); od.locSrc = path ? '이동 경로' : '관찰 지점';
     openPanel('edit'); fillFromReverse(od); return;
   }
   const sh = placingShape();
@@ -1187,7 +1192,7 @@ $('#placeOk').onclick = () => {
   if(hasLoc(d) && hav(d, {lng, lat}) > 200){ if(d.autoRegion) d.region = ''; if(d.autoDong) d.dong = ''; }
   d.lat = lat; d.lng = lng; d.shape = sh;
   d.bld = sh && sh.kind === 'building' ? sh.polys[0] : null;
-  d.elev = elevAt(lng, lat);
+  d.elev = elevAt(lng, lat); d.ev = d.elev != null ? 2 : 0; if(d.elev == null) fillElev(d, lng, lat);
   d.locSrc = sh ? ({building:'건물 선택', land:'땅 구획 선택', area:'직접 그린 범위'})[sh.kind] : '지점 선택';
   d.photoGps = null; d.exifMsg = '';
   d.names = [...new Set([...names, ...(d.names||[])])].filter(Boolean).slice(0, 5);
@@ -1638,14 +1643,15 @@ async function addPhotos(files){
 /* ---------------- panels ---------------- */
 function openPanel(kind){
   S.panel = kind; panel.hidden = false;
-  if(kind === 'detail') renderDetail(); else if(kind === 'edit') renderEditor(); else if(kind === 'list') renderList(); else if(kind === 'search') renderSearch(); else if(kind === 'menu') renderMenu(); else if(kind === 'studio'){ renderStudio(); refreshMassStats(); } else if(kind === 'section') renderSection();
+  if(kind === 'detail') renderDetail(); else if(kind === 'edit') renderEditor(); else if(kind === 'list') renderList(); else if(kind === 'search') renderSearch(); else if(kind === 'menu') renderMenu(); else if(kind === 'studio'){ renderStudio(); refreshMassStats(); autoStats(); } else if(kind === 'section') renderSection();
   applyPerm();
 }
 function closePanel(){ panel.hidden = true; S.panel = null; applyPerm(); }
 function keepScroll(fn){ const sc = panel.querySelector('.scroll'); const top = sc ? sc.scrollTop : 0; fn(); const sc2 = panel.querySelector('.scroll'); if(sc2) sc2.scrollTop = top; }
 function applyPerm(){
   document.body.classList.toggle('panel-open', !panel.hidden);
-  $('#addBtn').hidden = !!S.placing || !!S.objEdit || (!panel.hidden && (window.innerWidth < 900 || S.panel === 'edit'));
+  const sb = $('#sunbar'); if(sb) sb.hidden = !(S.sun && S.sun.on && !S.placing && !S.objEdit && !(window.innerWidth < 900 && !panel.hidden));
+  $('#addBtn').hidden = !!S.placing || !!S.objEdit || (sb && !sb.hidden) || (!panel.hidden && (window.innerWidth < 900 || S.panel === 'edit'));
 }
 window.addEventListener('resize', applyPerm);
 const head = (kicker) => `<div class="grab"></div><div class="p-head"><div class="p-kicker">${kicker}</div><button class="x" data-act="close" aria-label="닫기">×</button></div>`;
@@ -1778,10 +1784,14 @@ async function saveDraft(){
   if(!hasLoc(d)) return showErr('위치를 정해 주세요. "지도에서 건물 고르기"를 누르고 건물을 탭하면 돼요.');
   if(d.uploading) return showErr('사진을 저장하는 중이에요. 잠시만 기다려 주세요.');
   const prev = d.id && S.recs.find(r => r.id === d.id);
+  let elev, ev;
+  if(Number.isFinite(d.elev)){ elev = d.elev; ev = d.ev === 2 ? 2 : 0; }
+  else if(prev && Number.isFinite(prev.elev) && hav(prev, d) < 30){ elev = prev.elev; ev = prev.ev === 2 ? 2 : 0; }
+  else { elev = elevAt(+d.lng, +d.lat); ev = elev != null ? 2 : 0; }
   const rec = {
     id: d.id || newId(), name: d.name.trim(), cat: d.cat, date: d.date || '', time: d.time || '',
     lat: +(+d.lat).toFixed(6), lng: +(+d.lng).toFixed(6), bld: d.bld || null, shape: d.shape || null,
-    elev: Number.isFinite(d.elev) ? d.elev : (prev && Number.isFinite(prev.elev) && hav(prev, d) < 30 ? prev.elev : elevAt(+d.lng, +d.lat)),
+    elev, ev,
     region: String(d.region||'').trim(), dong: String(d.dong||'').trim(), zoning: String(d.zoning||'').trim(), address: String(d.address||'').trim(), architect: String(d.architect||'').trim(), year: String(d.year||'').trim(), use: String(d.use||'').trim(), material: String(d.material||'').trim(),
     rating: d.rating || 0, memo: d.memo || '', tags: String(d.tags||'').split(/[,#\n]+/).map(s => s.trim()).filter(Boolean).slice(0, 20),
     photos: d.photos.map(p => { const o = {id: p.id}; if(Number.isFinite(p.dir)) o.dir = p.dir; if(Number.isFinite(p.lat)){ o.lat = p.lat; o.lng = p.lng; } return o; }), example: false,
@@ -1885,7 +1895,7 @@ function zoneListHTML(list){
 function terrainStatus(){
   if(!S.mapReady) return '지도 준비 중';
   let n = 0; try { if(map.getSource('contours')) n = map.querySourceFeatures('contours', {sourceLayer:'contours'}).length; } catch(_){}
-  return `지형 상태 · 지형 ${S.hasDem ? (S.terrain ? '켜짐' : '꺼짐') : '없음'} · 지형 보정 ${S.dtm ? '켜짐' : '꺼짐'} · 등고선 도구 ${window.mlcontour ? '정상' : '불러오지 못함'} · 지금 화면 등고선 ${S.terrain ? n + '개' : '꺼짐'}${S.demErrs ? ` · 불러오기 실패 ${S.demErrs}건` : ''} · 브이월드 ${VW.key ? (VW.ok === false ? '오류' : VW.ok ? '연결됨' : '확인 중') : '미연결'} (건물 ${VW.bldg.size} · 필지 ${VW.parcel.size}) · 대지 ${S.sites.length} · 버전 2026-10-13e`;
+  return `지형 상태 · 지형 ${S.hasDem ? (S.terrain ? '켜짐' : '꺼짐') : '없음'} · 지형 보정 ${S.dtm ? '켜짐' : '꺼짐'} · 등고선 도구 ${window.mlcontour ? '정상' : '불러오지 못함'} · 지금 화면 등고선 ${S.terrain ? n + '개' : '꺼짐'}${S.demErrs ? ` · 불러오기 실패 ${S.demErrs}건` : ''} · 브이월드 ${VW.key ? (VW.ok === false ? '오류' : VW.ok ? '연결됨' : '확인 중') : '미연결'} (건물 ${VW.bldg.size} · 필지 ${VW.parcel.size}) · 대지 ${S.sites.length} · 버전 2026-10-13f`;
 }
 function renderMenu(){
   const ex = S.recs.filter(r => r.example).length;
@@ -1900,7 +1910,7 @@ function renderMenu(){
       ${HFIX.list.length ? `<button class="btn" data-act="hfixClear">직접 고친 건물 높이 ${HFIX.list.length}개 · 모두 원래대로</button>` : ''}
     </div>
     <p class="hint" style="margin-top:14px">${esc(terrainStatus())}</p>
-    <p class="hint" style="margin-top:14px">지형은 30~90m 간격 위성 측량 자료(SRTM 등)라 옹벽·계단 같은 세부 단차는 나타나지 않아요. 건물은 각자 바닥 중심의 지형 높이에 세워지고, 경사지에서는 아래쪽이 땅속으로 이어지게 그려져요. 표고는 참고용이에요. 건물 높이는 국가 건물 자료의 층수 × 용도별 층고(공동주택 2.9m, 단독 3.0m, 근생 3.6m, 업무 3.8m, 공장·창고 6m 등)로 어림하고, 층수가 없으면 오픈스트리트맵 높이를 써요. 틀린 건물은 자 버튼 → 높이에서 실제 층수로 고칠 수 있어요.</p>
+    <p class="hint" style="margin-top:14px">지형은 30~90m 간격 위성 측량 자료(SRTM 등)라 옹벽·계단 같은 세부 단차는 나타나지 않아요. 건물은 각자 바닥 중심의 지형 높이에 세워지고, 경사지에서는 아래쪽이 땅속으로 이어지게 그려져요. 해발 높이는 등고선과 같은 지형 자료에서 바로 읽어서 화면 위치나 확대와 상관없이 같은 값이 나와요(오차 수 m). 건물 높이는 국가 건물 자료의 층수 × 용도별 층고(공동주택 2.9m, 단독 3.0m, 근생 3.6m, 업무 3.8m, 공장·창고 6m 등)로 어림하고, 층수가 없으면 오픈스트리트맵 높이를 써요. 틀린 건물은 자 버튼 → 높이에서 실제 층수로 고칠 수 있어요.</p>
     <p class="hint" style="margin-top:8px">지도 © OpenFreeMap · OpenMapTiles · OpenStreetMap 기여자. 3D 모델 표시 three.js. 국가공간정보 © 브이월드(국토교통부). 지형 © Mapzen Terrain Tiles. 위성 사진 © 브이월드 · Esri.</p>
   </div>`;
 }
@@ -1947,6 +1957,7 @@ function cleanRec(r){
     project: s(r.project).slice(0, 60), type: r.type === 'obs' ? 'obs' : 'place',
     obs: r.type === 'obs' && r.obs ? {who: s(r.obs.who).slice(0, 20), n: Math.max(1, Math.min(999, Math.round(+r.obs.n || 1))), acts: Array.isArray(r.obs.acts) ? r.obs.acts.map(a => s(a).slice(0, 20)).slice(0, 20) : [], dur: r.obs.dur == null || r.obs.dur === '' ? null : Math.max(0, +r.obs.dur || 0), extra: s(r.obs.extra).slice(0, 200)} : null,
     path: Array.isArray(r.path) ? (cleanLine(r.path)) : null,
+    ev: r.ev === 2 ? 2 : 0,
   };
 }
 function cleanLine(a){ const l = a.filter(c => Array.isArray(c) && c.length >= 2 && Number.isFinite(+c[0]) && Number.isFinite(+c[1])).slice(0, 400).map(c => [+(+c[0]).toFixed(6), +(+c[1]).toFixed(6)]); return l.length >= 2 ? l : null; }
@@ -1957,7 +1968,7 @@ function cleanSite(x){
   const polys = x.polys.map(p => p && cleanRingArr(p.ring)).filter(Boolean).map(ring => ({ring})); if(!polys.length) return null;
   return {id: s2(x.id).slice(0, 120), name: s2(x.name).slice(0, 80), project: s2(x.project).slice(0, 60), polys, area: +x.area || polys.reduce((t, p) => t + ringAreaM2(p.ring), 0),
     parcels: Array.isArray(x.parcels) ? x.parcels.slice(0, 60).map(p => ({key: s2(p.key), jibun: s2(p.jibun).slice(0, 40), addr: s2(p.addr), jiga: +p.jiga || null})) : [],
-    zoning: s2(x.zoning).slice(0, 40), region: s2(x.region), dong: s2(x.dong).slice(0, 40), address: s2(x.address), stats: x.stats && typeof x.stats === 'object' && x.stats.v === 2 ? {v: 2, emin: +x.stats.emin, emax: +x.stats.emax, emean: +x.stats.emean, slope: +x.stats.slope, aspect: +x.stats.aspect} : null,
+    zoning: s2(x.zoning).slice(0, 40), region: s2(x.region), dong: s2(x.dong).slice(0, 40), address: s2(x.address), stats: x.stats && typeof x.stats === 'object' && x.stats.v === 3 ? {v: 3, emin: +x.stats.emin, emax: +x.stats.emax, emean: +x.stats.emean, slope: +x.stats.slope, aspect: +x.stats.aspect} : null,
     masses: Array.isArray(x.masses) ? x.masses.slice(0, 60).map(m => { const ring = cleanLine8(m.ring); if(ring && ring.length < 4) return null; return ring ? {id: s2(m.id) || newId(), name: s2(m.name).slice(0, 30), ring, floors: Math.max(1, Math.min(80, Math.round(+m.floors || 1))), fh: Math.max(2, Math.min(10, +m.fh || 3)), base: Math.max(0, Math.min(100, +m.base || 0))} : null; }).filter(Boolean) : [],
     parking: Array.isArray(x.parking) ? x.parking.slice(0, 80).map(k => { const ring = cleanRingArr(k.ring); return ring ? {ring} : null; }).filter(Boolean) : [],
     objects: Array.isArray(x.objects) ? x.objects.slice(0, 40).map(cleanObj).filter(Boolean) : [],
@@ -2062,8 +2073,8 @@ panel.addEventListener('click', async e => {
       else if(act === 'massB') m.base = Math.max(0, Math.min(100, Math.round(((+m.base || 0) + (+b.dataset.d)*1.5)*10)/10));
       else cs.masses.splice(i, 1);
       SUNCTX = null; await saveSite(cs); refreshMassStats(); break; }
-    case 'sunDay': S.sun.day = b.dataset.v; if(S.sun.on) await showShadows(); keepScroll(renderStudio); break;
-    case 'sunShow': await showShadows(); keepScroll(renderStudio); break;
+    case 'sunDay': S.sun.day = b.dataset.v; S.sun.touched = true; renderSunbar(); if(S.sun.on) scheduleSun(); keepScroll(renderStudio); break;
+    case 'sunShow': { const cs = curSite(); if(cs) map.fitBounds(boundsOfRings(siteRings(cs), 140), {padding: padForPanel(), maxZoom: 17.4, pitch: 55, duration: 600}); if(window.innerWidth < 900) closePanel(); sunOn(); break; }
     case 'sunHours': sunHours(); break;
     case 'sunClear': clearShadows(); keepScroll(renderStudio); break;
     case 'secNew': case 'secRedo': closePanel(); startPlacing('section'); break;
@@ -2199,9 +2210,7 @@ function gridCells(rings, s){ // rings in local metres → cell centres inside
 }
 const cellRing = (x, y, s, L) => [[x-s/2,y-s/2],[x+s/2,y-s/2],[x+s/2,y+s/2],[x-s/2,y+s/2],[x-s/2,y-s/2]].map(p => L.b(p[0], p[1]));
 function circleRing(lng, lat, m, n = 72){ const L = mkLocal(lng, lat), out = []; for(let i = 0; i <= n; i++){ const a = i/n*2*Math.PI; out.push(L.b(Math.sin(a)*m, Math.cos(a)*m)); } return out; }
-function elevF(lng, lat){
-  try { if(!S.terrain || typeof map.queryTerrainElevation !== 'function') return null; const v = map.queryTerrainElevation([lng, lat]); if(v == null || !Number.isFinite(v)) return null; const ex = (map.getTerrain && map.getTerrain() && map.getTerrain().exaggeration) || 1; return (v + terrCenter())/ex; } catch(_){ return null; }
-}
+function elevF(lng, lat){ return demSample(lng, lat, 'raw'); } // metres above sea level, independent of view and zoom
 function waitIdle(ms = 9000){ return new Promise(res => { let done = false; const fin = () => { if(!done){ done = true; clearTimeout(t); res(); } }; const t = setTimeout(fin, ms); map.once('idle', fin); }); }
 function padForPanel(){ const wide = window.innerWidth >= 900 && !panel.hidden; return wide ? {top:70, bottom:70, left:50, right:450} : {top:70, bottom: panel.hidden ? 160 : Math.round(window.innerHeight*0.55), left:30, right:30}; }
 async function viewBounds(b, maxZoom = 18){ map.fitBounds(b, {padding: padForPanel(), maxZoom, duration: 0}); await waitIdle(); }
@@ -2221,7 +2230,7 @@ function projectSelectHTML(id){
 }
 
 /* ---------- sites storage ---------- */
-async function loadSites(){ try { S.sites = (await DB.allSites()).filter(s => s && s.id); } catch(_){ S.sites = []; } for(const x of S.sites) if(x.stats && x.stats.v !== 2) x.stats = null; /* heights saved before the absolute-elevation fix */ try { const k = localStorage.getItem('dapsa3d.siteId'); if(k && S.sites.some(s => s.id === k)) S.siteId = k; } catch(_){} }
+async function loadSites(){ try { S.sites = (await DB.allSites()).filter(s => s && s.id); } catch(_){ S.sites = []; } for(const x of S.sites) if(x.stats && x.stats.v !== 3) x.stats = null; /* heights saved before the absolute-elevation fix */ try { const k = localStorage.getItem('dapsa3d.siteId'); if(k && S.sites.some(s => s.id === k)) S.siteId = k; } catch(_){} }
 const curSite = () => S.sites.find(s => s.id === S.siteId) || null;
 async function saveSite(s){ s.updatedAt = Date.now(); await DB.putSite(s); const i = S.sites.findIndex(x => x.id === s.id); if(i >= 0) S.sites[i] = s; else S.sites.push(s); renderStudioMap(); }
 function selectSite(id){ S.siteId = id; try { localStorage.setItem('dapsa3d.siteId', id || ''); } catch(_){} renderStudioMap(); }
@@ -2283,9 +2292,9 @@ async function createSiteFromShape(sh, parcels){
   computeSiteStats(s);
 }
 async function computeSiteStats(s){
-  if(!s || !(await needTerrain())) return;
+  if(!s) return;
   const rings = siteRings(s);
-  await viewBounds(boundsOfRings(rings, 30), 18.5);
+  if(!(await demPrefetchB(boundsOfRings(rings, 40)))) return;
   const c = siteCenter(s), L = mkLocal(c.lng, c.lat), lr = rings.map(r => r.map(p => L.f(p[0], p[1])));
   const step = Math.max(1, Math.sqrt(s.area / 300));
   const pts = gridCells(lr, step).concat(lr.flat());
@@ -2298,7 +2307,7 @@ async function computeSiteStats(s){
   const det = mxx*myy - mxy*mxy;
   let a = 0, b = 0; if(Math.abs(det) > 1e-9){ a = (mxz*myy - myz*mxy)/det; b = (myz*mxx - mxz*mxy)/det; }
   const slope = Math.hypot(a, b)*100, aspect = (Math.atan2(-a, -b)/D2R + 360) % 360; // direction the slope faces (downhill)
-  s.stats = {v: 2, emin: Math.round(mn*10)/10, emax: Math.round(mx*10)/10, emean: Math.round(sz/n*10)/10, slope: Math.round(slope*10)/10, aspect: Math.round(aspect)};
+  s.stats = {v: 3, emin: Math.round(mn*10)/10, emax: Math.round(mx*10)/10, emean: Math.round(sz/n*10)/10, slope: Math.round(slope*10)/10, aspect: Math.round(aspect)};
   await saveSite(s); if(S.panel === 'studio') keepScroll(renderStudio);
 }
 function envelopeCells(s){
@@ -2369,38 +2378,39 @@ async function prepObstacles(s){
   const datum = s && S.terrain ? (s.stats && s.stats.emean != null ? s.stats.emean : elevF(c.lng, c.lat)) : null;
   for(const o of obs){ o.lr = o.ring.map(p => L.f(p[0], p[1])); o.e = datum != null ? elevF(o.c[0], o.c[1]) : null; }
   if(s) (s.masses || []).forEach(m => obs.push({ring: m.ring, lr: m.ring.map(p => L.f(p[0], p[1])), h: (+m.base || 0) + (+m.floors || 1)*(+m.fh || 3), e: datum, mass: true}));
-  if(s) modelFootprints(s).forEach(m => obs.push({ring: m.ring, lr: m.ring.map(p => L.f(p[0], p[1])), h: (+m.o.base || 0) + m.h, e: datum != null ? (m.z0 ?? datum) : null, mass: true}));
+  if(s) modelFootprints(s).forEach(m => obs.push({ring: m.ring, lr: m.ring.map(p => L.f(p[0], p[1])), h: (+m.o.base || 0) + m.h, e: datum != null ? (modelGround(m) ?? datum) : null, mass: true}));
   return {obs, L, c, datum};
 }
 let SUNCTX = null;
-async function showShadows(){
-  const s = curSite(), days = SUN_DAYS();
-  if(!SUNCTX || !s || SUNCTX.siteId !== s.id) SUNCTX = Object.assign(await prepObstacles(s), {siteId: s && s.id});
-  const {obs, L, c, datum} = SUNCTX, date = kstDate(days[S.sun.day], S.sun.h), sun = sunPos(date, c.lat, c.lng);
-  const hs = shadowHulls(obs, sun, L, datum);
-  setData('st-shadow', (hs || []).filter(h => h.length >= 3).map(h => ({type:'Feature', properties:{}, geometry:{type:'Polygon', coordinates:[[...h, h[0]].map(p => L.b(p[0], p[1]))]}})));
-  try { map.setLight({anchor:'map', position:[1.5, (sun.az/D2R + 360) % 360, Math.max(5, 90 - sun.alt/D2R)], intensity: sun.alt > 0 ? 0.55 : 0.2}); } catch(_){}
-  S.sun.on = true; S.sun.alt = sun.alt/D2R; S.sun.azd = (sun.az/D2R + 360) % 360;
-  S.sun.info = sun.alt > 0 ? `태양 고도 ${S.sun.alt.toFixed(1)}° · 방위 ${Math.round(S.sun.azd)}° (${dir8(S.sun.azd)}) · 건물 ${obs.length}동 반영` : '해가 진 시각이에요';
-  const el = $('#sunInfo'); if(el) el.textContent = sun.alt > 0 ? `태양 고도 ${S.sun.alt.toFixed(1)}° · 방위 ${Math.round(S.sun.azd)}° (${dir8(S.sun.azd)}) · 건물 ${obs.length}동 반영` : '해가 진 시각이에요';
-}
-function clearShadows(){ setData('st-shadow', []); setData('st-sun', []); S.sun.on = false; S.sunRes = null; try { map.setLight({anchor:'viewport', position:[1.15, 210, 30], intensity: 0.5}); } catch(_){} }
+function clearShadows(){ sunOff(); setData('st-sun', []); S.sunRes = null; }
 async function sunHours(){
   const s = curSite(); if(!s) return;
-  toast('일조 시간을 계산하는 중…', 6000);
-  SUNCTX = Object.assign(await prepObstacles(s), {siteId: s.id});
-  const {obs, L, c, datum} = SUNCTX, day = SUN_DAYS()[S.sun.day];
+  toast('일조 시간을 계산하는 중… (산·언덕 그늘 포함)', 9000);
+  const pre = await prepObstacles(s), {L, c} = pre, day = sunDateStr();
+  await demPrefetch(c.lng - 0.026, c.lat - 0.022, c.lng + 0.026, c.lat + 0.022);
+  const obs = [];
+  for(const o of pre.obs) if(!o.mass) obs.push(shadowObj(o.ring, L, null, o.h, 0));
+  for(const m of s.masses || []) obs.push(shadowObj(m.ring, L, null, (+m.floors || 1)*(+m.fh || 3), +m.base || 0));
+  for(const m of modelFootprints(s)) obs.push(shadowObj(m.ring, L, modelGround(m, 'dtm'), m.h, +m.o.base || 0));
+  const ob = obs.filter(Boolean), zmax = demMaxNear(c.lng, c.lat, 0.026);
   const lr = siteRings(s).map(r => r.map(p => L.f(p[0], p[1])));
   const step = Math.max(1, Math.sqrt(s.area / 400)), cells = gridCells(lr, step);
   const massL = [...(s.masses || []).map(m => m.ring), ...modelFootprints(s).map(m => m.ring)].map(r => r.map(p => L.f(p[0], p[1])));
-  const others = obs.filter(o => !o.mass), steps = [];
-  for(let h = 8; h <= 16.001; h += 0.5){ const sun = sunPos(kstDate(day, h), c.lat, c.lng); steps.push({h, hs: shadowHulls(obs, sun, L, datum)}); }
-  const feats = []; let sum = 0, n = 0, ok2 = 0, ok4 = 0;
+  const steps = [];
+  for(let h = 8; h <= 16.001; h += 0.5){
+    const sun = sunPos(kstDate(day, h), c.lat, c.lng);
+    if(sun.alt <= 0.01){ steps.push({h, dark: true}); continue; }
+    const sd = sunDir(sun), hs = ob.map(o => shadowPoly(o, sd, L)).filter(p => p.length >= 3).map(p => ({r: closeR(p), bb: ringsBBox([p])}));
+    steps.push({h, sd, hs});
+  }
+  const feats = []; let sum = 0, n = 0, ok2 = 0, ok4 = 0, terN = 0;
   for(const [x, y] of cells){
     if(massL.some(r => inRing([x, y], r))) continue;
     let tot = 0, run = 0, best = 0;
     for(const st of steps){
-      const lit = st.hs && !st.hs.some(hh => hh.length >= 3 && inRing([x, y], [...hh, hh[0]]));
+      let lit = !st.dark;
+      if(lit && terrBlocked(x, y, st.sd, L, zmax, step)){ lit = false; terN++; }
+      if(lit) lit = !st.hs.some(q => x >= q.bb[0] && x <= q.bb[2] && y >= q.bb[1] && y <= q.bb[3] && inRing([x, y], q.r));
       if(st.h >= 9 && st.h <= 15){ if(lit){ run += 0.5; if(run > best) best = run; } else run = 0; }
       if(lit) tot += 0.5;
     }
@@ -2409,7 +2419,7 @@ async function sunHours(){
     feats.push({type:'Feature', properties:{hrs: tot816}, geometry:{type:'Polygon', coordinates:[cellRing(x, y, step*0.98, L)]}});
   }
   setData('st-sun', feats);
-  S.sunRes = n ? {mean: sum/n, ok2: ok2/n*100, ok4: ok4/n*100, n, others: others.length, day: S.sun.day} : null;
+  S.sunRes = n ? {mean: sum/n, ok2: ok2/n*100, ok4: ok4/n*100, n, others: pre.obs.filter(o => !o.mass).length, day: S.sun.day, ymd: day, ter: terN > 0} : null;
   if(S.panel === 'studio') keepScroll(renderStudio);
 }
 
@@ -2457,7 +2467,7 @@ async function makeSection(coords){
   const tlen = coords.slice(1).reduce((t, p, i) => t + hav({lng: coords[i][0], lat: coords[i][1]}, {lng: p[0], lat: p[1]}), 0);
   if(tlen < 5){ toast('단면선이 너무 짧아요'); return; }
   toast('단면을 만드는 중…', 6000);
-  await needTerrain();
+  await demPrefetchB(boundsOfRings([coords], 60));
   await viewBounds(boundsOfRings([coords], 40), 18);
   const c0 = coords[0], L = mkLocal(c0[0], c0[1]), lc = coords.map(p => L.f(p[0], p[1]));
   const step = Math.max(0.5, tlen/500), samples = [];
@@ -2471,7 +2481,7 @@ async function makeSection(coords){
   const mid = map.getCenter(), obs = obstaclesNear(mid.lng, mid.lat, Math.max(400, tlen)).filter(o => !onSiteHidden(curSite(), o.c));
   for(const o of obs){ o.lr = o.ring.map(p => L.f(p[0], p[1])); o.bb = ringsBBox([o.lr]); }
   const s = curSite(), masses = s ? [...(s.masses || []).map(m => ({lr: m.ring.map(p => L.f(p[0], p[1])), base: +m.base || 0, h: (+m.floors || 1)*(+m.fh || 3), ring: m.ring})),
-    ...modelFootprints(s).map(m => ({lr: m.ring.map(p => L.f(p[0], p[1])), base: +m.o.base || 0, h: m.h, ring: m.ring, c: [m.o.lng, m.o.lat], z0: m.z0}))] : [];
+    ...modelFootprints(s).map(m => ({lr: m.ring.map(p => L.f(p[0], p[1])), base: +m.o.base || 0, h: m.h, ring: m.ring, c: [m.o.lng, m.o.lat], z0: modelGround(m)}))] : [];
   const siteL = s ? siteRings(s).map(r => r.map(p => L.f(p[0], p[1]))) : [];
   const runs = (list, kind) => { const out = []; let cur = null;
     samples.forEach((p, i) => { const hit = list.findIndex(o => (!o.bb || (p.x >= o.bb[0] && p.x <= o.bb[2] && p.y >= o.bb[1] && p.y <= o.bb[3])) && inRing([p.x, p.y], o.lr));
@@ -2646,8 +2656,8 @@ function dxfText(entities, layers){
 }
 async function exportDXF(){
   const area = exportArea(); toast('DXF를 만드는 중…', 8000);
-  await viewBounds(area.bounds, 17.6);
-  const ctx = collectContext(area), ents = [], P = (lng, lat) => tm5187(lng, lat), terr = S.terrain;
+  await viewBounds(area.bounds, 17.6); await demPrefetchB(area.bounds);
+  const ctx = collectContext(area), ents = [], P = (lng, lat) => tm5187(lng, lat), terr = true;
   const z0 = (lng, lat) => terr ? (elevF(lng, lat) ?? 0) : 0;
   const ringPts = r => { const pts = r.map(q => P(q[0], q[1])); const f = pts[0], l = pts[pts.length - 1]; if(f[0] === l[0] && f[1] === l[1]) pts.pop(); return pts; };
   const onSite = c => !!(area.site && inAny(c, siteRings(area.site)));
@@ -2660,7 +2670,7 @@ async function exportDXF(){
     (s.masses || []).forEach(m => { const c = centroid(m.ring); ents.push({t:'pl', layer:'MASSES', pts: ringPts(m.ring), closed: true, z: z0(c[0], c[1]) + (+m.base || 0), th: (+m.floors || 1)*(+m.fh || 3)}); });
     (s.parking || []).forEach(k => ents.push({t:'pl', layer:'PARKING', pts: ringPts(k.ring), closed: true}));
     for(const o of objsOf(s)){ if(o.hidden) continue; if(o.kind === 'draw') ents.push({t:'pl', layer:'MY_DRAWING', pts: o.coords.map(q => P(q[0], q[1])), closed: !!o.closed}); else if(o.kind === 'dxf') for(const l of dxfLinesLL(o)) ents.push({t:'pl', layer:'MY_DXF', pts: l.map(q => P(q[0], q[1])), closed: false}); }
-    for(const m of modelFootprints(s)) ents.push({t:'pl', layer:'MY_MODEL', pts: ringPts(m.ring), closed: true, z: (terr && m.z0 != null ? m.z0 : z0(m.o.lng, m.o.lat)) + (+m.o.base || 0), th: m.h}); }
+    for(const m of modelFootprints(s)) ents.push({t:'pl', layer:'MY_MODEL', pts: ringPts(m.ring), closed: true, z: (terr ? (modelGround(m) ?? z0(m.o.lng, m.o.lat)) : 0) + (+m.o.base || 0), th: m.h}); }
   if(S.section) ents.push({t:'pl', layer:'SECTION_LINE', pts: S.section.coords.map(q => P(q[0], q[1])), closed: false});
   for(const r of visible().filter(hasLoc)){ if(!inBounds(area.bounds, r.lng, r.lat)) continue; const q = P(r.lng, r.lat); ents.push({t:'tx', layer:'RECORDS', x: q[0], y: q[1], h: 1.5, s: (r.time || '') + ' ' + (r.name || '')}); }
   const layers = [['SITE', 1], ['MASSES', 5], ['MY_MODEL', 5], ['MY_DRAWING', 6], ['MY_DXF', 4], ['PARKING', 9], ['BUILDINGS', 7], ['BUILDINGS_ON_SITE', 9], ['BUILDING_FLOORS', 8], ['PARCELS', 8], ['PARCEL_NO', 8], ['ROADS_MAIN', 252], ['ROADS', 253], ['ROADS_PATH', 254], ['CONTOUR_MAJOR', 30], ['CONTOUR_MINOR', 31], ['SECTION_LINE', 1], ['RECORDS', 3]];
@@ -2672,10 +2682,10 @@ let earcutP = null;
 function needEarcut(){ if(window.earcut) return Promise.resolve(window.earcut); if(!earcutP) earcutP = new Promise(res => { const sc = document.createElement('script'); sc.src = 'https://unpkg.com/earcut@2.2.4/dist/earcut.min.js'; sc.onload = () => res(window.earcut || null); sc.onerror = () => res(null); document.head.appendChild(sc); }); return earcutP; }
 async function exportOBJ(){
   const area = exportArea(); toast('3D 모델을 만드는 중… (지형 포함이면 몇 초 걸려요)', 9000);
-  await needTerrain();
+  await demPrefetchB(area.bounds);
   await viewBounds(area.bounds, 17.4);
   const ec = await needEarcut(), ctx = collectContext(area);
-  const o = tm5187(area.center.lng, area.center.lat), terr = S.terrain;
+  const o = tm5187(area.center.lng, area.center.lat), terr = true;
   const b = area.bounds, sw = tm5187(b.getWest(), b.getSouth()), ne = tm5187(b.getEast(), b.getNorth());
   const N = 90, gx = (ne[0] - sw[0])/N, gy = (ne[1] - sw[1])/N, elev = (lng, lat) => terr ? (elevF(lng, lat) ?? null) : 0;
   // inverse via local frame (good to centimetres over a few hundred metres)
@@ -2707,7 +2717,7 @@ async function exportOBJ(){
   if(s && ctx.bldgs.some(bd => onSite(centroid(bd.ring)))){ Fc.push('g buildings_on_site'); for(const bd of ctx.bldgs){ const c = centroid(bd.ring); if(!onSite(c)) continue; const z = elev(c[0], c[1]) ?? zmin; prism(bd.ring, z - 2, z + bd.h); } }
   let mtri = 0;
   if(s) for(const m of modelFootprints(s)){
-    const o = m.o, tr = modelTris(m.it), zb = (m.z0 ?? elev(o.lng, o.lat) ?? zmin) + (+o.base || 0);
+    const o = m.o, tr = modelTris(m.it), zb = (modelGround(m) ?? elev(o.lng, o.lat) ?? zmin) + (+o.base || 0);
     Fc.push(`g my_model_${String(o.name || 'model').replace(/\s+/g, '_')}`);
     if(tr && mtri + tr.length/9 <= 250000){
       mtri += tr.length/9;
@@ -2788,12 +2798,11 @@ function renderStudio(){
     const sr = S.sunRes;
     h += `<section class="card"><h3>일조 · 그림자</h3>
       <div class="seg" role="group" aria-label="날짜">${[['winter','동지'],['equinox','춘·추분'],['summer','하지'],['today','오늘']].map(([k, n]) => `<button data-act="sunDay" data-v="${k}" aria-pressed="${S.sun.day === k}">${n}</button>`).join('')}</div>
-      <div class="sunrow"><input type="range" id="sunH" min="6" max="19" step="0.25" value="${S.sun.h}" aria-label="시각"><b id="sunHv">${pad(Math.floor(S.sun.h))}:${pad(Math.round((S.sun.h % 1)*60))}</b></div>
-      <p class="hint" id="sunInfo">${S.sun.on ? esc(S.sun.info || '') : '시각을 움직이면 주변 건물과 매스의 그림자가 땅에 그려져요.'}</p>
-      <div class="menu-list row"><button class="btn sm" data-act="sunShow">그림자 보기</button><button class="btn sm pri" data-act="sunHours">일조 시간 분석</button>${S.sun.on || sr ? '<button class="btn sm ghost" data-act="sunClear">지우기</button>' : ''}</div>
+      <p class="hint" id="sunInfo">${S.sun.on ? esc(S.sun.info || '') : '지도 위에서 날짜와 시각을 움직이며 건물·매스·내 모델의 그림자, 산·언덕의 그늘, 햇빛 방향을 볼 수 있어요.'}</p>
+      <div class="menu-list row"><button class="btn sm" data-act="sunShow">빛·그림자 시간대별로 보기</button><button class="btn sm pri" data-act="sunHours">일조 시간 분석</button>${S.sun.on || sr ? '<button class="btn sm ghost" data-act="sunClear">지우기</button>' : ''}</div>
       ${sr ? `<div class="legend"><span><i style="background:#3B4A8C"></i>0h</span><span><i style="background:#5C7FB8"></i>2h</span><span><i style="background:#E7C55A"></i>4h</span><span><i style="background:#F7E07A"></i>6h+</span></div>
         <dl class="spec tight"><dt>평균 일조</dt><dd>${sr.mean.toFixed(1)}시간 (08~16시)</dd><dt>연속 2시간↑</dt><dd>대지의 ${pct(sr.ok2)} (09~15시)</dd><dt>총 4시간↑</dt><dd>대지의 ${pct(sr.ok4)} (08~16시)</dd></dl>
-        <p class="hint">${({winter:'동지', equinox:'춘·추분', summer:'하지', today:'오늘'})[sr.day]} 기준 · 주변 건물 ${sr.others}동과 매스 반영 · 지형 높이차는 건물 높이에 더해 대략 반영했고 언덕 자체가 만드는 그늘은 빠져 있어요.</p>` : ''}
+        <p class="hint">${({winter:'동지', equinox:'춘·추분', summer:'하지', today:'오늘'})[sr.day] || sr.ymd} 기준 · 주변 건물 ${sr.others}동과 매스·내 모델 반영 · 그림자는 경사진 땅을 따라 늘어나고, 산·언덕이 만드는 그늘도 넣었어요(지형 자료 30m 간격).</p>` : ''}
     </section>`;
   } else {
     h += `<p class="note">대지를 정하면 면적·용도지역·표고 같은 대지 정보와 법규 한도, 매스 스터디, 일조 분석을 쓸 수 있어요. 단면·주변 반경·도판 내보내기는 대지 없이도 지금 화면 기준으로 쓸 수 있어요.</p>`;
@@ -2953,11 +2962,10 @@ async function ensureThree(){
   try { M3.MESHOPT = (await import('three/addons/libs/meshopt_decoder.module.js')).MeshoptDecoder; } catch(_){}
   M3.T = T; return T;
 }
-function anchorOf(it){ // absolute ground height under the model: lowest point under its footprint (or its centre)
+function anchorOf(it){ // ground under the model on the drawn terrain: lowest point under its footprint (or its centre)
   const o = it.o; if(!S.terrain || o.lng == null) return null;
-  if(o.anchor === 'center') return elevF(o.lng, o.lat);
-  const pts = (it.hullLL || []).concat([[o.lng, o.lat]]); let mn = null;
-  for(const p of pts){ const z = elevF(p[0], p[1]); if(z != null && (mn == null || z < mn)) mn = z; }
+  const pts = o.anchor === 'center' ? [[o.lng, o.lat]] : (it.hullLL || []).concat([[o.lng, o.lat]]); let mn = null;
+  for(const p of pts){ const z = terrRender(p[0], p[1]) ?? demSample(p[0], p[1], 'dtm'); if(z != null && (mn == null || z < mn)) mn = z; }
   return mn;
 }
 function refreshAnchors(){ let ch = false; for(const it of M3.items.values()){ const z = anchorOf(it); if(z !== it.z0){ it.z0 = z; ch = true; } } if(ch && M3.layer) map.triggerRepaint(); }
@@ -3359,7 +3367,7 @@ function measureMsg(P){
 }
 function heightPoint(e){
   const sn = snapEvent(e), ll = sn.ll, s = curSite();
-  for(const m of modelFootprints(s)) if(inRing(ll, m.ring)){ const z0 = m.z0 ?? 0, top = z0 + (+m.o.base || 0) + m.h; return {ll: [m.o.lng, m.o.lat], z: top, ring: m.ring, label: `내 모델 ${m.h.toFixed(1)}m`, detail: `${m.o.name} 높이 ${m.h.toFixed(2)}m${m.z0 != null ? ` · 꼭대기 해발 ${top.toFixed(1)}m` : ''}`}; }
+  for(const m of modelFootprints(s)) if(inRing(ll, m.ring)){ const z0 = modelGround(m) ?? 0, top = z0 + (+m.o.base || 0) + m.h; return {ll: [m.o.lng, m.o.lat], z: top, ring: m.ring, label: `내 모델 ${m.h.toFixed(1)}m`, detail: `${m.o.name} 높이 ${m.h.toFixed(2)}m${modelGround(m) != null ? ` · 꼭대기 해발 ${top.toFixed(1)}m` : ''}`}; }
   if(s) for(const [i, m] of (s.masses || []).entries()) if(inRing(ll, m.ring)){ const c = centroid(m.ring), z0 = elevF(c[0], c[1]), h = (+m.base || 0) + (+m.floors || 1)*(+m.fh || 3); return {ll: c, z: (z0 ?? 0) + h, ring: m.ring, label: `${m.name || `매스 ${i + 1}`} ${h.toFixed(1)}m`, detail: `${m.name || '매스'} 높이 ${h.toFixed(1)}m (${m.floors}층 × ${(+m.fh || 3).toFixed(1)}m${+m.base ? ` + 띄움 ${(+m.base).toFixed(1)}m` : ''})`}; }
   const b = bldAt(e);
   if(b){ const c = centroid(b.ring), ip = innerPoint(b.ring), z0 = elevF(c[0], c[1]), top = z0 != null ? z0 + b.h : null;
@@ -3384,7 +3392,7 @@ function areaPick(e){
   return null;
 }
 async function draftClick(e, P){
-  if(P.mode === 'mheight'){ await needTerrain(); const h = heightPoint(e); P.hpts = (P.hpts && P.hpts.length < 2) ? [...P.hpts, h] : [h]; return; }
+  if(P.mode === 'mheight'){ await elevAsync(e.lngLat.lng, e.lngLat.lat); const h = heightPoint(e); P.hpts = (P.hpts && P.hpts.length < 2) ? [...P.hpts, h] : [h]; return; }
   if(P.mode === 'mpick'){ const pk = areaPick(e); if(!pk){ toast('여기엔 고를 필지·건물이 없어요 · 넓이 모드로 직접 그려 보세요'); return; }
     P.picks = P.picks || []; const i = P.picks.findIndex(x => x.key === pk.key); if(i >= 0) P.picks.splice(i, 1); else { pk.area = pk.area ?? pk.rings.reduce((t, r) => t + ringAreaM2(r), 0); P.picks.push(pk); } return; }
   const sn = snapEvent(e); let ll = sn.ll;
@@ -3588,8 +3596,223 @@ $('#hfReset').onclick = () => {
   hfixPut(null, hb); P.hpts = []; P._hf = null; renderPlacing(); toast('원래 높이로 되돌렸어요 · 다시 탭하면 바뀐 높이를 보여 줘요');
 };
 
+
+/* ================= elevation tiles read directly (absolute metres, same source as the contour lines) ================= */
+const DEMZ = 14, DEMT = new Map(), DEMP = new Map(), DEMF = new Map();
+function demXY(lng, lat){ const n = 2**DEMZ, sn = Math.sin(Math.max(-85, Math.min(85, lat))*D2R); return [(lng + 180)/360*n, (0.5 - Math.log((1 + sn)/(1 - sn))/(4*Math.PI))*n]; }
+async function pngPixels(blob){
+  let src;
+  try { src = await createImageBitmap(blob, {premultiplyAlpha:'none', colorSpaceConversion:'none'}); }
+  catch(_){ src = await new Promise((res, rej) => { const im = new Image(), u = URL.createObjectURL(blob); im.onload = () => { URL.revokeObjectURL(u); res(im); }; im.onerror = rej; im.src = u; }); }
+  const W = src.width, H = src.height, cv = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(W, H) : Object.assign(document.createElement('canvas'), {width: W, height: H});
+  const g = cv.getContext('2d', {willReadFrequently: true}); g.drawImage(src, 0, 0);
+  return {W, H, data: g.getImageData(0, 0, W, H).data};
+}
+function demFetch(tx, ty){
+  const k = tx + '/' + ty, t = DEMT.get(k); if(t){ t.used = Date.now(); return Promise.resolve(t); }
+  if(DEMP.has(k)) return DEMP.get(k);
+  if(DEMF.has(k) && Date.now() - DEMF.get(k) < 30000) return Promise.resolve(null);
+  const p = (async () => {
+    try {
+      const res = await fetch(DEM_URL.replace('{z}', DEMZ).replace('{x}', tx).replace('{y}', ty)); if(!res.ok) throw new Error(String(res.status));
+      const px = await pngPixels(await res.blob()); if(px.W !== 256 || px.H !== 256) throw new Error('size');
+      return demPut(tx, ty, decodeTerrarium(px.data, 65536));
+    } catch(_){ DEMF.set(k, Date.now()); return null; } finally { DEMP.delete(k); }
+  })();
+  DEMP.set(k, p); return p;
+}
+function demPut(tx, ty, raw){
+  let mx = -Infinity; for(let i = 0; i < raw.length; i++) if(raw[i] > mx) mx = raw[i];
+  const t = {raw, dtm: null, max: mx, used: Date.now()}; DEMT.set(tx + '/' + ty, t);
+  if(DEMT.size > 48){ let ok = null, ou = Infinity; for(const [kk, v] of DEMT) if(v.used < ou){ ou = v.used; ok = kk; } DEMT.delete(ok); }
+  demLoaded(); return t;
+}
+const demDtm = t => t.dtm || (t.dtm = morph(morph(morph(t.raw, 256, 256, 2, 'min'), 256, 256, 2, 'max'), 256, 256, 1, 'mean'));
+function demPx(gx, gy, kind){ const tx = Math.floor(gx/256), ty = Math.floor(gy/256), t = DEMT.get(tx + '/' + ty); if(!t) return null; return (kind === 'dtm' ? demDtm(t) : t.raw)[(gy - ty*256)*256 + (gx - tx*256)]; }
+function demSample(lng, lat, kind = 'raw', load = true){ // kind 'raw' = as surveyed (matches the contours) · 'dtm' = bumps of buildings and trees shaved (matches the 3D terrain)
+  if(!Number.isFinite(lng) || !Number.isFinite(lat)) return null;
+  const [x, y] = demXY(lng, lat), tx = Math.floor(x), ty = Math.floor(y);
+  if(!DEMT.has(tx + '/' + ty)){ if(load) demFetch(tx, ty); return null; }
+  const px = x*256 - 0.5, py = y*256 - 0.5, ix = Math.floor(px), iy = Math.floor(py), fx = px - ix, fy = py - iy;
+  let a = demPx(ix, iy, kind), b = demPx(ix + 1, iy, kind), c = demPx(ix, iy + 1, kind), d = demPx(ix + 1, iy + 1, kind);
+  const f = a ?? b ?? c ?? d; if(f == null) return null;
+  if(a == null) a = f; if(b == null) b = f; if(c == null) c = f; if(d == null) d = f;
+  return a*(1 - fx)*(1 - fy) + b*fx*(1 - fy) + c*(1 - fx)*fy + d*fx*fy;
+}
+function demTilesIn(w, s, e, n){ const [x0, y0] = demXY(w, n), [x1, y1] = demXY(e, s), out = []; for(let x = Math.floor(x0); x <= Math.floor(x1); x++) for(let y = Math.floor(y0); y <= Math.floor(y1); y++) out.push([x, y]); return out; }
+async function demPrefetch(w, s, e, n){ const ts = demTilesIn(w, s, e, n); if(ts.length > 36) return false; await Promise.all(ts.map(([x, y]) => demFetch(x, y))); return ts.some(([x, y]) => DEMT.has(x + '/' + y)); }
+const demPrefetchB = b => demPrefetch(b.getWest(), b.getSouth(), b.getEast(), b.getNorth());
+async function elevAsync(lng, lat){ await demPrefetch(lng - 0.0004, lat - 0.0004, lng + 0.0004, lat + 0.0004); return demSample(lng, lat, 'raw', false); }
+function demMaxNear(lng, lat, deg){ let m = -Infinity; for(const [x, y] of demTilesIn(lng - deg, lat - deg, lng + deg, lat + deg)){ const t = DEMT.get(x + '/' + y); if(t && t.max > m) m = t.max; } return Number.isFinite(m) ? m : 9000; }
+let demLT = 0;
+function demLoaded(){ clearTimeout(demLT); demLT = setTimeout(() => { if(S.placing && (S.placing.for === 'measure' || S.placing.for === 'draw')) renderPlacing(); }, 150); }
+function terrRender(lng, lat){ // height of the drawn 3D terrain (MapLibre 4 reports it relative to the view centre)
+  if(!S.terrain || !map) return null;
+  try { const v = map.queryTerrainElevation([lng, lat]); if(v == null || !Number.isFinite(v)) return null; const z = (v + terrCenter())/terrEx(); return Math.abs(z) < 1e-6 ? null : z; } catch(_){ return null; }
+}
+function modelGround(m, kind = 'raw'){ const o = m.o, pts = o.anchor === 'center' ? [[o.lng, o.lat]] : (m.ring || []).concat([[o.lng, o.lat]]); let mn = null; for(const p of pts){ const z = demSample(p[0], p[1], kind, false); if(z != null && (mn == null || z < mn)) mn = z; } return mn ?? m.z0 ?? null; }
+function fillElev(d, lng, lat){ elevAsync(lng, lat).then(z => { if(z != null && S.draft === d && d.lng === lng && d.lat === lat){ d.elev = Math.round(z); d.ev = 2; } }); }
+async function migrateElev(){ // records saved before the fix carry heights relative to the screen centre
+  const todo = S.recs.filter(r => hasLoc(r) && r.ev !== 2); if(!todo.length) return;
+  let n = 0;
+  for(const r of todo){ const z = await elevAsync(r.lng, r.lat); if(z == null) continue; r.elev = Math.round(z); r.ev = 2; try { await DB.putRec(r); n++; } catch(_){} }
+  if(n && S.panel === 'detail') renderDetail();
+}
+function autoStats(){ const cs = curSite(); if(!cs || cs.stats) return; S.statsTried = S.statsTried || new Set(); if(S.statsTried.has(cs.id)) return; S.statsTried.add(cs.id); if(window.maplibregl) computeSiteStats(cs).catch(() => {}); }
+
+/* ================= sun, light and shadows through the day ================= */
+Object.assign(S.sun, {bld: true, ter: true, playing: false, date: todayStr(), touched: false});
+const SUN_NAME = {winter:'동지', equinox:'춘·추분', summer:'하지', today:'오늘'};
+function sunDateStr(){ return S.sun.day === 'date' ? (S.sun.date || todayStr()) : (SUN_DAYS()[S.sun.day] || todayStr()); }
+const fmtHM = h => { if(h == null) return '—'; const m = Math.round(h*60); return `${pad(Math.floor(m/60) % 24)}:${pad(m % 60)}`; };
+const SUNT = new Map();
+function sunTimes(ymd, lat, lng){ // sunrise, solar noon and sunset in KST hours (refraction −0.833°)
+  const key = `${ymd}|${lat.toFixed(2)}|${lng.toFixed(2)}`; if(SUNT.has(key)) return SUNT.get(key);
+  const alt = h => sunPos(kstDate(ymd, h), lat, lng).alt, hz = -0.833*D2R;
+  const cross = (a, b) => { const up = alt(b) > alt(a); for(let i = 0; i < 24; i++){ const m = (a + b)/2; if((alt(m) > hz) === up) b = m; else a = m; } return (a + b)/2; };
+  let rise = null, set = null, nh = 12, na = -9;
+  for(let h = 2; h < 23; h += 0.25){ const a = alt(h), b = alt(h + 0.25); if(a > na){ na = a; nh = h; } if(a <= hz && b > hz && rise == null) rise = cross(h, h + 0.25); if(a > hz && b <= hz) set = cross(h, h + 0.25); }
+  for(let k = 0; k < 30; k++){ const d = 0.25/(k + 1); if(alt(nh + d) > alt(nh)) nh += d; else if(alt(nh - d) > alt(nh)) nh -= d; } na = alt(nh);
+  const r = {rise, set, noonH: nh, noonA: na/D2R}; SUNT.set(key, r); return r;
+}
+const sunDir = sun => ({t: Math.tan(sun.alt), dx: -Math.sin(sun.az), dy: -Math.cos(sun.az)});
+function shadowObj(ring, L, zb, h, base){
+  const lr = ring.map(p => L.f(p[0], p[1])); if(lr.length < 3 || !(h > 0.2)) return null;
+  const hl = hull(lr); if(hl.length < 3) return null;
+  let g = zb; if(g == null){ const c = centroid(ring); g = demSample(c[0], c[1], 'dtm', false); }
+  return {hl, zb: g, z0: (g ?? 0) + base, z1: (g ?? 0) + base + h, base, flat: g == null};
+}
+function projPt(x, y, z, g, sd, L){ // where the sun ray through (x, y, z) reaches the ground, walking down the slope
+  if(g == null){ const s = Math.min(800, Math.max(0, z)/sd.t); return [x + sd.dx*s, y + sd.dy*s]; }
+  const ter = (X, Y) => { const ll = L.b(X, Y), v = demSample(ll[0], ll[1], 'dtm', false); return v == null ? g : v; };
+  let s = 0, step = 2.5, above = z - ter(x, y);
+  if(above <= 0) return [x, y];
+  while(s < 800){ const s2 = s + step, d = (z - sd.t*s2) - ter(x + sd.dx*s2, y + sd.dy*s2);
+    if(d <= 0){ s += step*above/(above - d); break; } s = s2; above = d; step = Math.min(15, step*1.18); }
+  return [x + sd.dx*Math.min(s, 800), y + sd.dy*Math.min(s, 800)];
+}
+function shadowPoly(o, sd, L){ const g = o.flat ? null : o.zb, pts = []; for(const [x, y] of o.hl){ pts.push(o.base > 0.05 ? projPt(x, y, o.z0, g, sd, L) : [x, y]); pts.push(projPt(x, y, o.z1, g, sd, L)); } return hull(pts); }
+function terrBlocked(x, y, sd, L, zmax, s0){ // does the hillside between here and the sun hide it?
+  const ter = (X, Y) => { const ll = L.b(X, Y); return demSample(ll[0], ll[1], 'dtm', false); };
+  const z0 = ter(x, y); if(z0 == null) return false;
+  const ux = -sd.dx, uy = -sd.dy; let s = Math.max(5, (s0 || 6)*0.8), step = Math.max(6, (s0 || 6)*0.7);
+  while(s < 2500){ const zr = z0 + 0.6 + sd.t*s; if(zr > zmax) return false; const zt = ter(x + ux*s, y + uy*s); if(zt != null && zt > zr) return true; s += step; step = Math.min(40, step*1.1); }
+  return false;
+}
+const BLANK_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII=';
+function setupSunLayers(){
+  try {
+    map.addSource('st-tshadow', {type:'image', url: BLANK_PNG, coordinates:[[129, 35.001], [129.001, 35.001], [129.001, 35], [129, 35]]});
+    map.addLayer({id:'st-tshadow', type:'raster', source:'st-tshadow', layout:{visibility:'none'}, paint:{'raster-opacity': 1, 'raster-fade-duration': 0, 'raster-resampling':'linear'}}, map.getLayer('st-shadow') ? 'st-shadow' : undefined);
+  } catch(_){}
+  try { map.setPaintProperty('st-shadow', 'fill-color', '#0A0E0D'); map.setPaintProperty('st-shadow', 'fill-opacity', 0.28); } catch(_){}
+  let mt = 0; map.on('moveend', () => { if(S.sun.on){ clearTimeout(mt); mt = setTimeout(scheduleSun, 250); } });
+}
+function sunSide(){ const c = map.getCenter(), mpp = 40075016.686*Math.cos(c.lat*D2R)/(512*Math.pow(2, map.getZoom())), cv = map.getCanvas(); return Math.max(300, Math.min(1800, mpp*Math.max(cv.clientWidth, cv.clientHeight)*1.5)); }
+async function sunObstacles(){
+  const c = map.getCenter(), z = map.getZoom(), cs = curSite();
+  const key = [c.lng.toFixed(3), c.lat.toFixed(3), Math.round(z), cs ? cs.id + ':' + cs.updatedAt : '', S.hideEx, VW.bldg.size].join('|');
+  if(SUNCTX && SUNCTX.key === key) return SUNCTX;
+  const L = mkLocal(c.lng, c.lat), R0 = z >= 17 ? 320 : z >= 16 ? 480 : 650, side = sunSide();
+  const pd = side/2 + R0, sw = L.b(-pd, -pd), ne = L.b(pd, pd); await demPrefetch(sw[0], sw[1], ne[0], ne[1]);
+  const obs = [];
+  for(const o of obstaclesNear(c.lng, c.lat, R0)) if(!onSiteHidden(cs, o.c)) obs.push(shadowObj(o.ring, L, null, o.h, 0));
+  if(cs){ for(const m of cs.masses || []) obs.push(shadowObj(m.ring, L, null, (+m.floors || 1)*(+m.fh || 3), +m.base || 0));
+    for(const m of modelFootprints(cs)) obs.push(shadowObj(m.ring, L, modelGround(m, 'dtm'), m.h, +m.o.base || 0)); }
+  SUNCTX = {key, L, c, obs: obs.filter(Boolean)}; return SUNCTX;
+}
+async function terrainShadow(sun, ctx, fine){
+  const L = ctx.L, side = sunSide(), N = Math.round(Math.max(40, Math.min(fine ? 120 : 64, side/6))), cell = side/N, sd = sunDir(sun);
+  const pts = [[-side/2, -side/2], [side/2, side/2], [-side/2 - sd.dx*2200, -side/2 - sd.dy*2200], [side/2 - sd.dx*2200, side/2 - sd.dy*2200]].map(([x, y]) => L.b(x, y));
+  const w = Math.min(...pts.map(p => p[0])), e = Math.max(...pts.map(p => p[0])), so = Math.min(...pts.map(p => p[1])), no = Math.max(...pts.map(p => p[1]));
+  if(!(await demPrefetch(w, so, e, no))) return null;
+  let zmax = -Infinity; for(const [x, y] of demTilesIn(w, so, e, no)){ const t = DEMT.get(x + '/' + y); if(t && t.max > zmax) zmax = t.max; }
+  const cv = document.createElement('canvas'); cv.width = N; cv.height = N;
+  const g = cv.getContext('2d'), img = g.createImageData(N, N), rgb = [10, 14, 13]; // shadows stay dark in either theme
+  let dark = 0;
+  for(let j = 0; j < N; j++) for(let i = 0; i < N; i++){
+    const x = -side/2 + (i + 0.5)*cell, y = side/2 - (j + 0.5)*cell;
+    if(terrBlocked(x, y, sd, L, zmax, cell)){ const o = (j*N + i)*4; img.data[o] = rgb[0]; img.data[o + 1] = rgb[1]; img.data[o + 2] = rgb[2]; img.data[o + 3] = 72; dark++; }
+  }
+  g.putImageData(img, 0, 0);
+  try { const src = map.getSource('st-tshadow'); src.updateImage({url: cv.toDataURL('image/png'), coordinates:[L.b(-side/2, side/2), L.b(side/2, side/2), L.b(side/2, -side/2), L.b(-side/2, -side/2)]}); map.setLayoutProperty('st-tshadow', 'visibility', 'visible'); } catch(_){}
+  return dark/(N*N);
+}
+function tsHide(){ try { map.setLayoutProperty('st-tshadow', 'visibility', 'none'); } catch(_){} }
+function sunLight(sun){
+  const a = sun.alt/D2R, az = (sun.az/D2R + 360) % 360;
+  const col = a <= 0 ? '#9AA6D6' : a < 6 ? '#FFAA66' : a < 15 ? '#FFCF9A' : a < 30 ? '#FFEBD2' : '#FFFFFF';
+  try { map.setLight({anchor:'map', position:[1.5, az, Math.max(4, Math.min(88, 90 - a))], color: col, intensity: a <= 0 ? 0.15 : Math.min(0.6, 0.32 + a/110)}); } catch(_){}
+  try { if(map.getLayer('hillshade')){ map.setPaintProperty('hillshade', 'hillshade-illumination-anchor', 'map'); map.setPaintProperty('hillshade', 'hillshade-illumination-direction', Math.round(az) % 360); map.setPaintProperty('hillshade', 'hillshade-exaggeration', a <= 0 ? 0.12 : Math.max(0.22, Math.min(0.72, 0.78 - a/90))); } } catch(_){}
+}
+function sunLightReset(){
+  try { map.setLight({anchor:'viewport', position:[1.15, 210, 30], intensity: 0.5, color:'#FFFFFF'}); } catch(_){}
+  try { if(map.getLayer('hillshade')){ map.setPaintProperty('hillshade', 'hillshade-illumination-anchor', 'viewport'); map.setPaintProperty('hillshade', 'hillshade-illumination-direction', 315); map.setPaintProperty('hillshade', 'hillshade-exaggeration', S.cfocus ? 0.55 : 0.32); } } catch(_){}
+}
+let sunBusy = false, sunAgain = false, sunST = 0;
+function scheduleSun(){ clearTimeout(sunST); sunST = setTimeout(showShadows, 40); }
+async function showShadows(){
+  if(!S.mapReady) return;
+  if(sunBusy){ sunAgain = true; return; } sunBusy = true;
+  try {
+    S.sun.on = true;
+    const c = map.getCenter(), ymd = sunDateStr(), sun = sunPos(kstDate(ymd, S.sun.h), c.lat, c.lng), tm = sunTimes(ymd, c.lat, c.lng);
+    S.sun.alt = sun.alt/D2R; S.sun.azd = (sun.az/D2R + 360) % 360;
+    sunLight(sun);
+    const head = `${SUN_NAME[S.sun.day] ? SUN_NAME[S.sun.day] + ' ' : ''}${ymd.slice(5).replace('-', '/')} ${fmtHM(S.sun.h)}`;
+    const sub = `일출 ${fmtHM(tm.rise)} · 남중 ${fmtHM(tm.noonH)} (고도 ${tm.noonA.toFixed(1)}°) · 일몰 ${fmtHM(tm.set)}`;
+    if(sun.alt <= 0.005){ setData('st-shadow', []); tsHide(); S.sun.info = '해가 진 시각이에요'; sunMsg(`${head} · 해가 진 시각이에요`, sub); return; }
+    const ctx = await sunObstacles(), sd = sunDir(sun);
+    if(S.sun.bld){ const feats = []; for(const o of ctx.obs){ const hp = shadowPoly(o, sd, ctx.L); if(hp.length >= 3) feats.push({type:'Feature', properties:{}, geometry:{type:'Polygon', coordinates:[closeR(hp.map(p => ctx.L.b(p[0], p[1])))]}}); } setData('st-shadow', feats); }
+    else setData('st-shadow', []);
+    let tf = null; if(S.sun.ter) tf = await terrainShadow(sun, ctx, !S.sun.playing); else tsHide();
+    const ratio = 1/sd.t;
+    S.sun.info = `태양 고도 ${S.sun.alt.toFixed(1)}° · 방위 ${Math.round(S.sun.azd)}° (${dir8(S.sun.azd)}) · 그림자는 높이의 ${ratio.toFixed(2)}배`;
+    sunMsg(`${head} · 고도 ${S.sun.alt.toFixed(1)}° · 방위 ${Math.round(S.sun.azd)}°(${dir8(S.sun.azd)})`, `${sub} · 그림자 = 높이 × ${ratio < 20 ? ratio.toFixed(2) : '20+'}${tf ? ` · 산·언덕 그늘 화면의 ${Math.round(tf*100)}%` : ''}`);
+    const el = $('#sunInfo'); if(el) el.textContent = S.sun.info;
+  } finally { sunBusy = false; if(sunAgain){ sunAgain = false; scheduleSun(); } }
+}
+function sunMsg(a, b){ const el = $('#sunMsg'); if(el) el.innerHTML = `${esc(a)}<span class="sub">${esc(b)}</span>`; }
+function renderSunbar(){
+  for(const b of document.querySelectorAll('#sunDays [data-d]')) b.setAttribute('aria-pressed', String(b.dataset.d === S.sun.day));
+  const di = $('#sunDate'); di.hidden = S.sun.day !== 'date'; di.value = S.sun.date || todayStr();
+  const c = map ? map.getCenter() : {lat: 35.1, lng: 129.04}, tm = sunTimes(sunDateStr(), c.lat, c.lng);
+  $('#sunT').min = String(Math.max(3.5, Math.floor(((tm.rise ?? 6) - 0.75)*4)/4)); $('#sunT').max = String(Math.min(21, Math.ceil(((tm.set ?? 19) + 0.75)*4)/4));
+  $('#sunT').value = String(S.sun.h); $('#sunTv').textContent = fmtHM(S.sun.h);
+  $('#sunBld').checked = !!S.sun.bld; $('#sunTer').checked = !!S.sun.ter;
+}
+function kstNowH(){ const d = new Date(Date.now() + 9*3600e3); return d.getUTCHours() + d.getUTCMinutes()/60; }
+function sunOn(){
+  if(S.placing) endPlacing();
+  if(S.objEdit) endObjEdit(false);
+  if(!S.sun.touched){ const c = map.getCenter(), tm = sunTimes(todayStr(), c.lat, c.lng), now = kstNowH(); S.sun.day = 'today'; S.sun.h = tm.rise != null && now > tm.rise + 0.25 && now < tm.set - 0.25 ? Math.round(now*12)/12 : Math.round(tm.noonH*12)/12; }
+  S.sun.on = true; $('#tSun').setAttribute('aria-pressed', 'true'); applyPerm(); renderSunbar(); showShadows();
+  if(S.is3D && map.getPitch() < 35) map.easeTo({pitch: 50, duration: 500});
+}
+function sunOff(){
+  S.sun.playing = false; S.sun.on = false; $('#tSun').setAttribute('aria-pressed', 'false'); $('#sunPlay').textContent = '▶';
+  setData('st-shadow', []); tsHide(); if(S.mapReady) sunLightReset(); applyPerm();
+}
+async function sunTick(){
+  if(!S.sun.playing || !S.sun.on) return;
+  const c = map.getCenter(), tm = sunTimes(sunDateStr(), c.lat, c.lng), start = Math.max(3.5, (tm.rise ?? 6) - 0.25), end = (tm.set ?? 19) + 0.25;
+  let h = S.sun.h + 1/6; if(h > end || h < start) h = start;
+  S.sun.h = Math.round(h*12)/12; $('#sunT').value = String(S.sun.h); $('#sunTv').textContent = fmtHM(S.sun.h);
+  await showShadows(); setTimeout(sunTick, 80);
+}
+$('#tSun').onclick = () => { if(S.sun.on) sunOff(); else sunOn(); };
+$('#sunOff').onclick = () => sunOff();
+$('#sunDays').addEventListener('click', e => { const b = e.target.closest('[data-d]'); if(!b) return; S.sun.day = b.dataset.d; S.sun.touched = true; renderSunbar(); scheduleSun(); });
+$('#sunDate').addEventListener('change', e => { if(e.target.value){ S.sun.date = e.target.value; S.sun.touched = true; renderSunbar(); scheduleSun(); } });
+$('#sunT').addEventListener('input', e => { S.sun.h = +e.target.value; S.sun.touched = true; $('#sunTv').textContent = fmtHM(S.sun.h); scheduleSun(); });
+$('#sunT').addEventListener('change', () => { if(!S.sun.playing) scheduleSun(); });
+$('#sunPlay').onclick = () => { S.sun.playing = !S.sun.playing; S.sun.touched = true; $('#sunPlay').textContent = S.sun.playing ? '❚❚' : '▶'; $('#sunPlay').setAttribute('aria-label', S.sun.playing ? '멈춤' : '하루 재생'); if(S.sun.playing) sunTick(); else scheduleSun(); };
+$('#sunBld').onchange = e => { S.sun.bld = e.target.checked; scheduleSun(); };
+$('#sunTer').onchange = e => { S.sun.ter = e.target.checked; scheduleSun(); };
+$('#sunNow').onclick = () => { S.sun.day = 'today'; S.sun.h = Math.round(kstNowH()*12)/12; S.sun.touched = true; renderSunbar(); scheduleSun(); };
+
 /* ---------------- boot ---------------- */
-if(/[?&]debug/.test(location.search)) window.__dbg = {S, openPanel, blankObsDraft, sectionSVG, renderStudio, saveSite, curSite, selectSite, envelopeCells, massStats, refreshMassStats, startPlacing, measureMsg, measureFeatures, rectFrom, parseDXF, inv5187, tm5187, modelAreas, cleanSite, objCardHTML, startObjEdit, hav, ringAreaM2, mkLocal, numAdd, finishDraft, useInfo, vwIdxAdd, vwBldgAt, innerPoint, liveBld, HFIX, hfixPut, vwApplyFixes, VW, renderDraft};
+if(/[?&]debug/.test(location.search)) window.__dbg = {demSample, DEMT, demXY, sunTimes, sunDir, shadowObj, shadowPoly, projPt, terrBlocked, sunDateStr, renderSunbar, elevAsync, migrateElev, cleanRec, S, openPanel, blankObsDraft, sectionSVG, renderStudio, saveSite, curSite, selectSite, envelopeCells, massStats, refreshMassStats, startPlacing, measureMsg, measureFeatures, rectFrom, parseDXF, inv5187, tm5187, modelAreas, cleanSite, objCardHTML, startObjEdit, hav, ringAreaM2, mkLocal, numAdd, finishDraft, useInfo, vwIdxAdd, vwBldgAt, innerPoint, liveBld, HFIX, hfixPut, vwApplyFixes, VW, renderDraft};
 (async function boot(){
   if(!window.maplibregl){ $('#offline').hidden = false; }
   const ok = await DB.open();
@@ -3598,6 +3821,7 @@ if(/[?&]debug/.test(location.search)) window.__dbg = {S, openPanel, blankObsDraf
   await loadSites();
   await reload();
   if(window.maplibregl) await initMap();
+  setTimeout(migrateElev, 2500);
   if(S.mapReady && !S.didFit){ S.didFit = true; fitAll(false); }
   applyPerm();
 })();
