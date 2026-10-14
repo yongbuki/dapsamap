@@ -187,6 +187,21 @@ body.placing .mk{pointer-events:none;opacity:.55}
 #sunDate{border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:6px;padding:5px 8px;font:13px var(--f-mono);justify-self:start}
 #sunbar .seg button{padding:6px 4px}
 #sunMsg{font-size:13px}
+.kko{position:fixed;z-index:6;background:var(--sheet);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden}
+@media (min-width:900px){.kko{left:12px;bottom:12px;width:min(44vw,620px);height:min(52vh,470px)}}
+@media (max-width:899.98px){.kko{left:8px;right:56px;top:calc(64px + env(safe-area-inset-top,0px));height:min(40vh,330px)}}
+.kko-h{display:flex;align-items:center;gap:6px;padding:5px 4px 5px 8px;border-bottom:1px solid var(--hair)}
+.kko-h .seg{margin:0;flex:none}.kko-h .seg button{flex:none;white-space:nowrap;padding:5px 9px;font-size:12.5px}
+#kkoMsg{flex:1;min-width:0;font-size:11.5px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kko-b{position:relative;flex:1;min-height:0;background:var(--land)}
+#kkoMap{position:absolute;inset:0}
+.kko-c{position:absolute;left:50%;top:50%;width:20px;height:20px;margin:-10px 0 0 -10px;pointer-events:none;z-index:5}
+.kko-c::before,.kko-c::after{content:"";position:absolute;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.55)}
+.kko-c::before{left:9px;top:0;width:2px;height:20px}.kko-c::after{top:9px;left:0;height:2px;width:20px}
+.vwbox{grid-template-columns:minmax(0,1fr)}.vwbox h3{flex-wrap:wrap;row-gap:2px}.vwbox h3 .hint{min-width:0}
+.vwbox details summary{cursor:pointer;font-size:13px;font-weight:600}
+.vwbox pre{max-height:220px;overflow:auto;font:11px/1.45 var(--f-mono);background:var(--paper);border:1px solid var(--hair);border-radius:8px;padding:8px;white-space:pre;margin:6px 0}
+.vwbox ol{margin:4px 0;padding-left:20px;font-size:13px;display:grid;gap:3px}
 button,.tools,.placebar,.fab,.addmenu,.seg{touch-action:manipulation}
 .panel,.placebar,.toast{word-break:keep-all;overflow-wrap:break-word}
 .panel .scroll{overscroll-behavior:contain}
@@ -334,11 +349,17 @@ body.placing .toast{bottom:auto;top:calc(66px + env(safe-area-inset-top,0px))}
       <button id="tTer" aria-pressed="true" title="지형·등고선">지형</button>
       <button id="tCon" aria-pressed="false" title="등고선·지형 음영 강조">등고</button>
       <button id="tSat" aria-pressed="false" title="위성 사진">위성</button>
+      <button id="tKko" aria-pressed="false" title="카카오 위성·로드뷰 나란히 보기" aria-label="카카오 위성·로드뷰 나란히 보기">비교</button>
       <button id="tBld" aria-pressed="true" title="건물: 입체 (누르면 바닥만)">건물</button>
       <button id="tMeas" aria-pressed="false" title="거리·넓이·높이 재기" aria-label="거리·넓이·높이 재기"><svg width="17" height="17" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.8 10.6l8.8-8.8 3.6 3.6-8.8 8.8z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M4.4 8l1.4 1.4M6.4 6l1.4 1.4M8.4 4l1.4 1.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></button>
       <button id="tSun" aria-pressed="false" title="빛·그림자 (시간대별)" aria-label="빛·그림자 시간대별로 보기"><svg width="17" height="17" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6L13 13M3 13l1.4-1.4M11.6 4.4L13 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
       <button id="tMe" title="현재 위치" aria-label="현재 위치"><svg width="17" height="17" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 1v3M8 12v3M1 8h3M12 8h3" stroke="currentColor" stroke-width="1.6"/></svg></button>
       <button id="tFit" title="전체 기록 보기" aria-label="전체 기록 보기"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>
+    </div>
+    <div class="kko" id="kko" hidden role="region" aria-label="카카오 위성·로드뷰">
+      <div class="kko-h"><div class="seg" id="kkoSeg"><button data-k="sky" aria-pressed="true">위성</button><button data-k="hyb" aria-pressed="false">위성+이름</button><button data-k="rv" aria-pressed="false">로드뷰</button></div><span id="kkoMsg"></span><button class="x" id="kkoX" aria-label="비교 창 닫기">×</button></div>
+      <div class="kko-b" id="kkoMapW"><div id="kkoMap"></div><i class="kko-c" aria-hidden="true"></i></div>
+      <div class="kko-b" id="kkoRv" hidden></div>
     </div>
     <div class="crumb" id="crumb" hidden aria-live="polite"><svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.5h12v9H2z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-dasharray="3 1.5 1 1.5"/><circle cx="8" cy="8" r="1.6" fill="currentColor"/></svg><span id="crumbTxt"></span></div>
     <div class="cint" id="cint" hidden></div>
@@ -1028,7 +1049,7 @@ function bldAt(e){
   try { if(map.getLayer(vwL)) feats = map.queryRenderedFeatures(e.point, {layers:[vwL]}); } catch(_){}
   if(feats.length){
     const k = feats[0].properties && feats[0].properties.k, v = k && VW.bldg.get(k);
-    if(v){ const ring = largestRing(v.geom); if(ring) return {ring: slimRing(ring), h: v.h, b: 0, name: v.name, floors: v.floors, src: v.src, fh: v.fh, use: v.use, fixFl: v.fix ? v.fix.fl : null, estN: v.estN || 0, estFl: v.estFl || null}; }
+    if(v){ const ring = largestRing(v.geom); if(ring) return {ring: slimRing(ring), h: v.h, b: 0, name: v.name, floors: v.floors, src: v.src, fh: v.fh, use: v.use, fixFl: v.fix ? v.fix.fl : null, estN: v.estN || 0, estFl: v.estFl || null, reg: v.reg || null}; }
   }
   try { if(map.getLayer(osL)) feats = map.queryRenderedFeatures(e.point, {layers:[osL]}); } catch(_){}
   if(!feats.length) return null;
@@ -1450,7 +1471,7 @@ async function loadVw(){
     const jobs = [];
     if(VW.on.zoning && z >= 12.5) for(const c of cellsIn(b, 0.02, 6)) if(!VW.cells.zone.has(c.k)) jobs.push(['zone', c]);
     if(VW.on.bldg && z >= 15.3) for(const c of cellsIn(b, 0.004, 9)) if(!VW.cells.bldg.has(c.k)) jobs.push(['bldg', c]);
-    if(VW.on.parcel && z >= 15.5) for(const c of cellsIn(b, 0.003, 9)) if(!VW.cells.parcel.has(c.k)) jobs.push(['parcel', c]);
+    if((VW.on.parcel || REG.needParcel) && z >= 15.5) for(const c of cellsIn(b, 0.003, 9)) if(!VW.cells.parcel.has(c.k)) jobs.push(['parcel', c]);
     for(const [kind, c] of jobs){
       if(map.getZoom() < (kind === 'zone' ? 12 : 15)) break;
       VW.cells[kind].add(c.k);
@@ -1460,7 +1481,7 @@ async function loadVw(){
           if(VW.bldg.size > 20000) vwPrune();
           for(const f of fs){ const p = f.properties || {}; const k = String(f.id || p.bd_mgt_sn || p.BD_MGT_SN || JSON.stringify((vwOuterRings(f.geometry)[0] || [])[0]));
             const fl = +(p.gro_flo_co ?? p.GRO_FLO_CO ?? p.grnd_flr ?? 0) || 0, ui = useInfo(p.bdtyp_cd ?? p.BDTYP_CD ?? p.bdtyp_code), h0 = fl > 0 ? Math.max(3, fl*ui.fh) : 6, src = fl > 0 ? 'vw' : 'none';
-            const v = {geom: f.geometry, h: h0, base: h0, src, baseSrc: src, floors: fl || null, fh: ui.fh, use: ui.name, name: [p.buld_nm || p.BULD_NM, p.buld_nm_dc || p.BULD_NM_DC].filter(Boolean).join(' ').trim()};
+            const v = {geom: f.geometry, h: h0, base: h0, src, baseSrc: src, floors: fl || null, fh: ui.fh, use: ui.name, name: [p.buld_nm || p.BULD_NM, p.buld_nm_dc || p.BULD_NM_DC].filter(Boolean).join(' ').trim(), pc: regPnuCands(p)};
             VW.bldg.set(k, v); vwIdxAdd(k, v); }
           bchg = true; if(++nb === 1 || nb % 3 === 0) flushVwBldg();
         } else if(kind === 'parcel'){
@@ -1468,7 +1489,7 @@ async function loadVw(){
           for(const f of fs){ const p = f.properties || {}; const k = String(p.pnu || p.PNU || f.id);
             VW.parcel.set(k, {geom: f.geometry, jibun: String(p.jibun || p.JIBUN || '').trim(), addr: String(p.addr || p.ADDR || '').trim(), jiga: +(p.jiga || p.JIGA || 0) || null}); }
           if(VW.parcel.size > 30000){ VW.parcel.clear(); VW.cells.parcel.clear(); VW.cells.parcel.add(c.k); }
-          pchg = true; if(++np === 1 || np % 3 === 0) setData('vw-parcel', vwParcelFeatures());
+          pchg = true; VW.pver = (VW.pver || 0) + 1; if(++np === 1 || np % 3 === 0) setData('vw-parcel', vwParcelFeatures());
         } else {
           let fs = [];
           for(const layer of ['LT_C_UQ111', 'LT_C_UQ112']){ try { fs = fs.concat(await vwData(layer, c.bbox, {maxPages: 2})); } catch(e){ if(vwFatal(e)) throw e; } }
@@ -1488,7 +1509,8 @@ async function loadVw(){
   } finally { VW.busy = false; }
   if(bchg){ flushVwBldg(); renderMap(); }
   if(pchg) setData('vw-parcel', vwParcelFeatures());
-  if(VW.key && VW.ok !== false){ const z = map.getZoom(), b = map.getBounds(); const pending = (VW.on.bldg && z >= 15.3 && cellsIn(b, 0.004, 9).some(c => !VW.cells.bldg.has(c.k))) || (VW.on.parcel && z >= 15.5 && cellsIn(b, 0.003, 9).some(c => !VW.cells.parcel.has(c.k))); if(pending) scheduleVw(); }
+  if(VW.key && VW.ok !== false){ const z = map.getZoom(), b = map.getBounds(); const pending = (VW.on.bldg && z >= 15.3 && cellsIn(b, 0.004, 9).some(c => !VW.cells.bldg.has(c.k))) || ((VW.on.parcel || REG.needParcel) && z >= 15.5 && cellsIn(b, 0.003, 9).some(c => !VW.cells.parcel.has(c.k))); if(pending) scheduleVw(); }
+  regSchedule();
 }
 function zoneAtPoint(lng, lat){
   for(const v of VW.zone.values()) for(const r of vwOuterRings(v.geom)) if(inRing([lng, lat], r)) return v.name;
@@ -1931,13 +1953,15 @@ function zoneListHTML(list){
 function terrainStatus(){
   if(!S.mapReady) return '지도 준비 중';
   let n = 0; try { if(map.getSource('contours')) n = map.querySourceFeatures('contours', {sourceLayer:'contours'}).length; } catch(_){}
-  return `지형 상태 · 지형 ${S.hasDem ? (S.terrain ? '켜짐' : '꺼짐') : '없음'} · 지형 보정 ${S.dtm ? '켜짐' : '꺼짐'} · 등고선 도구 ${window.mlcontour ? '정상' : '불러오지 못함'} · 지금 화면 등고선 ${S.terrain ? n + '개' : '꺼짐'}${S.demErrs ? ` · 불러오기 실패 ${S.demErrs}건` : ''} · 브이월드 ${VW.key ? (VW.ok === false ? '오류' : VW.ok ? '연결됨' : '확인 중') : '미연결'} (건물 ${VW.bldg.size} · 필지 ${VW.parcel.size}) · 대지 ${S.sites.length} · 버전 2026-10-14b`;
+  return `지형 상태 · 지형 ${S.hasDem ? (S.terrain ? '켜짐' : '꺼짐') : '없음'} · 지형 보정 ${S.dtm ? '켜짐' : '꺼짐'} · 등고선 도구 ${window.mlcontour ? '정상' : '불러오지 못함'} · 지금 화면 등고선 ${S.terrain ? n + '개' : '꺼짐'}${S.demErrs ? ` · 불러오기 실패 ${S.demErrs}건` : ''} · 브이월드 ${VW.key ? (VW.ok === false ? '오류' : VW.ok ? '연결됨' : '확인 중') : '미연결'} (건물 ${VW.bldg.size} · 필지 ${VW.parcel.size}) · 대지 ${S.sites.length} · 버전 2026-10-14c`;
 }
 function renderMenu(){
   const ex = S.recs.filter(r => r.example).length;
   panel.innerHTML = head('설정 · 내보내기') + `<div class="scroll">
     <label class="tgl" style="margin-bottom:10px"><input type="checkbox" data-act2="lite" ${S.lite ? 'checked' : ''}> 가벼운 모드 · 화면 해상도를 낮추고 지형 음영을 꺼서 느린 폰에서도 부드럽게</label>
     ${vwSectionHTML()}
+    ${regSectionHTML()}
+    ${kkoSectionHTML()}
     <p class="note">기록과 사진은 이 브라우저에만 저장돼요. 브라우저 데이터를 지우면 함께 사라지니, 가끔 내보내기 파일로 백업해 두세요. 이 파일은 Claude 답사 지도에서도 그대로 가져올 수 있어요.</p>
     <div class="menu-list">
       <button class="btn" data-act="export" data-photos="1">내보내기 · 사진 포함 (JSON)</button>
@@ -2148,6 +2172,13 @@ panel.addEventListener('click', async e => {
     case 'vwSave': vwSaveKey(); break;
     case 'vwShow': { const i = $('#vwKey'); if(i){ i.type = i.type === 'password' ? 'text' : 'password'; b.textContent = i.type === 'password' ? '보기' : '숨기기'; } break; }
     case 'vwClear': VW.key = ''; VW.ok = null; try { localStorage.removeItem('dapsa3d.vwKey'); } catch(_){} vwReset(); renderMenu(); toast('브이월드 연결을 해제했어요'); break;
+    case 'regSave': regSave(); break;
+    case 'regShow': { const i = $('#regKey'); if(i){ i.type = i.type === 'password' ? 'text' : 'password'; b.textContent = i.type === 'password' ? '보기' : '숨기기'; } break; }
+    case 'regCopy': try { await navigator.clipboard.writeText(regWorkerCode()); toast('코드를 복사했어요'); } catch(_){ toast('복사하지 못했어요 · 코드를 길게 눌러 선택해 주세요'); } break;
+    case 'regClear': REG.key = ''; REG.proxy = ''; REG.ok = null; REG.mode = null; REG.code = ''; REG.c.clear(); RDB.clear(); try { localStorage.removeItem('dapsa3d.regKey'); localStorage.removeItem('dapsa3d.regProxy'); } catch(_){} regFlush(); renderMenu(); toast('건축물대장 연결을 해제했어요'); break;
+    case 'kkSave': kkoSaveKey(); break;
+    case 'kkShow': { const i = $('#kkKey'); if(i){ i.type = i.type === 'password' ? 'text' : 'password'; b.textContent = i.type === 'password' ? '보기' : '숨기기'; } break; }
+    case 'kkClear': KK.key = ''; KK.ok = null; try { localStorage.removeItem('dapsa3d.kkKey'); } catch(_){} kkoClose(); renderMenu(); toast('카카오 연결을 해제했어요'); break;
     case 'import': $('#fImport').click(); break;
     case 'hfixClear': HFIX.list = []; hfixSave(); applyHfix(); renderMenu(); toast('고친 건물 높이를 모두 되돌렸어요'); break;
     case 'clearEx': { const ex = S.recs.filter(r => r.example); for(const r of ex) await DB.delRec(r.id); await reload(); renderMenu(); toast(`예시 ${ex.length}개를 지웠어요`); break; }
@@ -2175,6 +2206,7 @@ panel.addEventListener('change', async e => {
   if(tg.dataset && tg.dataset.cm){ const k = tg.dataset.cm; S.cm[k] = tg.type === 'checkbox' ? tg.checked : k === 'area' ? tg.value : +tg.value; cmSave(); if(k === 'area'){ keepScroll(renderStudio); } clearTimeout(S.cmT); S.cmT = setTimeout(() => { if(S.panel === 'studio') cmPreview(); }, 350); return; }
   if(tg.dataset && tg.dataset.act2 === 'lite'){ S.lite = tg.checked; try { localStorage.setItem('dapsa3d.lite', S.lite ? '1' : '0'); } catch(_){} applyLite(); toast(S.lite ? '가벼운 모드를 켰어요' : '가벼운 모드를 껐어요'); return; }
   if(tg.dataset && tg.dataset.act2 === 'env'){ S.envOn = tg.checked; renderStudioMap(); if(S.envOn){ const cs = curSite(); if(cs) map.easeTo({pitch: 55, duration: 600}); } return; }
+  if(e.target.dataset && e.target.dataset.regopt){ REG.on = e.target.checked; try { localStorage.setItem('dapsa3d.regOn', REG.on ? '1' : '0'); } catch(_){} regFlush(); regSchedule(); toast(REG.on ? '건축물대장 높이를 먼저 써요' : '건축물대장 높이를 껐어요 · 브이월드 층수로 그려요'); return; }
   if(e.target.dataset && e.target.dataset.vwopt){ VW.on[e.target.dataset.vwopt] = e.target.checked; vwSaveOpts(); vwApplyVisibility(); scheduleVw(); return; } if(e.target.id === 'f-photo'){ const files = [...e.target.files]; e.target.value = ''; await addPhotos(files); } });
 panel.addEventListener('submit', e => { e.preventDefault(); if(e.target.id === 'sForm') doSearch($('#sQ').value); });
 panel.addEventListener('keydown', e => { if(e.key === 'Enter' && e.target.id === 'f-name' && !e.isComposing){ e.preventDefault(); panel.querySelector('[data-act="findName"]').click(); } });
@@ -3429,9 +3461,9 @@ function heightPoint(e){
   if(s) for(const [i, m] of (s.masses || []).entries()) if(inRing(ll, m.ring)){ const c = centroid(m.ring), z0 = elevF(c[0], c[1]), h = (+m.base || 0) + (+m.floors || 1)*(+m.fh || 3); return {ll: c, z: (z0 ?? 0) + h, ring: m.ring, label: `${m.name || `매스 ${i + 1}`} ${h.toFixed(1)}m`, detail: `${m.name || '매스'} 높이 ${h.toFixed(1)}m (${m.floors}층 × ${(+m.fh || 3).toFixed(1)}m${+m.base ? ` + 띄움 ${(+m.base).toFixed(1)}m` : ''})`}; }
   const b = bldAt(e);
   if(b){ const c = centroid(b.ring), ip = innerPoint(b.ring), z0 = elevF(c[0], c[1]), top = z0 != null ? z0 + b.h : null;
-    const src = b.src === 'fix' ? '내가 고친 높이' : b.src === 'vw' ? `지상 ${b.floors}층 × ${b.fh}m${b.use ? ` · ${b.use}` : ''}로 어림` : b.src === 'osm' ? '오픈스트리트맵 높이' : b.src === 'ngii' ? `수치지형도 ${b.estFl}층 × ${b.fh}m` : b.src === 'est' ? (b.estN ? `층수 자료가 없어 주변 ${b.estN}동으로 추정 · 약 ${b.estFl || '?'}층` : '층수 자료가 없어 작은 부속 건물로 봤어요') : '층수 자료도 주변 자료도 없어 6m로 그렸어요';
+    const src = b.src === 'fix' ? '내가 고친 높이' : b.src === 'reg' ? regSrcText(b.reg) : b.src === 'vw' ? `지상 ${b.floors}층 × ${b.fh}m${b.use ? ` · ${b.use}` : ''}로 어림` : b.src === 'osm' ? '오픈스트리트맵 높이' : b.src === 'ngii' ? `수치지형도 ${b.estFl}층 × ${b.fh}m` : b.src === 'est' ? (b.estN ? `층수 자료가 없어 주변 ${b.estN}동으로 추정 · 약 ${b.estFl || '?'}층` : '층수 자료가 없어 작은 부속 건물로 봤어요') : '층수 자료도 주변 자료도 없어 6m로 그렸어요';
     return {ll: c, z: top ?? b.h, ring: b.ring, label: `건물 ${b.h.toFixed(1)}m`, detail: `건물 높이 약 ${b.h.toFixed(1)}m (${src})${z0 != null ? ` · 바닥 해발 ${z0.toFixed(1)}m` : ''}`,
-      bfix: {lng: ip[0], lat: ip[1], ring: b.ring, h: b.h, floors: b.src === 'fix' ? (b.fixFl || null) : (b.src === 'est' || b.src === 'ngii') ? (b.estFl || null) : (b.floors || null), fh: b.fh || 3.3, src: b.src, oid: b.oid ?? null}}; }
+      bfix: {lng: ip[0], lat: ip[1], ring: b.ring, h: b.h, floors: b.src === 'fix' ? (b.fixFl || null) : b.src === 'reg' ? ((b.reg && b.reg.fl) || null) : (b.src === 'est' || b.src === 'ngii') ? (b.estFl || null) : (b.floors || null), fh: b.src === 'reg' && b.reg ? b.reg.fh : (b.fh || 3.3), src: b.src, oid: b.oid ?? null}}; }
   const z = elevF(ll[0], ll[1]);
   return {ll, z: z ?? 0, label: z != null ? `해발 ${z.toFixed(1)}m` : '높이 없음', detail: z != null ? `이 지점 해발 약 ${z.toFixed(1)}m (지형 자료는 30~90m 간격이라 ±수 m 오차)` : '지형이 꺼져 있거나 자료가 없어요'};
 }
@@ -3615,7 +3647,7 @@ function vwFillMissing(){ // no national storey count → 수치지형도 storey
   const getOsm = () => { if(osm) return osm; osm = []; if(!SRC) return osm; let feats = []; try { feats = map.querySourceFeatures(SRC, {sourceLayer:'building'}); } catch(_){}
     for(const f of feats){ const rh = +(f.properties && f.properties.render_height); if(!Number.isFinite(rh) || rh === 5 || rh < 2) continue; const r = largestRing(f.geometry); if(r) osm.push({r, bb: ringsBBox([r]), h: rh, a: ringAreaM2(r)}); } return osm; };
   for(const v of VW.bldg.values()){
-    if(v.floors) continue; if(!bldMeta(v)) continue;
+    if(v.floors || v.reg) continue; if(!bldMeta(v)) continue;
     const tf = topoFloorsAt(v.c[0], v.c[1]);
     if(tf){ const h = Math.max(3, tf*(v.fh || 3.0)); if(v.baseSrc !== 'ngii' || v.base !== h) setBase(v, h, 'ngii', 0, tf); continue; }
     if(v.baseSrc === 'ngii') setBase(v, 6, 'none');
@@ -3899,7 +3931,7 @@ function vwEstimate(){
     const L = mkLocal(v.c[0], v.c[1]), ci = Math.floor(v.c[0]/VWI_S), cj = Math.floor(v.c[1]/VWI_S), seen = new Set(), cand = [];
     for(let i = ci - 1; i <= ci + 1; i++) for(let j = cj - 1; j <= cj + 1; j++){ const l = VWI.get(i + ':' + j); if(!l) continue;
       for(const kk of l){ if(kk === k || seen.has(kk)) continue; seen.add(kk); const u = VW.bldg.get(kk); if(!u) continue;
-        const known = u.src === 'fix' ? u.h : (u.baseSrc === 'vw' || u.baseSrc === 'osm' || u.baseSrc === 'ngii') ? u.base : null; if(known == null || !bldMeta(u)) continue;
+        const known = u.src === 'fix' ? u.h : (u.baseSrc === 'vw' || u.baseSrc === 'osm' || u.baseSrc === 'ngii' || u.baseSrc === 'reg') ? u.base : null; if(known == null || !bldMeta(u)) continue;
         const q = L.f(u.c[0], u.c[1]), d = Math.hypot(q[0], q[1]); if(d > 90) continue;
         cand.push({h: known, w: Math.exp(-Math.abs(Math.log((u.a + 20)/(v.a + 20))))/(d + 15)}); } }
     if(cand.length < 3){ if(v.baseSrc === 'est') setBase(v, 6, 'none'); continue; }
@@ -4584,7 +4616,7 @@ async function renderShot(){
 
 
 /* ---------- lighter: batched national data, far-away pruning, 가벼운 모드 ---------- */
-function flushVwBldg(){ vwFillMissing(); vwApplyFixes(); vwEstimate(); setData('vw-bldg', vwBldgFeatures()); if(S.hideEx) applyHideExisting(); }
+function flushVwBldg(){ regApply(); vwFillMissing(); vwApplyFixes(); vwEstimate(); setData('vw-bldg', vwBldgFeatures()); if(S.hideEx) applyHideExisting(); }
 const vwParcelFeatures = () => [...VW.parcel].map(([k, v]) => ({type:'Feature', properties:{k, jb: v.jibun}, geometry: v.geom}));
 function vwPrune(){
   const c = map.getCenter(), far = (x, y) => Math.abs(x - c.lng) > 0.03 || Math.abs(y - c.lat) > 0.025;
@@ -4600,8 +4632,382 @@ function applyLite(){
   try { if(map.getLayer('contour-labels')) map.setLayoutProperty('contour-labels', 'visibility', S.terrain && !S.lite ? 'visible' : 'none'); } catch(_){}
 }
 
+
+/* ---------- 건축물대장: real heights and storeys from the national building register ---------- */
+const REG = {key: '', proxy: '', on: true, ok: null, msg: '', code: '', mode: null, c: new Map(), fail: new Set(), busy: false, timer: 0, needParcel: false, pidx: null, pidxV: -1};
+try { REG.key = (localStorage.getItem('dapsa3d.regKey') || '').trim(); REG.proxy = (localStorage.getItem('dapsa3d.regProxy') || '').trim(); REG.on = localStorage.getItem('dapsa3d.regOn') !== '0'; } catch(_){}
+const REG_API = 'https://apis.data.go.kr/1613000/BldRgstHubService/getBrTitleInfo', REG_TTL = 30*864e5, REG_TEST = '1168010300100120000';
+const regLive = () => !!((REG.key || REG.proxy) && REG.on && REG.ok !== false && VW.key && VW.ok !== false && VW.on.bldg);
+const regKeyRaw = k => { k = String(k || '').trim(); if(/%[0-9A-Fa-f]{2}/.test(k)){ try { k = decodeURIComponent(k); } catch(_){} } return k; }; // the portal hands out an encoded and a decoded copy of the same key
+function regErr(msg, code){ const e = new Error(String(msg || '오류')); e.code = String(code ?? ''); return e; }
+const REG_FATAL = new Set(['12', '20', '22', '30', '31', '32', 'cors', 'auth', 'proxy', 'proxyOrigin']);
+const regFatal = e => REG_FATAL.has(e && e.code);
+function regMsg(e){
+  const m = {'30': '등록되지 않은 키예요 · 활용신청 승인 뒤 1~2시간 지나야 써져요', '20': '이 서비스를 쓸 수 없는 키예요 · 건축HUB 건축물대장정보 활용신청을 확인해 주세요', '22': '오늘 호출 한도를 다 썼어요 · 내일 다시 돼요', '31': '활용 기간이 끝났어요 · 연장 신청이 필요해요', '32': '등록되지 않은 IP예요', '12': '서비스 주소가 바뀌었어요',
+    auth: '키가 거절됐어요 · 일반 인증키(Decoding)인지, 활용신청이 승인됐는지 확인해 주세요', cors: '브라우저에서 바로 부를 수 없어요 · 아래 안내대로 프록시를 만들어 주소를 넣어 주세요', proxy: '프록시에 연결하지 못했어요 · 주소를 확인해 주세요', proxyOrigin: `프록시가 이 주소를 막았어요 · Worker 코드의 ALLOW에 ${location.origin}이 있어야 해요`, timeout: '응답이 늦어요 · 잠시 후 다시 시도해요'}[e && e.code];
+  return m || String((e && e.message) || '알 수 없는 오류');
+}
+const xmlUnesc = t => String(t).replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&amp;/g, '&');
+function regParse(txt){
+  txt = String(txt || '').trim();
+  const okCode = c => ['00', '0', '000', '03'].includes(String(c)); // 03 = no data, not an error
+  if(txt.startsWith('{')){
+    let j; try { j = JSON.parse(txt); } catch(_){ throw regErr('응답을 읽지 못했어요', 'parse'); }
+    const r = j.response || j, h = r.header || r.cmmMsgHeader || {}, code = String(h.resultCode ?? h.returnReasonCode ?? '00');
+    if(!okCode(code)) throw regErr(h.resultMsg || h.returnAuthMsg || h.errMsg || code, code);
+    const b = r.body || {}; let it = b.items && typeof b.items === 'object' ? (b.items.item ?? []) : [];
+    if(!it || typeof it !== 'object') it = []; if(!Array.isArray(it)) it = [it];
+    return {items: it, total: +b.totalCount || it.length};
+  }
+  if(txt.startsWith('<')){
+    const tag = n => { const m = txt.match(new RegExp(`<${n}>([^<]*)</${n}>`)); return m ? m[1].trim() : ''; };
+    const rc = tag('returnReasonCode'); if(rc && !okCode(rc)) throw regErr(tag('returnAuthMsg') || tag('errMsg') || rc, String(+rc));
+    const code = tag('resultCode'); if(code && !okCode(code)) throw regErr(tag('resultMsg') || code, code);
+    const items = []; for(const m of txt.matchAll(/<item>([\s\S]*?)<\/item>/g)){ const o = {}; for(const f of m[1].matchAll(/<(\w+)>([^<]*)<\/\1>/g)) o[f[1]] = xmlUnesc(f[2]); items.push(o); }
+    return {items, total: +tag('totalCount') || items.length};
+  }
+  if(/unauthori[sz]ed|forbidden|not registered/i.test(txt)) throw regErr(txt.slice(0, 80), 'auth');
+  throw regErr(txt.slice(0, 80) || '빈 응답', 'parse');
+}
+function regItem(x){
+  const n = k => { const v = parseFloat(x[k]); return Number.isFinite(v) ? v : 0; }, t = k => String(x[k] ?? '').trim();
+  return {dong: t('dongNm'), name: t('bldNm'), heit: Math.round(n('heit')*100)/100, fl: Math.round(n('grndFlrCnt')), ufl: Math.round(n('ugrndFlrCnt')), arch: n('archArea'), tot: n('totArea'),
+    purp: t('mainPurpsCdNm') || t('etcPurps'), atch: t('mainAtchGbCdNm'), apr: t('useAprDay'), strct: t('strctCdNm')};
+}
+const REG_FH = [[/단독주택/, 3.0], [/공동주택|아파트|연립|다세대|기숙사/, 2.9], [/근린생활/, 3.6], [/문화|집회|종교|장례/, 5.0], [/판매|운수/, 4.5], [/의료/, 3.9], [/교육|연구/, 3.8], [/노유자/, 3.5], [/수련/, 3.6], [/운동/, 6.0], [/업무/, 3.8], [/숙박/, 3.2], [/위락/, 3.6], [/공장|창고|위험물|자동차/, 6.0]];
+const regFh = purp => { for(const [re, fh] of REG_FH) if(re.test(purp || '')) return fh; return 0; };
+function regHeight(it, fh0){
+  const fh = regFh(it.purp) || fh0 || 3.0, fl = it.fl > 0 ? it.fl : 0;
+  // the recorded height wins when it agrees with the storey count; a few registers carry typos like 0.3 or 1500
+  if(it.heit >= 2 && it.heit <= 400 && (!fl || (it.heit/fl >= 1.8 && it.heit/fl <= 12))) return {h: it.heit, real: true, fl, fh};
+  if(fl) return {h: Math.max(3, fl*fh), real: false, fl, fh};
+  return null;
+}
+function regPnuCands(p){ // the lot under a national building, from its own attributes
+  const g = k => String(p[k] ?? p[k.toUpperCase()] ?? '').trim(), out = [], ok = q => /^\d{10}[12]\d{8}$/.test(q) && !out.includes(q) && out.push(q);
+  const sig = g('sig_cd'), emd = g('emd_cd'), li = g('li_cd'), mn = g('lnbr_mnnm'), sl = g('lnbr_slno'), mt = g('mntn_yn');
+  let bj = /^\d{10}$/.test(li) ? li : /^\d{10}$/.test(emd) ? emd : /^\d{8}$/.test(emd) ? emd + (/^\d{2}$/.test(li) ? li : '00') : (/^\d{5}$/.test(sig) && /^\d{5}$/.test(emd)) ? sig + emd : (/^\d{5}$/.test(sig) && /^\d{3}$/.test(emd)) ? sig + emd + (/^\d{2}$/.test(li) ? li : '00') : '';
+  if(bj && /^\d{1,4}$/.test(mn) && +mn > 0) ok(bj + (mt === '1' ? '2' : '1') + mn.padStart(4, '0') + (/^\d{1,4}$/.test(sl) ? sl : '0').padStart(4, '0'));
+  const sn = g('bd_mgt_sn'); if(/^\d{25}$/.test(sn)) ok(sn.slice(0, 10) + (sn[10] === '1' ? '2' : '1') + sn.slice(11, 19)); // 건물관리번호 starts with the lot it was registered on
+  return out;
+}
+function regDongKey(str){ // "101동", "제101동", "가동", "B동" → "101" / "가" / "b"
+  const t = String(str || '').toLowerCase().trim(); if(!t) return '';
+  const toks = t.split(/[\s()\[\],·-]+/).filter(Boolean);
+  for(const k of [...toks].reverse()){ const m = k.match(/^제?(\d{1,4}|[a-z]|[가나다라마바사아자차카타파하])동$/); if(m) return m[1]; }
+  if(toks.length > 1 && /^\d{1,4}$/.test(toks[toks.length - 1])) return toks[toks.length - 1];
+  const m = t.match(/^제?(\d{1,4}|[a-z]|[가나다라마바사아자차카타파하])$/); return m ? m[1] : '';
+}
+function regMatch(items, blds){ // pair register entries with footprints on the same lot: dong name first, then footprint area
+  const out = [], pairs = [];
+  items.forEach((it, i) => { const ia = it.arch > 0 ? it.arch : it.tot > 0 ? it.tot/Math.max(1, it.fl || 1) : 0, dn = regDongKey(it.dong);
+    blds.forEach((b, j) => { let sc = ia > 0 ? Math.exp(-Math.abs(Math.log((ia + 8)/((b.a || 0) + 8)))) : 0.4; const bn = regDongKey(b.name);
+      if(dn && bn) sc += dn === bn ? 2 : -1;
+      pairs.push([sc, i, j, ia > 0]); }); });
+  if(items.length === 1 && blds.length === 1) return pairs[0][0] >= 0.2 || !pairs[0][3] ? [[0, 0]] : [];
+  pairs.sort((a, b) => b[0] - a[0]);
+  const ui = new Set(), uj = new Set();
+  for(const [sc, i, j] of pairs){ if(ui.has(i) || uj.has(j) || sc < 0.45) continue; ui.add(i); uj.add(j); out.push([i, j]); }
+  return out;
+}
+function parcelPnuAt(x, y){
+  if(!VW.parcel.size) return null;
+  const G = 0.001;
+  if(REG.pidxV !== (VW.pver || 0) || !REG.pidx){ REG.pidx = new Map(); REG.pidxV = VW.pver || 0;
+    for(const [k, v] of VW.parcel){ if(!/^\d{19}$/.test(k)) continue; const rs = vwOuterRings(v.geom); if(!rs.length) continue; v.rs = rs; v.bb = ringsBBox(rs);
+      for(let i = Math.floor(v.bb[0]/G); i <= Math.floor(v.bb[2]/G); i++) for(let j = Math.floor(v.bb[1]/G); j <= Math.floor(v.bb[3]/G); j++){ const key = i + ':' + j; let l = REG.pidx.get(key); if(!l){ l = []; REG.pidx.set(key, l); } l.push(k); } } }
+  const l = REG.pidx.get(Math.floor(x/G) + ':' + Math.floor(y/G)); if(!l) return null;
+  for(const k of l){ const v = VW.parcel.get(k); if(v && v.bb && x >= v.bb[0] && x <= v.bb[2] && y >= v.bb[1] && y <= v.bb[3] && v.rs.some(r => inRing([x, y], r))) return k; }
+  return null;
+}
+function regPick(v){ // the first lot with register entries, or the next lot worth asking about
+  const st = q => { const e = REG.c.get(q); return e ? (e.items.length ? 'hit' : 'empty') : 'need'; };
+  for(const q of v.pc || []){ const r = st(q); if(r === 'hit') return {hit: q}; if(r === 'need') return {need: q}; }
+  if(VW.parcel.size && bldMeta(v) && v.ppnuV !== (VW.pver || 0)){ v.ppnu = parcelPnuAt(v.c[0], v.c[1]); v.ppnuV = VW.pver || 0; }
+  const q = v.ppnu;
+  if(q && !(v.pc || []).includes(q)){ const r = st(q); if(r === 'hit') return {hit: q}; if(r === 'need') return {need: q}; }
+  return (v.pc && v.pc.length) || q ? {} : {nopnu: true};
+}
+function regSet(v, it, hh){
+  if(!v.vw0) v.vw0 = {use: v.use};
+  v.reg = {real: hh.real, heit: it.heit, fl: hh.fl, fh: hh.fh, purp: it.purp, apr: it.apr, dong: it.dong, name: it.name, ufl: it.ufl, strct: it.strct};
+  if(it.purp) v.use = it.purp;
+  if(v.baseSrc !== 'reg' || v.base !== hh.h) setBase(v, hh.h, 'reg', 0, hh.fl);
+}
+function regUnset(v){
+  v.reg = null; if(v.vw0) v.use = v.vw0.use;
+  const fl = v.floors; setBase(v, fl > 0 ? Math.max(3, fl*(v.fh || 3.3)) : 6, fl > 0 ? 'vw' : 'none'); v.osmTried = false;
+}
+function regApply(){
+  const live = regLive() && REG.c.size > 0, groups = new Map();
+  for(const [k, v] of VW.bldg){
+    const p = live ? regPick(v).hit : null;
+    if(p){ let g = groups.get(p); if(!g){ g = []; groups.set(p, g); } g.push(k); }
+    else if(v.reg) regUnset(v);
+  }
+  for(const [p, ks] of groups){
+    const items = REG.c.get(p).items, blds = ks.map(k => { const v = VW.bldg.get(k); bldMeta(v); return {k, v, a: v.a || 0, name: v.name}; }), used = new Set();
+    for(const [i, j] of regMatch(items, blds)){ const b = blds[j], hh = regHeight(items[i], b.v.fh); if(hh){ regSet(b.v, items[i], hh); used.add(b.k); } }
+    for(const b of blds) if(!used.has(b.k) && b.v.reg) regUnset(b.v);
+  }
+}
+function regSrcText(r){
+  if(!r) return '건축물대장';
+  const d = /^\d{8}$/.test(r.apr || '') ? ` · 사용승인 ${r.apr.slice(0, 4)}.${r.apr.slice(4, 6)}` : '';
+  return (r.real ? `건축물대장 높이 ${r.heit}m${r.fl ? ` · 지상 ${r.fl}층` : ''}` : `건축물대장 지상 ${r.fl}층 × ${r.fh}m로 어림`) + (r.ufl ? ` · 지하 ${r.ufl}층` : '') + (r.purp ? ` · ${r.purp}` : '') + d;
+}
+const RDB = {p: null,
+  open(){ return RDB.p || (RDB.p = new Promise(res => { try { const r = indexedDB.open('dapsa3d-reg', 1); r.onupgradeneeded = () => r.result.createObjectStore('lot'); r.onsuccess = () => res(r.result); r.onerror = () => res(null); } catch(_){ res(null); } })); },
+  async get(k){ const d = await RDB.open(); if(!d) return null; return new Promise(res => { try { const q = d.transaction('lot').objectStore('lot').get(k); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); } catch(_){ res(null); } }); },
+  async put(k, v){ const d = await RDB.open(); if(!d) return; try { d.transaction('lot', 'readwrite').objectStore('lot').put(v, k); } catch(_){} },
+  async clear(){ const d = await RDB.open(); if(!d) return; try { d.transaction('lot', 'readwrite').objectStore('lot').clear(); } catch(_){} },
+};
+function regQuery(pnu, page){
+  const q = new URLSearchParams({sigunguCd: pnu.slice(0, 5), bjdongCd: pnu.slice(5, 10), platGbCd: pnu[10] === '2' ? '1' : '0', bun: pnu.slice(11, 15), ji: pnu.slice(15, 19), _type: 'json', numOfRows: '100', pageNo: String(page)});
+  if(REG.key) q.set('serviceKey', regKeyRaw(REG.key));
+  return q.toString();
+}
+async function regGet(pnu, page){
+  const viaProxy = !!REG.proxy, url = (viaProxy ? REG.proxy.replace(/\/+$/, '') + '/getBrTitleInfo' : REG_API) + '?' + regQuery(pnu, page);
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 15000);
+  let r, txt;
+  try { r = await fetch(url, {signal: ctl.signal, credentials: 'omit', cache: 'no-store'}); txt = await r.text(); }
+  catch(e){ if(e && e.name === 'AbortError') throw regErr('timeout', 'timeout'); throw regErr(viaProxy ? 'proxy' : 'cors', viaProxy ? 'proxy' : 'cors'); } // a CORS refusal looks like a network error from here
+  finally { clearTimeout(t); }
+  const body = /^\s*[<{]/.test(txt);
+  if(viaProxy && r.status === 403 && /forbidden/i.test(txt) && !body) throw regErr('origin', 'proxyOrigin');
+  if((r.status === 401 || r.status === 403) && !body) throw regErr(txt.slice(0, 60), 'auth');
+  if(r.status === 429) throw regErr('quota', '22');
+  if(!r.ok && !body) throw regErr('HTTP ' + r.status, 'http');
+  REG.mode = viaProxy ? 'proxy' : 'direct';
+  return txt;
+}
+async function regFetch(pnu){
+  const all = [];
+  for(let page = 1; page <= 3; page++){ const r = regParse(await regGet(pnu, page)); all.push(...r.items); if(all.length >= r.total || r.items.length < 100) break; }
+  return all.map(regItem);
+}
+function regSchedule(){ clearTimeout(REG.timer); if(regLive()) REG.timer = setTimeout(regScan, 500); }
+function regScan(){
+  clearTimeout(REG.timer);
+  if(!regLive() || REG.busy || !S.mapReady || map.getZoom() < 16) return;
+  const b = map.getBounds(), c = map.getCenter(), need = new Map(); let nop = 0;
+  for(const v of VW.bldg.values()){
+    if(!v.bb) continue; const x = (v.bb[0] + v.bb[2])/2, y = (v.bb[1] + v.bb[3])/2; if(!b.contains([x, y])) continue;
+    const r = regPick(v);
+    if(r.need && !REG.fail.has(r.need) && !need.has(r.need)) need.set(r.need, Math.hypot(x - c.lng, (y - c.lat)*1.22));
+    if(r.nopnu) nop++;
+  }
+  if(nop && !REG.needParcel && !VW.parcel.size){ REG.needParcel = true; scheduleVw(); } // no lot number on the buildings → read it off the cadastral map
+  const list = [...need].sort((p, q) => p[1] - q[1]).slice(0, 40).map(e => e[0]);
+  if(list.length) regRun(list);
+}
+async function regRun(list){
+  REG.busy = true; let got = 0, last = 0;
+  const stat = () => { const el = $('#regStat'); if(el) el.textContent = regStatText(); };
+  try {
+    const miss = [];
+    for(const p of list){ const e = await RDB.get(p); if(e && Array.isArray(e.items) && Date.now() - e.t < REG_TTL){ REG.c.set(p, e); got++; } else miss.push(p); }
+    if(got) regFlush();
+    let i = 0;
+    const worker = async () => {
+      while(i < miss.length && regLive()){
+        const p = miss[i++];
+        try {
+          const items = await regFetch(p), e = {t: Date.now(), items};
+          REG.c.set(p, e); RDB.put(p, e); got++;
+          if(REG.c.size > 6000) REG.c.delete(REG.c.keys().next().value);
+          if(REG.ok !== true){ REG.ok = true; REG.msg = ''; REG.code = ''; }
+          if(Date.now() - last > 1200){ last = Date.now(); regFlush(); }
+        } catch(err){
+          if(regFatal(err)){ if(REG.ok !== false){ REG.ok = false; REG.code = err.code; REG.msg = regMsg(err); toast(`건축물대장 · ${REG.msg}`, 7000); if(S.panel === 'menu') keepScroll(renderMenu); } break; }
+          REG.fail.add(p); setTimeout(() => REG.fail.delete(p), 90000);
+        }
+      }
+    };
+    await Promise.all([worker(), worker(), worker()]);
+  } finally { REG.busy = false; }
+  if(got) regFlush(); else stat();
+  if(regLive()) REG.timer = setTimeout(regScan, 400);
+}
+function regFlush(){ if(!S.mapReady) return; flushVwBldg(); SUNCTX = null; renderMap(); const el = $('#regStat'); if(el) el.textContent = regStatText(); }
+function regStatText(){
+  if(!(REG.key || REG.proxy)) return '키를 넣으면 화면 안 건물의 실제 높이(m)와 층수를 건축물대장에서 가져와요.';
+  if(!VW.key || !VW.on.bldg) return '브이월드 연결과 "국가 건물 자료"가 먼저 켜져 있어야 해요 · 건물 모양은 브이월드에서 와요.';
+  if(!REG.on) return '꺼져 있어요 · 브이월드 층수로 그려요.';
+  if(!S.mapReady || !map) return '';
+  if(map.getZoom() < 16) return '16단계 이상 확대하면 화면 안 건물부터 불러와요.';
+  const bb = map.getBounds(); let n = 0, reg = 0, real = 0;
+  for(const v of VW.bldg.values()){ if(!v.bb || !bb.contains([(v.bb[0] + v.bb[2])/2, (v.bb[1] + v.bb[3])/2])) continue; n++; if(v.reg){ reg++; if(v.reg.real) real++; } }
+  return `이 화면 건물 ${n}동 중 ${reg}동을 건축물대장으로 그렸어요 · 실제 높이 ${real}동 · 층수로 어림 ${reg - real}동${REG.busy ? ' · 불러오는 중…' : ''}`;
+}
+function regWorkerCode(){
+  const origin = /^https?:/.test(location.origin) ? location.origin : 'https://yongbuki.github.io';
+  return `// 답사 지도 3D · 건축물대장 프록시 (Cloudflare Worker)
+// 아래 주소에서 온 요청만 공공데이터포털 건축물대장 API로 넘겨줘요.
+const ALLOW = ['${origin}'];
+const UP = 'https://apis.data.go.kr/1613000/BldRgstHubService/';
+export default {
+  async fetch(req, env){
+    const origin = req.headers.get('Origin') || '';
+    const cors = {'Access-Control-Allow-Origin': ALLOW.includes(origin) ? origin : ALLOW[0], 'Access-Control-Allow-Methods': 'GET, OPTIONS', 'Vary': 'Origin'};
+    if(req.method === 'OPTIONS') return new Response(null, {headers: cors});
+    if(!ALLOW.includes(origin)) return new Response('forbidden', {status: 403, headers: cors});
+    const url = new URL(req.url), op = url.pathname.replace(/^\\/+/, '');
+    if(!/^getBr[A-Za-z]+Info$/.test(op)) return new Response('not found', {status: 404, headers: cors});
+    const q = url.searchParams;
+    if(env.SERVICE_KEY) q.set('serviceKey', env.SERVICE_KEY.includes('%') ? decodeURIComponent(env.SERVICE_KEY) : env.SERVICE_KEY);
+    const r = await fetch(UP + op + '?' + q.toString(), {cf: {cacheTtl: 86400, cacheEverything: true}});
+    return new Response(r.body, {status: r.status, headers: {...cors, 'Content-Type': r.headers.get('Content-Type') || 'application/json; charset=utf-8'}});
+  }
+};`;
+}
+function regSectionHTML(){
+  const has = !!(REG.key || REG.proxy);
+  const st = !has ? ['', '연결 안 됨'] : REG.ok === false ? ['bad', `오류 · ${REG.msg}`] : REG.ok ? ['ok', `연결됨${REG.mode === 'proxy' ? ' · 프록시' : ''}`] : ['', '저장됨'];
+  const how = REG.code === 'cors' || REG.code === 'proxy' || REG.code === 'proxyOrigin';
+  return `<section class="vwbox" id="regBox"><h3><span class="dot ${st[0]}"></span>건축물대장 실제 높이 <span class="hint" style="font-weight:400">${esc(st[1])}</span></h3>
+    <div class="vwrow"><input id="regKey" type="password" placeholder="공공데이터포털 일반 인증키" value="${esc(REG.key)}" autocomplete="off" spellcheck="false"><button class="btn sm" data-act="regShow" type="button">보기</button></div>
+    <div class="vwrow"><input id="regProxy" type="url" inputmode="url" placeholder="프록시 주소 · 필요할 때만 (https://…workers.dev)" value="${esc(REG.proxy)}" autocomplete="off" spellcheck="false"><button class="btn sm pri" data-act="regSave" type="button">저장</button></div>
+    <div class="vwopts"><label><input type="checkbox" data-regopt="on" ${REG.on ? 'checked' : ''} ${has ? '' : 'disabled'}> 건축물대장 높이·층수를 먼저 쓰기</label></div>
+    <p class="hint" id="regStat">${esc(regStatText())}</p>
+    <p class="hint">공공데이터포털(data.go.kr)에서 "국토교통부_건축HUB_건축물대장정보 서비스"를 활용신청하고 받은 일반 인증키를 넣어요. 키는 이 브라우저에만 저장돼요. 높이(m)가 대장에 적힌 건물은 그 높이로, 없으면 지상 층수 × 용도별 층고로 그려요. 한 번 받은 필지는 30일 동안 이 기기에 저장해 다시 부르지 않아요.</p>
+    <details id="regHow" ${how ? 'open' : ''}><summary>바로 연결이 안 되면 · 프록시 만들기 (Cloudflare 무료)</summary>
+      <ol><li>dash.cloudflare.com 가입 → Workers &amp; Pages → Create → Worker 만들기 → Deploy</li><li>Edit code에서 원래 내용을 지우고 아래 코드를 붙여넣은 뒤 Deploy</li><li>(선택) Settings → Variables and Secrets에 이름 <b>SERVICE_KEY</b>, 종류 Secret으로 인증키를 넣으면 위 키 칸은 비워 둬도 돼요</li><li>생긴 주소(https://이름.계정.workers.dev)를 위 프록시 칸에 넣고 저장</li></ol>
+      <pre>${esc(regWorkerCode())}</pre><button class="btn sm" data-act="regCopy" type="button">코드 복사</button>
+    </details>
+    ${has ? '<button class="btn sm ghost" data-act="regClear" type="button" style="justify-self:start">연결 해제 · 저장한 대장 자료 지우기</button>' : ''}
+  </section>`;
+}
+async function regSave(){
+  const k = regKeyRaw(($('#regKey') || {}).value), px = String(($('#regProxy') || {}).value || '').trim().replace(/\/+$/, '');
+  if(px && !/^https:\/\/[^\s/]+/.test(px)){ toast('프록시 주소는 https://로 시작해야 해요'); return; }
+  if(!k && !px){ toast('인증키를 붙여넣어 주세요'); return; }
+  REG.key = k; REG.proxy = px; REG.ok = null; REG.msg = ''; REG.code = ''; REG.mode = null; REG.fail.clear();
+  try { localStorage.setItem('dapsa3d.regKey', k); localStorage.setItem('dapsa3d.regProxy', px); } catch(_){}
+  keepScroll(renderMenu); toast('건축물대장 연결을 확인하는 중…', 9000);
+  try { await regFetch(REG_TEST); REG.ok = true; toast(`건축물대장에 연결했어요${REG.mode === 'proxy' ? ' (프록시)' : ''} · 16단계 이상 확대하면 건물 높이가 바뀌어요`, 5000); }
+  catch(e){ REG.ok = false; REG.code = e.code; REG.msg = regMsg(e); toast(`연결하지 못했어요 · ${REG.msg}`, 7000); }
+  if(S.panel === 'menu') keepScroll(renderMenu);
+  if(REG.ok){ regFlush(); regSchedule(); }
+}
+
+/* ---------- 카카오 위성·로드뷰: a window beside the 3D map that follows it ---------- */
+const KK = {key: '', sdk: null, map: null, rv: null, rvc: null, mode: 'sky', open: false, lock: false, raf: 0, rvAt: null, ok: null, hooked: false};
+try { KK.key = (localStorage.getItem('dapsa3d.kkKey') || '').trim(); const m = localStorage.getItem('dapsa3d.kkMode'); if(['sky', 'hyb', 'rv'].includes(m)) KK.mode = m; } catch(_){}
+const kkoCenter = () => (map && S.mapReady) ? map.getCenter() : {lng: BUSAN[0], lat: BUSAN[1]};
+const kkoLevel = () => Math.max(1, Math.min(14, Math.round(19 - ((map && S.mapReady) ? map.getZoom() : 16)))); // kakao level n ≈ 2^(n-3) m per pixel
+function kkoMsg(t){ const el = $('#kkoMsg'); if(el) el.textContent = t || ''; }
+function kkoLoad(){
+  if(KK.sdk) return KK.sdk;
+  KK.sdk = new Promise((res, rej) => {
+    if(window.kakao && window.kakao.maps && window.kakao.maps.Map) return res();
+    const sc = document.createElement('script'); let done = false;
+    const fin = err => { if(done) return; done = true; clearTimeout(t); err ? rej(err) : res(); };
+    const t = setTimeout(() => fin(new Error('timeout')), 12000);
+    sc.src = 'https://dapi.kakao.com/v2/maps/sdk.js?' + new URLSearchParams({appkey: KK.key, autoload: 'false'}).toString();
+    sc.onload = () => { try { window.kakao.maps.load(() => fin()); } catch(e){ fin(e); } };
+    sc.onerror = () => fin(new Error('network'));
+    document.head.appendChild(sc);
+  });
+  KK.sdk.catch(() => { KK.sdk = null; });
+  return KK.sdk;
+}
+async function kkoOpen(){
+  if(!KK.key){ openPanel('menu'); setTimeout(() => { const i = $('#kkKey'); if(i){ i.scrollIntoView({block: 'center'}); try { i.focus({preventScroll: true}); } catch(_){} } }, 60); toast('카카오 JavaScript 키를 먼저 넣어 주세요', 4000); return; }
+  KK.open = true; $('#kko').hidden = false; $('#tKko').setAttribute('aria-pressed', 'true'); kkoSeg();
+  if(!KK.map) kkoMsg('카카오 지도를 여는 중…');
+  try { await kkoLoad(); }
+  catch(e){ KK.ok = false; kkoMsg('열지 못했어요 · 설정의 카카오 안내를 확인해 주세요'); toast(`카카오 지도를 열지 못했어요 · JavaScript 키, 등록한 도메인(${location.origin}), 카카오맵 사용 설정(ON)을 확인해 주세요`, 7000); return; }
+  if(!KK.open) return;
+  KK.ok = true;
+  const K = window.kakao.maps;
+  if(!KK.map){
+    const c = kkoCenter();
+    KK.map = new K.Map($('#kkoMap'), {center: new K.LatLng(c.lat, c.lng), level: kkoLevel(), mapTypeId: K.MapTypeId.SKYVIEW});
+    K.event.addListener(KK.map, 'dragend', () => { if(!map || !S.mapReady) return; const ll = KK.map.getCenter(); KK.lock = true; try { map.jumpTo({center: [ll.getLng(), ll.getLat()]}); } finally { KK.lock = false; } });
+  }
+  if(!KK.hooked && map && S.mapReady){ KK.hooked = true; map.on('move', kkoOnMove); map.on('moveend', kkoOnMoveEnd); }
+  kkoMode(KK.mode, true);
+}
+function kkoClose(){ KK.open = false; $('#kko').hidden = true; $('#tKko').setAttribute('aria-pressed', 'false'); kkoCone(null); }
+function kkoOnMove(){ if(!KK.open || KK.lock || KK.raf || KK.mode === 'rv') return; KK.raf = requestAnimationFrame(() => { KK.raf = 0; kkoSync(); }); }
+function kkoOnMoveEnd(){ if(KK.open && KK.mode === 'rv'){ const c = kkoCenter(); kkoRvGo(c.lng, c.lat); } }
+function kkoSync(){
+  if(!KK.open || !KK.map || KK.mode === 'rv') return;
+  const c = kkoCenter(), K = window.kakao.maps; KK.map.setCenter(new K.LatLng(c.lat, c.lng));
+  const lv = kkoLevel(); if(KK.map.getLevel() !== lv) KK.map.setLevel(lv);
+}
+function kkoSeg(){ for(const b of document.querySelectorAll('#kkoSeg button')) b.setAttribute('aria-pressed', String(b.dataset.k === KK.mode)); }
+function kkoMode(m, force){
+  if(m === KK.mode && !force) return;
+  KK.mode = m; try { localStorage.setItem('dapsa3d.kkMode', m); } catch(_){}
+  kkoSeg(); if(!KK.map) return;
+  const K = window.kakao.maps, rv = m === 'rv';
+  $('#kkoMapW').hidden = rv; $('#kkoRv').hidden = !rv;
+  if(rv){ const c = kkoCenter(); kkoRvGo(c.lng, c.lat, true); }
+  else { kkoCone(null); KK.map.setMapTypeId(m === 'hyb' ? K.MapTypeId.HYBRID : K.MapTypeId.SKYVIEW); KK.map.relayout(); kkoSync(); kkoMsg('지도를 옮기면 같이 따라가요 · 이 창을 끌면 3D 지도도 옮겨져요'); }
+}
+function kkoRvGo(lng, lat, force){
+  if(!window.kakao || !window.kakao.maps) return;
+  if(!force && KK.rvAt && hav({lng, lat}, {lng: KK.rvAt[0], lat: KK.rvAt[1]}) < 15) return;
+  KK.rvAt = [lng, lat];
+  const K = window.kakao.maps, pos = new K.LatLng(lat, lng);
+  if(!KK.rvc) KK.rvc = new K.RoadviewClient();
+  kkoMsg('로드뷰를 찾는 중…');
+  KK.rvc.getNearestPanoId(pos, 60, id => {
+    if(KK.mode !== 'rv' || !KK.open) return;
+    if(id == null){ kkoMsg('지도 가운데에서 60m 안에 로드뷰가 없어요 · 길 쪽으로 옮겨 보세요'); kkoCone(null); return; }
+    if(!KK.rv){ KK.rv = new K.Roadview($('#kkoRv')); for(const ev of ['init', 'viewpoint_changed', 'position_changed']) K.event.addListener(KK.rv, ev, kkoRvChanged); }
+    KK.rv.setPanoId(id, pos); try { KK.rv.relayout(); } catch(_){}
+    kkoMsg('지도 가운데 지점의 로드뷰 · 지도를 옮기면 바뀌어요');
+  });
+}
+function kkoRvChanged(){
+  if(!KK.rv || KK.mode !== 'rv' || !KK.open) return;
+  const p = KK.rv.getPosition(), vp = KK.rv.getViewpoint(); if(!p) return;
+  const ll = [p.getLng(), p.getLat()];
+  kkoCone(ll, vp ? vp.pan : 0, vp ? vp.zoom : 0);
+  if(map && S.mapReady && KK.rvAt && hav({lng: ll[0], lat: ll[1]}, {lng: KK.rvAt[0], lat: KK.rvAt[1]}) > 8){ KK.rvAt = ll; map.easeTo({center: ll, duration: 400}); } // walking in the roadview carries the 3D map along
+}
+function kkoCone(ll, pan, zoom){
+  if(!map || !S.mapReady) return;
+  try {
+    if(!map.getSource('kko-cone')){
+      map.addSource('kko-cone', {type: 'geojson', data: FC()});
+      map.addLayer({id: 'kko-cone', type: 'fill', source: 'kko-cone', filter: ['==', ['geometry-type'], 'Polygon'], paint: {'fill-color': '#FFB000', 'fill-opacity': 0.38}});
+      map.addLayer({id: 'kko-pos', type: 'circle', source: 'kko-cone', filter: ['==', ['geometry-type'], 'Point'], paint: {'circle-radius': 6, 'circle-color': '#FFB000', 'circle-stroke-color': '#fff', 'circle-stroke-width': 2}});
+    }
+  } catch(_){ return; }
+  if(!ll){ setData('kko-cone', []); return; }
+  const fov = Math.max(18, 100/Math.pow(2, Math.max(0, zoom || 0)/2)), R0 = 26, cl = Math.cos(ll[1]*D2R), pts = [ll];
+  for(let i = 0; i <= 12; i++){ const a = ((pan || 0) - fov/2 + fov*i/12)*D2R; pts.push([ll[0] + R0*Math.sin(a)/(111320*cl), ll[1] + R0*Math.cos(a)/111320]); }
+  pts.push(ll);
+  setData('kko-cone', [{type: 'Feature', properties: {}, geometry: {type: 'Polygon', coordinates: [pts]}}, {type: 'Feature', properties: {}, geometry: {type: 'Point', coordinates: ll}}]);
+}
+function kkoSectionHTML(){
+  const st = !KK.key ? ['', '연결 안 됨'] : KK.ok === false ? ['bad', '열지 못했어요 · 아래 순서를 확인해 주세요'] : KK.ok ? ['ok', '연결됨'] : ['', '키 저장됨'];
+  return `<section class="vwbox" id="kkBox"><h3><span class="dot ${st[0]}"></span>카카오 위성·로드뷰 비교 <span class="hint" style="font-weight:400">${esc(st[1])}</span></h3>
+    <div class="vwrow"><input id="kkKey" type="password" placeholder="카카오 JavaScript 키" value="${esc(KK.key)}" autocomplete="off" spellcheck="false"><button class="btn sm" data-act="kkShow" type="button">보기</button><button class="btn sm pri" data-act="kkSave" type="button">저장</button></div>
+    <ol><li>developers.kakao.com에서 앱 만들기</li><li>앱 관리 → [카카오맵] → [사용 설정]에서 상태를 ON</li><li>JavaScript 키 설정의 [JavaScript SDK 도메인]에 <b>${esc(/^https?:/.test(location.origin) ? location.origin : 'https://yongbuki.github.io')}</b> 추가 (예전 화면은 [플랫폼] → [Web] → 사이트 도메인)</li><li>JavaScript 키를 위 칸에 넣고 저장 → 지도 오른쪽 [비교] 버튼</li></ol>
+    <p class="hint">키는 이 브라우저에만 저장돼요. 카카오 이용 조건상 3D 지도 바탕으로는 못 쓰고, 옆 창에서 3D 지도와 같은 곳을 따라가며 보여 줘요. 로드뷰에서는 보는 방향이 3D 지도에 주황 부채꼴로 표시돼요. 촬영 시기는 지역마다 달라요.</p>
+    ${KK.key ? '<button class="btn sm ghost" data-act="kkClear" type="button" style="justify-self:start">연결 해제</button>' : ''}
+  </section>`;
+}
+function kkoSaveKey(){
+  const v = String(($('#kkKey') || {}).value || '').trim();
+  if(!v){ toast('JavaScript 키를 붙여넣어 주세요'); return; }
+  const changed = v !== KK.key, loaded = !!(window.kakao && window.kakao.maps && window.kakao.maps.Map);
+  KK.key = v; KK.ok = null; try { localStorage.setItem('dapsa3d.kkKey', v); } catch(_){}
+  if(changed && loaded){ keepScroll(renderMenu); toast('키를 바꿨어요 · 페이지를 새로고침하면 새 키로 열려요', 5000); return; }
+  $('#toast').hidden = true; closePanel(); kkoOpen();
+}
+$('#tKko').onclick = () => { if(KK.open) kkoClose(); else kkoOpen(); };
+$('#kkoX').onclick = kkoClose;
+$('#kkoSeg').onclick = e => { const b = e.target.closest('button[data-k]'); if(b) kkoMode(b.dataset.k); };
+
 /* ---------------- boot ---------------- */
-if(/[?&]debug/.test(location.search)) window.__dbg = {smoothDem, topoTileHit, decodeTerrarium, encodeTerrarium, cmExport, rhinoContours, cmPreview, TOPO, CRSDEF, crsOf, crsInv, tmF, makeConv, detectCrs, prjToCrs, parseTopoDXF, parseShp, parseDbf, parseShpLayer, unzipFiles, readTopoFiles, buildTopoDem, localDemAt, isoLines, simplifyPL, cmCompute, cmLayers, cmPack, cmSVG, cmDXF, cmInfoText, cmCardHTML, topoCardHTML, topoActivate, importTopo, renderLook, applyBldMode, vwFillMissing, topoFloorsAt, vwEstimate, floorTap, heightCounts, demSample, DEMT, demXY, sunTimes, sunDir, shadowObj, shadowPoly, projPt, terrBlocked, sunDateStr, renderSunbar, elevAsync, migrateElev, cleanRec, S, openPanel, blankObsDraft, sectionSVG, renderStudio, saveSite, curSite, selectSite, envelopeCells, massStats, refreshMassStats, startPlacing, measureMsg, measureFeatures, rectFrom, parseDXF, inv5187, tm5187, modelAreas, cleanSite, objCardHTML, startObjEdit, hav, ringAreaM2, mkLocal, numAdd, finishDraft, useInfo, vwIdxAdd, vwBldgAt, innerPoint, liveBld, HFIX, hfixPut, vwApplyFixes, VW, renderDraft};
+if(/[?&]debug/.test(location.search)) window.__dbg = {REG, KK, VW, regParse, regItem, regMatch, regHeight, regPnuCands, regDongKey, regApply, regFetch, regPick, regSave, regWorkerCode, regStatText, flushVwBldg, vwIdxAdd, kkoOpen, kkoClose, kkoMode, kkoLevel, bldMeta, smoothDem, topoTileHit, decodeTerrarium, encodeTerrarium, cmExport, rhinoContours, cmPreview, TOPO, CRSDEF, crsOf, crsInv, tmF, makeConv, detectCrs, prjToCrs, parseTopoDXF, parseShp, parseDbf, parseShpLayer, unzipFiles, readTopoFiles, buildTopoDem, localDemAt, isoLines, simplifyPL, cmCompute, cmLayers, cmPack, cmSVG, cmDXF, cmInfoText, cmCardHTML, topoCardHTML, topoActivate, importTopo, renderLook, applyBldMode, vwFillMissing, topoFloorsAt, vwEstimate, floorTap, heightCounts, demSample, DEMT, demXY, sunTimes, sunDir, shadowObj, shadowPoly, projPt, terrBlocked, sunDateStr, renderSunbar, elevAsync, migrateElev, cleanRec, S, openPanel, blankObsDraft, sectionSVG, renderStudio, saveSite, curSite, selectSite, envelopeCells, massStats, refreshMassStats, startPlacing, measureMsg, measureFeatures, rectFrom, parseDXF, inv5187, tm5187, modelAreas, cleanSite, objCardHTML, startObjEdit, hav, ringAreaM2, mkLocal, numAdd, finishDraft, useInfo, vwIdxAdd, vwBldgAt, innerPoint, liveBld, HFIX, hfixPut, vwApplyFixes, VW, renderDraft};
 (async function boot(){
   if(!window.maplibregl){ $('#offline').hidden = false; }
   const ok = await DB.open();
