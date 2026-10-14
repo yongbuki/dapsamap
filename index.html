@@ -131,6 +131,10 @@ button{cursor:pointer}
 .rtab{width:100%;border-collapse:collapse;font-size:12.5px;margin:8px 0 4px}.rtab th,.rtab td{border-bottom:1px solid var(--hair);padding:5px 4px;text-align:left;vertical-align:top}
 .rtab th{font-weight:600;color:var(--ink-2);font-size:11.5px}.rtab th small{font-weight:400;color:var(--ink-3)}.rtab td:nth-child(2),.rtab td:nth-child(3){font-family:var(--f-mono);text-align:center}
 .rtab i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}
+.rtab.wk tr[data-act]{cursor:pointer}.rtab.wk tr.on td{background:var(--paper)}.rtab.wk td:nth-child(4){font-family:var(--f-mono);text-align:center}.rtab td small{color:var(--ink-3);font-size:11px;font-weight:400}
+.card h4.sub{margin:14px 0 6px;font-size:13px;color:var(--ink-2)}
+.planwrap svg{min-width:0}.planz{display:flex;align-items:center;gap:4px;margin:4px 0}.planz input{flex:1;min-width:0;accent-color:var(--accent)}.planz .btn{padding:6px 7px;font-family:var(--f-mono);font-size:11.5px}
+.planchips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 6px;scrollbar-width:none}.planchips .chip{flex:none;padding:4px 10px}.planchips .chip[aria-pressed="true"]{background:var(--ink);color:var(--sheet);border-color:var(--ink)}.planchips .chip[aria-pressed="false"]{opacity:1}
 .secwrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;margin:4px 0 8px}.secwrap svg{display:block;width:100%;height:auto;min-width:400px}
 .addmenu{position:fixed;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:7;display:grid;gap:6px;background:var(--sheet);border:1px solid var(--line);border-radius:14px;padding:8px;box-shadow:var(--shadow);width:min(300px,calc(100% - 32px))}
 .addmenu button{display:grid;gap:1px;text-align:left;border:0;background:none;border-radius:10px;padding:9px 12px;font-size:14px;font-weight:600;color:var(--ink)}
@@ -565,7 +569,9 @@ async function initMap(){
   map.on('click', onMapClick);
   map.on('dragstart', () => stopOrbit());
 }
-function onZoom(){ updateCint(); const z = map.getZoom(); document.body.classList.toggle('z-lbl', z >= 14); $('#zhint').hidden = !(z < 13.6 && S.is3D) || !S.mapReady; }
+function onZoom(){ updateCint(); const z = map.getZoom(), lbl = z >= 14, zh = !(z < 13.6 && S.is3D) || !S.mapReady, el = $('#zhint');
+  if(document.body.classList.contains('z-lbl') !== lbl) document.body.classList.toggle('z-lbl', lbl);
+  if(el && el.hidden !== zh) el.hidden = zh; }
 function setupLayers(){
   const st = map.getStyle();
   S.baseLayerIds = (st.layers || []).map(l => l.id);
@@ -611,6 +617,8 @@ function setupLayers(){
   setupSunLayers();
   setupFlatLayers(underB);
   setupTopoLayers(underB);
+  setupWalkLayers(underB);
+  setupPlanLayers(underB);
   map.addSource('picked', {type:'geojson', data: FC()});
   map.addSource('drawpts', {type:'geojson', data: FC()});
   map.addLayer({id:'picked-fill', type:'fill', source:'picked', filter:['in', ['get','kind'], ['literal', ['land', 'area']]], paint:{'fill-color': cssVar('--accent'), 'fill-opacity': 0.26}}, map.getLayer('bldg3d') ? 'bldg3d' : FIRST_SYM);
@@ -709,6 +717,7 @@ async function dtmTile(url){
   const mt = url.match(/\/(\d+)\/(\d+)\/(\d+)\.png/) || [], z = +(mt[1] || 0), tx = +(mt[2] || 0), ty = +(mt[3] || 0);
   const r = z >= 14 ? 2 : z >= 13 ? 1 : 0, hit = topoTileHit(z, tx, ty);
   if(!r && !hit) return buf;
+  if(!hit){ const p = demFilterOff(buf.slice(0), r); if(p){ try { return await p; } catch(_){} } } // my own survey tiles stay on the main thread, where that data lives
   try { return await smoothDem(buf, r, hit ? [z, tx, ty] : null); } catch(_){ return buf; }
 }
 function setupDtm(){
@@ -744,6 +753,38 @@ function morph(src, W, H, r, mode){ // mode: 'min' | 'max' | 'mean', separable s
 }
 function decodeTerrarium(px, n){ const h = new Float32Array(n); for(let i=0; i<n; i++){ const o = i*4; h[i] = px[o]*256 + px[o+1] + px[o+2]/256 - 32768; } return h; }
 function encodeTerrarium(h, px){ for(let i=0; i<h.length; i++){ const v = Math.max(0, Math.min(65535.99, h[i] + 32768)); const o = i*4, r = Math.floor(v/256), g = Math.floor(v) - r*256; px[o] = r; px[o+1] = g; px[o+2] = Math.floor((v - Math.floor(v))*256); px[o+3] = 255; } }
+function demFilter(raw, W, H, r){ // shave building and tree bumps: opening (min then max) and a light mean
+  if(!r) return raw;
+  let h = morph(morph(raw, W, H, r, 'min'), W, H, r, 'max'); h = morph(h, W, H, 1, 'mean');
+  // each tile is filtered on its own, so ease back to the untouched values at the tile edge — neighbours then meet without a step
+  for(let y = 0; y < H; y++) for(let x = 0; x < W; x++){ const d = Math.min(x, y, W - 1 - x, H - 1 - y); if(d < 7){ const w = Math.max(0, (d - 1)/6), k = y*W + x; h[k] = raw[k]*(1 - w) + h[k]*w; } }
+  return h;
+}
+const DEMW = {w: null, n: 0, cb: new Map(), failed: false};
+function demWorker(){ // the same filter in a background thread, so panning over hills never waits on it
+  if(DEMW.w || DEMW.failed) return DEMW.w;
+  try {
+    if(typeof OffscreenCanvas === 'undefined' || typeof Worker === 'undefined' || typeof createImageBitmap !== 'function') throw 0;
+    const src = [morph, decodeTerrarium, encodeTerrarium, demFilter].map(f => f.toString()).join('\n') + `
+self.onmessage = async e => {
+  const {id, buf, r} = e.data;
+  try {
+    const bmp = await createImageBitmap(new Blob([buf], {type: 'image/png'}), {premultiplyAlpha: 'none', colorSpaceConversion: 'none'});
+    const W = bmp.width, H = bmp.height, cv = new OffscreenCanvas(W, H), ctx = cv.getContext('2d', {willReadFrequently: true});
+    ctx.drawImage(bmp, 0, 0); const img = ctx.getImageData(0, 0, W, H);
+    encodeTerrarium(demFilter(decodeTerrarium(img.data, W*H), W, H, r), img.data); ctx.putImageData(img, 0, 0);
+    const out = await (await cv.convertToBlob({type: 'image/png'})).arrayBuffer();
+    self.postMessage({id, buf: out}, [out]);
+  } catch(err){ self.postMessage({id, err: String((err && err.message) || err)}); }
+};`;
+    const w = new Worker(URL.createObjectURL(new Blob([src], {type: 'text/javascript'})));
+    w.onmessage = e => { const c = DEMW.cb.get(e.data.id); if(!c) return; DEMW.cb.delete(e.data.id); if(e.data.err) c.rej(new Error(e.data.err)); else c.res(e.data.buf); };
+    w.onerror = () => { DEMW.failed = true; for(const c of DEMW.cb.values()) c.rej(new Error('worker')); DEMW.cb.clear(); try { w.terminate(); } catch(_){} DEMW.w = null; };
+    DEMW.w = w;
+  } catch(_){ DEMW.failed = true; DEMW.w = null; }
+  return DEMW.w;
+}
+function demFilterOff(buf, r){ const w = demWorker(); if(!w) return null; return new Promise((res, rej) => { const id = ++DEMW.n; DEMW.cb.set(id, {res, rej}); w.postMessage({id, buf, r}, [buf]); }); }
 async function smoothDem(buf, r, tile){
   const bmp = await createImageBitmap(new Blob([buf], {type:'image/png'}), {premultiplyAlpha:'none', colorSpaceConversion:'none'});
   const W = bmp.width, H = bmp.height;
@@ -751,10 +792,7 @@ async function smoothDem(buf, r, tile){
   const ctx = cv.getContext('2d', {willReadFrequently: true});
   ctx.drawImage(bmp, 0, 0);
   const img = ctx.getImageData(0, 0, W, H);
-  const raw = decodeTerrarium(img.data, W*H); let h = raw;
-  if(r){ h = morph(morph(h, W, H, r, 'min'), W, H, r, 'max'); h = morph(h, W, H, 1, 'mean');
-    // each tile is filtered on its own, so ease back to the untouched values at the tile edge — neighbours then meet without a step
-    for(let y = 0; y < H; y++) for(let x = 0; x < W; x++){ const d = Math.min(x, y, W - 1 - x, H - 1 - y); if(d < 7){ const w = Math.max(0, (d - 1)/6), k = y*W + x; h[k] = raw[k]*(1 - w) + h[k]*w; } } }
+  const h = demFilter(decodeTerrarium(img.data, W*H), W, H, r);
   if(tile && W === 256 && H === 256) topoOverride(h, tile[0], tile[1], tile[2]);
   encodeTerrarium(h, img.data);
   ctx.putImageData(img, 0, 0);
@@ -765,8 +803,8 @@ const CINT = z => z < 11 ? null : z < 12 ? [100, 500] : z < 13 ? [50, 250] : z <
 function updateCint(){
   const el = $('#cint'); if(!el || !map) return;
   const iv = CINT(map.getZoom());
-  if(!S.terrain || !S.hasContours || !iv){ el.hidden = true; return; }
-  el.innerHTML = `<i class="mn"></i>${iv[0]}m <i></i>${iv[1]}m 등고선`; el.hidden = false;
+  if(!S.terrain || !S.hasContours || !iv){ if(!el.hidden) el.hidden = true; return; }
+  const html = `<i class="mn"></i>${iv[0]}m <i></i>${iv[1]}m 등고선`; if(el.dataset.v !== html){ el.innerHTML = html; el.dataset.v = html; } if(el.hidden) el.hidden = false;
 }
 function bldgOpacity(){ return S.sat ? 0.6 : (S.cfocus ? 0.82 : 0.9); }
 function setContourFocus(on){
@@ -813,6 +851,11 @@ function scaleRing(ring, k){
   const cx = ring.reduce((s,p) => s+p[0], 0)/ring.length, cy = ring.reduce((s,p) => s+p[1], 0)/ring.length;
   return ring.map(([x,y]) => [cx + (x-cx)*k, cy + (y-cy)*k]);
 }
+function mkQuiet(mk){ // MapLibre reads a GPU pixel per marker to fade ones behind hills; do it once the map stops
+  const f = mk._updateOpacity; if(typeof f !== 'function') return mk;
+  mk._updateOpacity = function(force){ if(force || !this._map || !this._map.isMoving()) return f.call(this, force); };
+  return mk;
+}
 function renderMap(){
   if(!map) return;
   const list = visible();
@@ -826,14 +869,15 @@ function renderMap(){
     if(!m){
       const el = document.createElement('button'); el.type = 'button'; el.className = 'mk';
       el.addEventListener('click', ev => { ev.stopPropagation(); if(!S.placing) selectRec(el.dataset.id); });
-      const marker = new maplibregl.Marker({element: el, anchor: 'center'}).setLngLat([r.lng, r.lat]).addTo(map);
+      const marker = mkQuiet(new maplibregl.Marker({element: el, anchor: 'center'})).setLngLat([r.lng, r.lat]).addTo(map);
       m = {marker, el}; MK.set(r.id, m);
     } else m.marker.setLngLat([r.lng, r.lat]);
     const sel = r.id === S.selId, n = order.get(r.id);
     m.el.dataset.id = r.id;
     m.el.classList.toggle('obs', r.type === 'obs');
-    if(r.type === 'obs') m.el.innerHTML = `<span class="ob" style="background:${hourColor(r.time)}${sel ? ';box-shadow:0 0 0 3px var(--accent)' : ''}"></span><span class="mk-l">${esc(r.time || '')} · ${esc(r.name)}</span>`;
-    else m.el.innerHTML = `<svg width="24" height="24" viewBox="-12 -12 24 24" aria-hidden="true"><circle r="10.5" fill="var(--sheet)" opacity=".92"/>${sel ? '<circle r="11.2" fill="none" stroke="var(--accent)" stroke-width="2"/>' : ''}${symSVG(r.cat, sel ? 6.8 : 5.8)}</svg><span class="mk-l">${esc(r.name)}</span>${n ? `<span class="n">${n}</span>` : ''}`;
+    const html = r.type === 'obs' ? `<span class="ob" style="background:${hourColor(r.time)}${sel ? ';box-shadow:0 0 0 3px var(--accent)' : ''}"></span><span class="mk-l">${esc(r.time || '')} · ${esc(r.name)}</span>`
+      : `<svg width="24" height="24" viewBox="-12 -12 24 24" aria-hidden="true"><circle r="10.5" fill="var(--sheet)" opacity=".92"/>${sel ? '<circle r="11.2" fill="none" stroke="var(--accent)" stroke-width="2"/>' : ''}${symSVG(r.cat, sel ? 6.8 : 5.8)}</svg><span class="mk-l">${esc(r.name)}</span>${n ? `<span class="n">${n}</span>` : ''}`;
+    if(m.html !== html){ m.el.innerHTML = html; m.html = html; }
     m.el.setAttribute('aria-label', r.name);
     m.el.classList.toggle('sel', sel);
     m.el.classList.toggle('dim', !!S.selDay && r.date !== S.selDay);
@@ -1409,16 +1453,16 @@ function vwZoneName(p){
   return p.uname || p.UNAME || p.dgm_nm || p.DGM_NM || Object.values(p).find(v => typeof v === 'string' && /(지역|지구)$/.test(v)) || '';
 }
 function setupVwLayers(underB){
-  map.addSource('vw-zone', {type:'geojson', data: FC()});
+  map.addSource('vw-zone', {type:'geojson', data: FC(), maxzoom: 14});
   map.addLayer({id:'vw-zone-fill', type:'fill', source:'vw-zone', minzoom: 12, layout:{visibility:'none'}, paint:{'fill-color':['get','col'], 'fill-opacity': 0.3}}, 'sat');
   map.addLayer({id:'vw-zone-line', type:'line', source:'vw-zone', minzoom: 12, layout:{visibility:'none'}, paint:{'line-color':['get','col'], 'line-width': 1.2}}, underB);
-  map.addSource('vw-parcel', {type:'geojson', data: FC()});
+  map.addSource('vw-parcel', {type:'geojson', data: FC(), maxzoom: 16});
   map.addLayer({id:'vw-parcel-fill', type:'fill', source:'vw-parcel', minzoom: 15.5, paint:{'fill-opacity': 0}}, underB);
   map.addLayer({id:'vw-parcel-line', type:'line', source:'vw-parcel', minzoom: 15.5, paint:{'line-color': cssVar('--parcel'), 'line-width': ['interpolate', ['linear'], ['zoom'], 15.5, 0.4, 18, 1.1], 'line-opacity': 0.8}}, underB);
   const sym = (map.getStyle().layers || []).find(l => l.type === 'symbol' && l.layout && Array.isArray(l.layout['text-font']));
   map.addLayer({id:'vw-parcel-label', type:'symbol', source:'vw-parcel', minzoom: 17.6, layout:{'text-field':['get','jb'], 'text-size': 10, 'text-font': sym ? sym.layout['text-font'] : ['Noto Sans Regular'], 'text-padding': 2},
     paint:{'text-color': cssVar('--parcel'), 'text-halo-color': cssVar('--paper'), 'text-halo-width': 1.4}});
-  map.addSource('vw-bldg', {type:'geojson', data: FC()});
+  map.addSource('vw-bldg', {type:'geojson', data: FC(), maxzoom: 16});
   map.addLayer({id:'vw-bldg', type:'fill-extrusion', source:'vw-bldg', minzoom: 15,
     paint:{'fill-extrusion-color': cssVar('--bldg'), 'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 15, 0, 15.6, ['get','h']], 'fill-extrusion-base': 0, 'fill-extrusion-opacity': bldgOpacity()}}, underB);
   vwApplyVisibility();
@@ -1701,7 +1745,7 @@ async function addPhotos(files){
 /* ---------------- panels ---------------- */
 function openPanel(kind){
   S.panel = kind; panel.hidden = false;
-  if(kind === 'detail') renderDetail(); else if(kind === 'edit') renderEditor(); else if(kind === 'list') renderList(); else if(kind === 'search') renderSearch(); else if(kind === 'menu') renderMenu(); else if(kind === 'studio'){ renderStudio(); refreshMassStats(); autoStats(); } else if(kind === 'section') renderSection();
+  if(kind === 'detail') renderDetail(); else if(kind === 'edit') renderEditor(); else if(kind === 'list') renderList(); else if(kind === 'search') renderSearch(); else if(kind === 'menu') renderMenu(); else if(kind === 'studio'){ renderStudio(); refreshMassStats(); autoStats(); } else if(kind === 'section') renderSection(); else if(kind === 'plan') renderPlan();
   applyPerm();
 }
 function closePanel(){ panel.hidden = true; S.panel = null; applyPerm(); }
@@ -1953,7 +1997,7 @@ function zoneListHTML(list){
 function terrainStatus(){
   if(!S.mapReady) return '지도 준비 중';
   let n = 0; try { if(map.getSource('contours')) n = map.querySourceFeatures('contours', {sourceLayer:'contours'}).length; } catch(_){}
-  return `지형 상태 · 지형 ${S.hasDem ? (S.terrain ? '켜짐' : '꺼짐') : '없음'} · 지형 보정 ${S.dtm ? '켜짐' : '꺼짐'} · 등고선 도구 ${window.mlcontour ? '정상' : '불러오지 못함'} · 지금 화면 등고선 ${S.terrain ? n + '개' : '꺼짐'}${S.demErrs ? ` · 불러오기 실패 ${S.demErrs}건` : ''} · 브이월드 ${VW.key ? (VW.ok === false ? '오류' : VW.ok ? '연결됨' : '확인 중') : '미연결'} (건물 ${VW.bldg.size} · 필지 ${VW.parcel.size}) · 대지 ${S.sites.length} · 버전 2026-10-14c`;
+  return `지형 상태 · 지형 ${S.hasDem ? (S.terrain ? '켜짐' : '꺼짐') : '없음'} · 지형 보정 ${S.dtm ? '켜짐' : '꺼짐'} · 등고선 도구 ${window.mlcontour ? '정상' : '불러오지 못함'} · 지금 화면 등고선 ${S.terrain ? n + '개' : '꺼짐'}${S.demErrs ? ` · 불러오기 실패 ${S.demErrs}건` : ''} · 브이월드 ${VW.key ? (VW.ok === false ? '오류' : VW.ok ? '연결됨' : '확인 중') : '미연결'} (건물 ${VW.bldg.size} · 필지 ${VW.parcel.size}) · 대지 ${S.sites.length} · 버전 2026-10-14d`;
 }
 function renderMenu(){
   const ex = S.recs.filter(r => r.example).length;
@@ -2141,12 +2185,24 @@ panel.addEventListener('click', async e => {
     case 'sunClear': clearShadows(); keepScroll(renderStudio); break;
     case 'secNew': case 'secRedo': closePanel(); startPlacing('section'); break;
     case 'secOpen': openPanel('section'); break;
+    case 'planNew': closePanel(); await makePlan(); break;
+    case 'planOpen': if(S.plan) openPanel('plan'); break;
+    case 'planOff': if(S.plan){ S.plan.clip = false; planApply3d(); } keepScroll(renderStudio); toast('3D 지도 자르기를 껐어요'); break;
+    case 'planZ': if(S.plan){ S.plan.z = Math.round((S.plan.z + +b.dataset.d)*10)/10; planLive(); } break;
+    case 'planFloor': if(S.plan){ S.plan.z = Math.round(+b.dataset.z*100)/100; planLive(); } break;
+    case 'planHalf': if(S.plan){ const z = S.plan.z; await makePlan(+b.dataset.v, z); } break;
+    case 'planSvg': if(S.plan) download(new Blob([planSVG(S.plan, true)], {type:'image/svg+xml'}), `평면-해발${S.plan.z.toFixed(1)}m-${fileStamp()}.svg`); break;
+    case 'planPng': if(S.plan) svgToPng(planSVG(S.plan, true), `평면-해발${S.plan.z.toFixed(1)}m-${fileStamp()}.png`); break;
+    case 'planDxf': if(S.plan) download(new Blob([planDXF(S.plan)], {type:'application/dxf'}), `평면-해발${S.plan.z.toFixed(1)}m-${fileStamp()}.dxf`); break;
     case 'secEx': if(S.section){ S.section.ex = +b.dataset.v; renderSection(); } break;
     case 'secSvg': if(S.section) download(new Blob([sectionSVG(S.section, true)], {type:'image/svg+xml'}), `단면-${fileStamp()}.svg`); break;
     case 'secPng': if(S.section) svgToPng(sectionSVG(S.section, true), `단면-${fileStamp()}.png`); break;
     case 'toStudio': openPanel('studio'); break;
     case 'radius': radiusAnalysis(); break;
-    case 'radClear': setData('st-radius', []); setData('st-poi', []); S.radiusRes = null; keepScroll(renderStudio); break;
+    case 'radClear': walkClear(); break;
+    case 'radRoute': walkRoute(b.dataset.cat); break;
+    case 'radSvg': if(S.radiusRes) download(new Blob([walkSVG(S.radiusRes)], {type:'image/svg+xml'}), `도보권-${fileStamp()}.svg`); break;
+    case 'walkPace': WALK.pace = b.dataset.v === 'slow' ? 'slow' : 'norm'; try { localStorage.setItem('dapsa3d.walkPace', WALK.pace); } catch(_){} if(S.radiusRes) radiusAnalysis(); else keepScroll(renderStudio); break;
     case 'style': setStyleMode(b.dataset.v); keepScroll(renderStudio); break;
     case 'png': exportPNG(); break;
     case 'render': if(window.innerWidth < 900) closePanel(); renderShot(); break;
@@ -2205,6 +2261,7 @@ panel.addEventListener('change', async e => {
   if(tg.dataset && tg.dataset.topoCrs){ await topoReproject(tg.dataset.topoCrs, tg.value); keepScroll(renderStudio); return; }
   if(tg.dataset && tg.dataset.cm){ const k = tg.dataset.cm; S.cm[k] = tg.type === 'checkbox' ? tg.checked : k === 'area' ? tg.value : +tg.value; cmSave(); if(k === 'area'){ keepScroll(renderStudio); } clearTimeout(S.cmT); S.cmT = setTimeout(() => { if(S.panel === 'studio') cmPreview(); }, 350); return; }
   if(tg.dataset && tg.dataset.act2 === 'lite'){ S.lite = tg.checked; try { localStorage.setItem('dapsa3d.lite', S.lite ? '1' : '0'); } catch(_){} applyLite(); toast(S.lite ? '가벼운 모드를 켰어요' : '가벼운 모드를 껐어요'); return; }
+  if(tg.dataset && tg.dataset.act2 === 'planClip'){ if(S.plan){ S.plan.clip = tg.checked; planApply3d(); toast(S.plan.clip ? '3D 지도도 이 높이에서 잘라 보여요' : '3D 지도 자르기를 껐어요'); } return; }
   if(tg.dataset && tg.dataset.act2 === 'env'){ S.envOn = tg.checked; renderStudioMap(); if(S.envOn){ const cs = curSite(); if(cs) map.easeTo({pitch: 55, duration: 600}); } return; }
   if(e.target.dataset && e.target.dataset.regopt){ REG.on = e.target.checked; try { localStorage.setItem('dapsa3d.regOn', REG.on ? '1' : '0'); } catch(_){} regFlush(); regSchedule(); toast(REG.on ? '건축물대장 높이를 먼저 써요' : '건축물대장 높이를 껐어요 · 브이월드 층수로 그려요'); return; }
   if(e.target.dataset && e.target.dataset.vwopt){ VW.on[e.target.dataset.vwopt] = e.target.checked; vwSaveOpts(); vwApplyVisibility(); scheduleVw(); return; } if(e.target.id === 'f-photo'){ const files = [...e.target.files]; e.target.value = ''; await addPhotos(files); } });
@@ -2352,7 +2409,7 @@ function renderStudioMap(){
   if(!S.mapReady) return;
   const cs = curSite();
   setData('st-site', S.sites.filter(siteInProject).flatMap(s => s.polys.map(p => ({type:'Feature', properties:{cur: s.id === S.siteId}, geometry:{type:'Polygon', coordinates:[p.ring]}}))));
-  setData('st-mass', cs ? (cs.masses || []).map((m, i) => ({type:'Feature', properties:{col: massColor(i), base: +m.base || 0, top: (+m.base || 0) + (+m.floors || 1)*(+m.fh || 3)}, geometry:{type:'Polygon', coordinates:[m.ring]}})) : []);
+  setData('st-mass', cs ? (cs.masses || []).map((m, i) => { const base = +m.base || 0, cl = planMassClip(m); let top = base + (+m.floors || 1)*(+m.fh || 3); if(cl != null) top = Math.max(base, Math.min(top, cl)); return {type:'Feature', properties:{col: massColor(i), base, top}, geometry:{type:'Polygon', coordinates:[m.ring]}}; }) : []);
   setData('st-park', cs ? (cs.parking || []).map(p => ({type:'Feature', properties:{}, geometry:{type:'Polygon', coordinates:[p.ring]}})) : []);
   try { map.setLayoutProperty('st-env', 'visibility', S.envOn && cs ? 'visible' : 'none'); } catch(_){}
   if(S.envOn && cs) setData('st-env', envelopeCells(cs).feats);
@@ -2511,6 +2568,7 @@ async function sunHours(){
 const POI_CATS = [
   {id:'transit', name:'대중교통', col:'#2C47C4'}, {id:'lift', name:'엘리베이터·모노레일', col:'#C2255C'}, {id:'care', name:'의료', col:'#E8590C'},
   {id:'welfare', name:'복지·공공', col:'#7048E8'}, {id:'shop', name:'장보기', col:'#2B8A3E'}, {id:'park', name:'공원·놀이터', col:'#5C940D'}, {id:'edu', name:'교육', col:'#1971C2'},
+  {id:'food', name:'식당·카페', col:'#B5651D'},
 ];
 function poiCat(t){
   const n = String(t.name || '');
@@ -2521,30 +2579,9 @@ function poiCat(t){
   if(t.shop || t.amenity === 'marketplace') return 'shop';
   if(['park','playground'].includes(t.leisure)) return 'park';
   if(['school','kindergarten','college','university'].includes(t.amenity)) return 'edu';
+  if(['restaurant','cafe','fast_food','food_court'].includes(t.amenity)) return 'food';
   return null;
 }
-async function radiusAnalysis(){
-  const s = curSite(), c = s ? siteCenter(s) : map.getCenter();
-  toast('주변 시설을 찾는 중…', 9000);
-  setData('st-radius', [400, 800].map(m => ({type:'Feature', properties:{m}, geometry:{type:'LineString', coordinates: circleRing(c.lng, c.lat, m)}})));
-  await viewBounds(boundsOfRings([circleRing(c.lng, c.lat, 820)]), 16);
-  let items = [];
-  try {
-    const A = `(around:800,${c.lat.toFixed(6)},${c.lng.toFixed(6)})`;
-    const q = `[out:json][timeout:25];(nwr${A}[amenity~"^(hospital|clinic|doctors|dentist|pharmacy|social_facility|community_centre|townhall|library|post_office|police|marketplace|bus_station|school|kindergarten|college|university)$"];nwr${A}[shop~"^(supermarket|convenience|greengrocer|butcher|bakery|mall|department_store|grocery|seafood)$"];nwr${A}[highway~"^(bus_stop|elevator)$"];nwr${A}[railway~"^(station|halt|subway_entrance|funicular|monorail)$"];nwr${A}[public_transport=station];nwr${A}[leisure~"^(park|playground)$"];nwr${A}[aerialway];);out center tags 400;`;
-    const r = await fetch('https://overpass-api.de/api/interpreter', {method:'POST', body: new URLSearchParams({data: q})});
-    if(!r.ok) throw 0;
-    const j = await r.json();
-    for(const e of j.elements || []){ const lat = e.lat ?? (e.center && e.center.lat), lng = e.lon ?? (e.center && e.center.lon); if(lat == null) continue; const t = e.tags || {}; const cat = poiCat(t); if(cat) items.push({cat, name: t['name:ko'] || t.name || '', lat, lng}); }
-  } catch(_){
-    try { for(const f of map.querySourceFeatures(SRC, {sourceLayer:'poi'})){ if(!f.geometry || f.geometry.type !== 'Point') continue; const p = f.properties || {}; const t = {name: p['name:ko'] || p.name, amenity: p.subclass, shop: p.class === 'shop' || p.class === 'grocery' ? p.subclass : undefined, leisure: p.subclass, highway: p.subclass, railway: p.subclass}; const cat = poiCat(t); if(cat) items.push({cat, name: t.name || '', lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0]}); } } catch(_){}
-  }
-  const seen = new Set(); items = items.filter(i => { const k = i.cat + i.name + i.lat.toFixed(4) + i.lng.toFixed(4); if(seen.has(k)) return false; seen.add(k); i.d = hav(c, i); return i.d <= 800; });
-  setData('st-poi', items.map(i => ({type:'Feature', properties:{col: (POI_CATS.find(x => x.id === i.cat) || {}).col || '#888'}, geometry:{type:'Point', coordinates:[i.lng, i.lat]}})));
-  S.radiusRes = POI_CATS.map(k => { const its = items.filter(i => i.cat === k.id).sort((a, b) => a.d - b.d); return {...k, n4: its.filter(i => i.d <= 400).length, n8: its.length, near: its[0]}; });
-  if(S.panel !== 'studio') openPanel('studio'); else keepScroll(renderStudio);
-}
-
 /* ---------- section ---------- */
 S.section = null;
 async function makeSection(coords){
@@ -2889,14 +2926,10 @@ function renderStudio(){
         <p class="hint">${({winter:'동지', equinox:'춘·추분', summer:'하지', today:'오늘'})[sr.day] || sr.ymd} 기준 · 주변 건물 ${sr.others}동과 매스·내 모델 반영 · 그림자는 경사진 땅을 따라 늘어나고, 산·언덕이 만드는 그늘도 넣었어요(지형 자료 30m 간격).</p>` : ''}
     </section>`;
   } else {
-    h += `<p class="note">대지를 정하면 면적·용도지역·표고 같은 대지 정보와 법규 한도, 매스 스터디, 일조 분석을 쓸 수 있어요. 단면·주변 반경·도판 내보내기는 대지 없이도 지금 화면 기준으로 쓸 수 있어요.</p>`;
+    h += `<p class="note">대지를 정하면 면적·용도지역·표고 같은 대지 정보와 법규 한도, 매스 스터디, 일조 분석을 쓸 수 있어요. 단면·평면 자르기·걷기 분석·도판 내보내기는 대지 없이도 지금 화면 기준으로 쓸 수 있어요.</p>`;
   }
   // tools available without a site
-  const rr = S.radiusRes;
-  h += `<section class="card"><h3>단면 · 주변</h3><div class="menu-list row"><button class="btn sm pri" data-act="secNew">단면선 긋기</button>${S.section ? '<button class="btn sm" data-act="secOpen">마지막 단면 보기</button>' : ''}<button class="btn sm" data-act="radius">도보 5·10분 반경 분석</button>${rr ? '<button class="btn sm ghost" data-act="radClear">반경 지우기</button>' : ''}</div>
-    ${rr ? `<table class="rtab"><thead><tr><th></th><th>5분<br><small>400m</small></th><th>10분<br><small>800m</small></th><th>가장 가까운 곳</th></tr></thead><tbody>${rr.map(r => `<tr><td><i style="background:${r.col}"></i>${esc(r.name)}</td><td>${r.n4}</td><td>${r.n8}</td><td>${r.near ? `${esc(r.near.name || '이름 없음')} · ${Math.round(r.near.d)}m` : '—'}</td></tr>`).join('')}</tbody></table>
-      <p class="hint">직선거리 기준이라 경사지에서는 실제 걷는 시간이 더 걸려요. 시설 자료 © OpenStreetMap 기여자(Overpass).</p>` : ''}
-  </section>`;
+  h += secCardHTML();
   h += topoCardHTML() + cmCardHTML();
   h += `<section class="card"><h3>도판 · 내보내기</h3>
     <div class="seg" role="group" aria-label="지도 스타일"><button data-act="style" data-v="base" aria-pressed="${S.styleMode === 'base'}">기본</button><button data-act="style" data-v="fg" aria-pressed="${S.styleMode === 'fg'}">도-지</button><button data-act="style" data-v="inv" aria-pressed="${S.styleMode === 'inv'}">반전</button></div>
@@ -3058,7 +3091,7 @@ function ensureModelLayer(){
   if(M3.layer || !S.mapReady || !M3.T) return;
   const T = M3.T;
   map.addLayer({id:'my-models', type:'custom', renderingMode:'3d',
-    onAdd(m, gl){ this.cam = new T.Camera(); this.r = new T.WebGLRenderer({canvas: m.getCanvas(), context: gl, antialias: true}); this.r.autoClear = false; },
+    onAdd(m, gl){ this.cam = new T.Camera(); this.r = new T.WebGLRenderer({canvas: m.getCanvas(), context: gl, antialias: true}); this.r.autoClear = false; this.r.localClippingEnabled = true; },
     render(gl, matrix){
       const mtx = matrix && matrix.length === 16 ? matrix : (matrix && (matrix.defaultProjectionData ? matrix.defaultProjectionData.mainMatrix : matrix.modelViewProjectionMatrix));
       if(!mtx) return;
@@ -3566,13 +3599,14 @@ function applyHideExisting(){
   if(on){ const rings = siteRings(s);
     for(const [k, v] of VW.bldg){ const r = largestRing(v.geom); if(r && inAny(centroid(r), rings)) keys.push(k); }
     if(SRC) try { for(const f of map.querySourceFeatures(SRC, {sourceLayer:'building'})){ if(f.id == null) continue; const r = largestRing(f.geometry); if(r && inAny(centroid(r), rings)) ids.add(f.id); } } catch(_){} }
+  for(const k of PLANHIDE.vw) keys.push(k); for(const id of PLANHIDE.osm) ids.add(id);
   // only touch filters when they change: a filter change makes MapLibre re-parse the tiles
   const fv = keys.length ? ['!', ['in', ['get','k'], ['literal', keys.sort()]]] : null, fb = ids.size ? ['!', ['in', ['id'], ['literal', [...ids].sort()]]] : null;
   const jv = JSON.stringify(fv), jb = JSON.stringify(fb);
   if(jv !== HIDE.vw){ try { if(map.getLayer('vw-bldg')){ map.setFilter('vw-bldg', fv); HIDE.vw = jv; } } catch(_){} }
   if(jb !== HIDE.b){ try { if(map.getLayer('bldg3d')){ map.setFilter('bldg3d', fb); HIDE.b = jb; } } catch(_){} }
 }
-const HIDE = {vw: 'null', b: 'null'};
+const HIDE = {vw: 'null', b: 'null'}, PLANHIDE = {vw: [], osm: []};
 const onSiteHidden = (s, c) => !!(S.hideEx && s && inAny(c, siteRings(s)));
 
 /* ---------- studio card ---------- */
@@ -4591,7 +4625,7 @@ function renderLook(on, sv){
     const hide = id => { if(map.getLayer(id)){ save.vis[id] = map.getLayoutProperty(id, 'visibility') || 'visible'; map.setLayoutProperty(id, 'visibility', 'none'); } };
     const paint = (id, prop, val) => { if(map.getLayer(id)){ save.paint.push([id, prop, map.getPaintProperty(id, prop)]); map.setPaintProperty(id, prop, val); } };
     for(const l of map.getStyle().layers) if(l.type === 'symbol') hide(l.id);
-    for(const id of ['visited', 'sites-fill', 'sites-line', 'sites-line-area', 'routes', 'routes-on', 'vw-parcel-fill', 'vw-parcel-line', 'vw-zone-fill', 'vw-zone-line', 'adm-dong', 'adm-gu', 'adm-sido', 'cones', 'cones-line', 'obs-path', 'st-radius', 'st-poi', 'meas-fill', 'meas-line', 'meas-pt', 'picked', 'picked-fill', 'picked-line', 'drawpts', 'cm-prev', 'cm-area', 'topo-other', 'st-sun', 'st-env']) hide(id);
+    for(const id of ['visited', 'sites-fill', 'sites-line', 'sites-line-area', 'routes', 'routes-on', 'vw-parcel-fill', 'vw-parcel-line', 'vw-zone-fill', 'vw-zone-line', 'adm-dong', 'adm-gu', 'adm-sido', 'cones', 'cones-line', 'obs-path', 'st-radius', 'st-poi', 'st-poi-lbl', 'st-iso', 'st-iso-line', 'st-route', 'plan-line', 'plan-area', 'meas-fill', 'meas-line', 'meas-pt', 'picked', 'picked-fill', 'picked-line', 'drawpts', 'cm-prev', 'cm-area', 'topo-other', 'st-sun', 'st-env']) hide(id);
     paint('bldg3d', 'fill-extrusion-color', '#FBFAF6'); paint('vw-bldg', 'fill-extrusion-color', '#FBFAF6'); paint('bldg3d', 'fill-extrusion-opacity', 1); paint('vw-bldg', 'fill-extrusion-opacity', 1);
     paint('st-mass', 'fill-extrusion-color', '#D7B17F');
     paint('contour-lines', 'line-color', '#B3A892'); paint('topo-contour', 'line-color', '#A8987C');
@@ -4616,7 +4650,7 @@ async function renderShot(){
 
 
 /* ---------- lighter: batched national data, far-away pruning, 가벼운 모드 ---------- */
-function flushVwBldg(){ regApply(); vwFillMissing(); vwApplyFixes(); vwEstimate(); setData('vw-bldg', vwBldgFeatures()); if(S.hideEx) applyHideExisting(); }
+function flushVwBldg(skipReg){ if(!skipReg) regApply(); vwFillMissing(); vwApplyFixes(); vwEstimate(); setData('vw-bldg', vwBldgFeatures()); if(S.hideEx) applyHideExisting(); }
 const vwParcelFeatures = () => [...VW.parcel].map(([k, v]) => ({type:'Feature', properties:{k, jb: v.jibun}, geometry: v.geom}));
 function vwPrune(){
   const c = map.getCenter(), far = (x, y) => Math.abs(x - c.lng) > 0.03 || Math.abs(y - c.lat) > 0.025;
@@ -4729,27 +4763,31 @@ function regPick(v){ // the first lot with register entries, or the next lot wor
   return (v.pc && v.pc.length) || q ? {} : {nopnu: true};
 }
 function regSet(v, it, hh){
+  const ch = !v.reg || v.baseSrc !== 'reg' || v.base !== hh.h ? 1 : 0;
   if(!v.vw0) v.vw0 = {use: v.use};
   v.reg = {real: hh.real, heit: it.heit, fl: hh.fl, fh: hh.fh, purp: it.purp, apr: it.apr, dong: it.dong, name: it.name, ufl: it.ufl, strct: it.strct};
   if(it.purp) v.use = it.purp;
   if(v.baseSrc !== 'reg' || v.base !== hh.h) setBase(v, hh.h, 'reg', 0, hh.fl);
+  return ch;
 }
 function regUnset(v){
   v.reg = null; if(v.vw0) v.use = v.vw0.use;
   const fl = v.floors; setBase(v, fl > 0 ? Math.max(3, fl*(v.fh || 3.3)) : 6, fl > 0 ? 'vw' : 'none'); v.osmTried = false;
+  return 1;
 }
 function regApply(){
-  const live = regLive() && REG.c.size > 0, groups = new Map();
+  const live = regLive() && REG.c.size > 0, groups = new Map(); let ch = 0;
   for(const [k, v] of VW.bldg){
     const p = live ? regPick(v).hit : null;
     if(p){ let g = groups.get(p); if(!g){ g = []; groups.set(p, g); } g.push(k); }
-    else if(v.reg) regUnset(v);
+    else if(v.reg) ch += regUnset(v);
   }
   for(const [p, ks] of groups){
     const items = REG.c.get(p).items, blds = ks.map(k => { const v = VW.bldg.get(k); bldMeta(v); return {k, v, a: v.a || 0, name: v.name}; }), used = new Set();
-    for(const [i, j] of regMatch(items, blds)){ const b = blds[j], hh = regHeight(items[i], b.v.fh); if(hh){ regSet(b.v, items[i], hh); used.add(b.k); } }
-    for(const b of blds) if(!used.has(b.k) && b.v.reg) regUnset(b.v);
+    for(const [i, j] of regMatch(items, blds)){ const b = blds[j], hh = regHeight(items[i], b.v.fh); if(hh){ ch += regSet(b.v, items[i], hh); used.add(b.k); } }
+    for(const b of blds) if(!used.has(b.k) && b.v.reg) ch += regUnset(b.v);
   }
+  return ch;
 }
 function regSrcText(r){
   if(!r) return '건축물대장';
@@ -4830,7 +4868,7 @@ async function regRun(list){
   if(got) regFlush(); else stat();
   if(regLive()) REG.timer = setTimeout(regScan, 400);
 }
-function regFlush(){ if(!S.mapReady) return; flushVwBldg(); SUNCTX = null; renderMap(); const el = $('#regStat'); if(el) el.textContent = regStatText(); }
+function regFlush(){ if(!S.mapReady) return; if(regApply()){ flushVwBldg(true); SUNCTX = null; renderMap(); } const el = $('#regStat'); if(el) el.textContent = regStatText(); }
 function regStatText(){
   if(!(REG.key || REG.proxy)) return '키를 넣으면 화면 안 건물의 실제 높이(m)와 층수를 건축물대장에서 가져와요.';
   if(!VW.key || !VW.on.bldg) return '브이월드 연결과 "국가 건물 자료"가 먼저 켜져 있어야 해요 · 건물 모양은 브이월드에서 와요.';
@@ -5006,8 +5044,428 @@ $('#tKko').onclick = () => { if(KK.open) kkoClose(); else kkoOpen(); };
 $('#kkoX').onclick = kkoClose;
 $('#kkoSeg').onclick = e => { const b = e.target.closest('button[data-k]'); if(b) kkoMode(b.dataset.k); };
 
+
+/* ---------- 걸어서 닿는 범위: real streets and stairs, slowed by slopes (Tobler's hiking function) ---------- */
+const WALK = {pace: 'norm', busy: false, cache: null};
+try { if(localStorage.getItem('dapsa3d.walkPace') === 'slow') WALK.pace = 'slow'; } catch(_){}
+const WALK_R = 1300, WALK_CELL = 10, WALK_MINS = [5, 10, 15];
+const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter'];
+function walkTime(d, dz, steps, slow){ // seconds to cover d metres on the map while climbing dz metres
+  if(!(d > 0.01)) return 0;
+  let t;
+  if(steps) t = d/0.9 + Math.max(0, dz)*3.2 + Math.max(0, -dz)*1.4; // stairs: about 10 s more per storey up
+  else t = d/Math.max(0.2, 6*Math.exp(-3.5*Math.abs(dz/d + 0.05))/3.6); // 5 km/h on the flat, slower up and steeply down
+  return slow ? t*(steps ? 1.9 : 1.45) : t;
+}
+class MinHeap {
+  constructor(){ this.t = []; this.v = []; }
+  get size(){ return this.t.length; }
+  push(t, v){ const T = this.t, V = this.v; let i = T.length; T.push(t); V.push(v); while(i > 0){ const p = (i - 1) >> 1; if(T[p] <= t) break; T[i] = T[p]; V[i] = V[p]; i = p; } T[i] = t; V[i] = v; }
+  pop(){ const T = this.t, V = this.v, rt = T[0], rv = V[0], lt = T.pop(), lv = V.pop(), n = T.length;
+    if(n){ let i = 0; for(;;){ const l = 2*i + 1, r = l + 1; let m = i, mt = lt; if(l < n && T[l] < mt){ m = l; mt = T[l]; } if(r < n && T[r] < mt){ m = r; mt = T[r]; } if(m === i) break; T[i] = T[m]; V[i] = V[m]; i = m; } T[i] = lt; V[i] = lv; }
+    return [rt, rv]; }
+}
+function nestRings(rings){ // closed rings in any orientation → polygons (outer + holes) by even–odd depth
+  const Q = rings.map(r => ({r, bb: ringsBBox([r]), a: Math.abs(ringArea(r))})).filter(o => o.a > 0).sort((p, q) => q.a - p.a), depth = [], par = [];
+  for(let i = 0; i < Q.length; i++){ let d = 0, pr = -1; const p = Q[i].r[0];
+    for(let k = 0; k < i; k++){ const o = Q[k]; if(p[0] < o.bb[0] || p[0] > o.bb[2] || p[1] < o.bb[1] || p[1] > o.bb[3]) continue; if(inRing(p, o.r)){ d++; pr = k; } } // largest first, so the last hit is the closest container
+    depth.push(d); par.push(pr); }
+  const out = new Map();
+  for(let i = 0; i < Q.length; i++) if(depth[i] % 2 === 0) out.set(i, [Q[i].r]);
+  for(let i = 0; i < Q.length; i++) if(depth[i] % 2 === 1 && out.has(par[i])) out.get(par[i]).push(Q[i].r);
+  return [...out.values()];
+}
+function walkParse(j){
+  const pois = [], lines = [];
+  for(const e of (j && j.elements) || []){
+    const t = e.tags || {};
+    if(e.type === 'way' && Array.isArray(e.geometry)){
+      if(!t.highway || /^(no|private)$/.test(t.foot || '') || (/^(no|private)$/.test(t.access || '') && !/^(yes|designated|permissive)$/.test(t.foot || ''))) continue;
+      const pts = e.geometry.filter(g => g && Number.isFinite(g.lat) && Number.isFinite(g.lon)).map(g => [g.lon, g.lat]);
+      if(pts.length >= 2) lines.push({pts, steps: t.highway === 'steps'});
+      continue;
+    }
+    const lat = e.lat ?? (e.center && e.center.lat), lng = e.lon ?? (e.center && e.center.lon); if(lat == null || lng == null) continue;
+    const cat = poiCat(t); if(cat) pois.push({cat, name: t['name:ko'] || t.name || '', lat, lng});
+  }
+  return {pois, lines, src: 'osm'};
+}
+async function walkFetch(c){
+  const A = `(around:${WALK_R},${c.lat.toFixed(6)},${c.lng.toFixed(6)})`;
+  const q = `[out:json][timeout:40];(nwr${A}[amenity~"^(hospital|clinic|doctors|dentist|pharmacy|social_facility|community_centre|townhall|library|post_office|police|marketplace|bus_station|school|kindergarten|college|university|restaurant|cafe|fast_food)$"];nwr${A}[shop~"^(supermarket|convenience|greengrocer|butcher|bakery|mall|department_store|grocery|seafood)$"];nwr${A}[highway~"^(bus_stop|elevator)$"];nwr${A}[railway~"^(station|halt|subway_entrance|funicular|monorail)$"];nwr${A}[public_transport=station];nwr${A}[leisure~"^(park|playground)$"];nwr${A}[aerialway];);out center tags 1200;way${A}[highway~"^(footway|path|steps|pedestrian|living_street|residential|service|unclassified|tertiary|tertiary_link|secondary|secondary_link|primary|primary_link|track|corridor|road)$"];out tags geom qt;`;
+  let last = null;
+  for(const url of OVERPASS){
+    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 35000);
+    try { const r = await fetch(url, {method: 'POST', body: new URLSearchParams({data: q}), signal: ctl.signal}); if(!r.ok) throw new Error('HTTP ' + r.status); const d = walkParse(await r.json()); if(d.lines.length) return d; throw new Error('empty'); }
+    catch(e){ last = e; } finally { clearTimeout(t); }
+  }
+  throw last || new Error('overpass');
+}
+function walkFromTiles(){ // offline-ish fallback: the streets and places already in the map tiles
+  const pois = [], lines = [], seen = new Set();
+  if(!SRC) return {pois, lines, src: 'tiles'};
+  try { for(const f of map.querySourceFeatures(SRC, {sourceLayer: 'transportation'})){ const p = f.properties || {}; if(/motorway|trunk|rail|ferry|aerialway|transit/.test(p.class || '')) continue;
+    const g = f.geometry, ls = g.type === 'LineString' ? [g.coordinates] : g.type === 'MultiLineString' ? g.coordinates : [];
+    for(const l of ls){ if(l.length < 2) continue; const k = l[0].join() + '|' + l[l.length - 1].join(); if(seen.has(k)) continue; seen.add(k); lines.push({pts: l, steps: p.subclass === 'steps' || p.class === 'steps'}); } } } catch(_){}
+  try { for(const f of map.querySourceFeatures(SRC, {sourceLayer: 'poi'})){ if(!f.geometry || f.geometry.type !== 'Point') continue; const p = f.properties || {};
+    const t = {name: p['name:ko'] || p.name, amenity: p.subclass, shop: p.class === 'shop' || p.class === 'grocery' ? p.subclass : undefined, leisure: p.subclass, highway: p.subclass, railway: p.subclass};
+    const cat = poiCat(t); if(cat) pois.push({cat, name: t.name || '', lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0]}); } } catch(_){}
+  return {pois, lines, src: 'tiles'};
+}
+function walkCompute(c, data, slow, zfn){
+  const L = mkLocal(c.lng, c.lat), SN = 1.2, key = new Map(), X = [], Y = [], Zn = [], adj = [], E = [];
+  const zAt = zfn || ((x, y) => { const q = L.b(x, y); return demSample(q[0], q[1], 'dtm', false); });
+  const zc0 = zAt(0, 0), zc = zc0 ?? 0, zz = i => Zn[i] ?? zc;
+  const node = p => { const q = L.f(p[0], p[1]); if(Math.abs(q[0]) > WALK_R + 300 || Math.abs(q[1]) > WALK_R + 300) return -1;
+    const k = Math.round(q[0]/SN) + ':' + Math.round(q[1]/SN); let i = key.get(k); if(i === undefined){ i = X.length; key.set(k, i); X.push(q[0]); Y.push(q[1]); Zn.push(zAt(q[0], q[1])); adj.push([]); } return i; };
+  const addEdge = (a, b, st) => { const dx = X[b] - X[a], dy = Y[b] - Y[a], d = Math.hypot(dx, dy); if(d < 0.05) return;
+    const n = Math.max(1, Math.ceil(d/20)); let tab = 0, tba = 0, zp = zz(a);
+    for(let k = 1; k <= n; k++){ const zk = k === n ? zz(b) : (zAt(X[a] + dx*k/n, Y[a] + dy*k/n) ?? zp); tab += walkTime(d/n, zk - zp, st, slow); tba += walkTime(d/n, zp - zk, st, slow); zp = zk; }
+    const e = E.length; E.push({a, b, tab, tba, d, st}); adj[a].push(e); adj[b].push(e); };
+  for(const l of data.lines){ let prev = -1; for(const p of l.pts){ const i = node(p); if(i >= 0 && prev >= 0 && i !== prev) addEdge(prev, i, l.steps); prev = i; } }
+  if(!E.length) return null;
+  const N = X.length, T = new Float64Array(N).fill(Infinity), pred = new Int32Array(N).fill(-1), VOFF = slow ? 0.6 : 0.85;
+  const off = (d, dz) => walkTime(d, dz, false, slow)*1.2; // across a courtyard or vacant lot: a little slower than the street
+  let best = null;
+  E.forEach(e => { const xa = X[e.a], ya = Y[e.a], dx = X[e.b] - xa, dy = Y[e.b] - ya, L2 = dx*dx + dy*dy; let f = L2 ? -(xa*dx + ya*dy)/L2 : 0; f = f < 0 ? 0 : f > 1 ? 1 : f; const d = Math.hypot(xa + dx*f, ya + dy*f); if(!best || d < best.d) best = {e, f, d}; });
+  if(!best || best.d > 300) return null;
+  const heap = new MinHeap(), seed = (i, t) => { if(t < T[i]){ T[i] = t; pred[i] = -1; heap.push(t, i); } };
+  { const e = best.e, zP = zz(e.a)*(1 - best.f) + zz(e.b)*best.f, t0 = off(best.d, zP - zc); seed(e.a, t0 + best.f*e.tba); seed(e.b, t0 + (1 - best.f)*e.tab); }
+  for(let i = 0; i < N; i++){ const d = Math.hypot(X[i], Y[i]); if(d < 40) seed(i, off(d, zz(i) - zc)); }
+  while(heap.size){ const [t, i] = heap.pop(); if(t > T[i]) continue; if(t > 1800) break;
+    for(const ei of adj[i]){ const e = E[ei], fw = e.a === i, j = fw ? e.b : e.a, nt = t + (fw ? e.tab : e.tba); if(nt < T[j]){ T[j] = nt; pred[j] = i; heap.push(nt, j); } } }
+  // time field on a 10 m grid: along the street, then a short way off it
+  const Rr = WALK_R, C = WALK_CELL, nx = Math.round(2*Rr/C) + 1, G = new Float32Array(nx*nx).fill(2400), B = 35;
+  for(const e of E){ const ta = T[e.a], tb = T[e.b]; if(Math.min(ta, tb) > 1200) continue;
+    const xa = X[e.a], ya = Y[e.a], dx = X[e.b] - xa, dy = Y[e.b] - ya, L2 = dx*dx + dy*dy;
+    const i0 = Math.max(0, Math.floor((Math.min(xa, xa + dx) - B + Rr)/C)), i1 = Math.min(nx - 1, Math.ceil((Math.max(xa, xa + dx) + B + Rr)/C)), j0 = Math.max(0, Math.floor((Rr - Math.max(ya, ya + dy) - B)/C)), j1 = Math.min(nx - 1, Math.ceil((Rr - Math.min(ya, ya + dy) + B)/C));
+    for(let jj = j0; jj <= j1; jj++){ const py = Rr - jj*C; for(let ii = i0; ii <= i1; ii++){ const px = -Rr + ii*C; let f = L2 ? ((px - xa)*dx + (py - ya)*dy)/L2 : 0; f = f < 0 ? 0 : f > 1 ? 1 : f;
+      const dd = Math.hypot(xa + dx*f - px, ya + dy*f - py); if(dd > B) continue; const v = Math.min(ta + f*e.tab, tb + (1 - f)*e.tba) + dd/VOFF, k = jj*nx + ii; if(v < G[k]) G[k] = v; } } }
+  for(let jj = 0; jj < nx; jj++) for(let ii = 0; ii < nx; ii++){ const d = Math.hypot(-Rr + ii*C, Rr - jj*C); if(d <= 60){ const v = off(d, 0), k = jj*nx + ii; if(v < G[k]) G[k] = v; } }
+  const neg = new Float32Array(G.length); for(let k = 0; k < G.length; k++) neg[k] = -G[k];
+  const toL = q => [-Rr + q[0]*C, Rr - q[1]*C];
+  const bands = WALK_MINS.map(m => { const rings = isoLines(neg, nx, nx, -m*60, true).filter(r => r.length >= 4).map(r => { const q = simplifyPL(r, 0.35).map(toL); const f = q[0], l = q[q.length - 1]; if(f[0] !== l[0] || f[1] !== l[1]) q.push(f.slice()); return q; }).filter(r => r.length >= 4);
+    const polysL = nestRings(rings).filter(pg => Math.abs(ringArea(pg[0])) >= 1500).map(pg => [pg[0], ...pg.slice(1).filter(h => Math.abs(ringArea(h)) >= 2500)]), polys = polysL.map(pg => pg.map(r => r.map(p => L.b(p[0], p[1])))); // drop specks and courtyard-sized holes
+    const area = polysL.reduce((t, pg) => t + Math.abs(ringArea(pg[0])) - pg.slice(1).reduce((u, h) => u + Math.abs(ringArea(h)), 0), 0);
+    return {m, polys, polysL, area}; });
+  // places: the quickest way onto the street network near each one
+  const H = new Map(), HS = 60;
+  E.forEach((e, ei) => { const x0 = Math.floor(Math.min(X[e.a], X[e.b])/HS), x1 = Math.floor(Math.max(X[e.a], X[e.b])/HS), y0 = Math.floor(Math.min(Y[e.a], Y[e.b])/HS), y1 = Math.floor(Math.max(Y[e.a], Y[e.b])/HS);
+    for(let a = x0; a <= x1; a++) for(let b2 = y0; b2 <= y1; b2++){ const k = a + ':' + b2; let l = H.get(k); if(!l){ l = []; H.set(k, l); } l.push(ei); } });
+  const reach = (x, y) => { let bst = null; const ci = Math.floor(x/HS), cj = Math.floor(y/HS);
+    for(let a = ci - 1; a <= ci + 1; a++) for(let b2 = cj - 1; b2 <= cj + 1; b2++){ const l = H.get(a + ':' + b2); if(!l) continue;
+      for(const ei of l){ const e = E[ei], xa = X[e.a], ya = Y[e.a], dx = X[e.b] - xa, dy = Y[e.b] - ya, L2 = dx*dx + dy*dy; let f = L2 ? ((x - xa)*dx + (y - ya)*dy)/L2 : 0; f = f < 0 ? 0 : f > 1 ? 1 : f;
+        const px = xa + dx*f, py = ya + dy*f, dd = Math.hypot(px - x, py - y); if(dd > 90) continue;
+        const viaA = T[e.a] + f*e.tab, viaB = T[e.b] + (1 - f)*e.tba, t = Math.min(viaA, viaB) + dd/VOFF;
+        if(!bst || t < bst.t) bst = {t, node: viaA <= viaB ? e.a : e.b, px, py}; } }
+    const d0 = Math.hypot(x, y); if(d0 < 60){ const t = off(d0, 0); if(!bst || t < bst.t) bst = {t, node: -1}; }
+    return bst; };
+  const pois = data.pois.map(p => { const q = L.f(p.lng, p.lat), r = reach(q[0], q[1]); return {...p, x: q[0], y: q[1], dl: Math.hypot(q[0], q[1]), t: r ? r.t : Infinity, via: r}; });
+  const pathOf = p => { const v = p.via; if(!v) return null; const pts = [[p.x, p.y]];
+    if(v.node >= 0){ pts.push([v.px, v.py]); let i = v.node, g = 0; while(i >= 0 && g++ < 200000){ pts.push([X[i], Y[i]]); i = pred[i]; } }
+    pts.push([0, 0]); pts.reverse();
+    let len = 0, up = 0, zp = zc; for(let k = 1; k < pts.length; k++){ len += Math.hypot(pts[k][0] - pts[k-1][0], pts[k][1] - pts[k-1][1]); const z = zAt(pts[k][0], pts[k][1]) ?? zp; if(z > zp) up += z - zp; zp = z; }
+    return {ll: pts.map(q => L.b(q[0], q[1])), len, up}; };
+  const rows = POI_CATS.map(k => { const its = pois.filter(p => p.cat === k.id && p.t <= 900).sort((a, b) => a.t - b.t), near = its[0] || null;
+    return {id: k.id, name: k.name, col: k.col, n: WALK_MINS.map(m => its.filter(p => p.t <= m*60).length), near: near ? {name: near.name, t: near.t, dl: near.dl, lng: near.lng, lat: near.lat} : null, path: near ? pathOf(near) : null}; });
+  const net = []; for(const e of E){ const t = Math.min(T[e.a], T[e.b]); if(Math.abs(X[e.a]) > Rr && Math.abs(X[e.b]) > Rr) continue; net.push([X[e.a], Y[e.a], X[e.b], Y[e.b], Number.isFinite(t) ? t : 9999, e.st ? 1 : 0]); }
+  const vflat = (slow ? 1/1.45 : 1)*6*Math.exp(-0.175)/3.6;
+  return {c: {lng: c.lng, lat: c.lat}, slow, src: data.src, rows, bands, net, pois: pois.filter(p => p.t <= 900).map(p => ({cat: p.cat, name: p.name, lng: p.lng, lat: p.lat, x: p.x, y: p.y, t: p.t})),
+    zc: zc0, area15: bands[2].area, ideal15: Math.PI*(vflat*900)**2, rIdeal: vflat*900, nodes: N, edges: E.length, steps: E.filter(e => e.st).length, sel: null};
+}
+function walkContext(res){ // what stands within 400 m: building count, height, density, and the lie of the land
+  const c = res.c, L = mkLocal(c.lng, c.lat), R4 = 400;
+  const gather = list => { const fl = []; let n = 0, area = 0; for(const b of list){ const ct = centroid(b.ring), q = L.f(ct[0], ct[1]); if(Math.hypot(q[0], q[1]) > R4) continue; n++; area += ringAreaM2(b.ring); fl.push(b.fl || Math.max(1, Math.round(b.h/3))); } fl.sort((a, b) => a - b); return {n, area, fl}; };
+  let vw = {n: 0, area: 0, fl: []}, os = {n: 0, area: 0, fl: []};
+  if(VW.key && VW.bldg.size) vw = gather([...VW.bldg.values()].map(v => ({ring: largestRing(v.geom), h: v.h, fl: v.reg ? v.reg.fl : v.floors})).filter(b => b.ring));
+  if(SRC){ try { const seen = new Set(), list = []; for(const f of map.querySourceFeatures(SRC, {sourceLayer: 'building'})){ const r = largestRing(f.geometry); if(!r) continue; const k = r[0].map(v => v.toFixed(6)).join(',') + r.length; if(seen.has(k)) continue; seen.add(k); list.push({ring: r, h: osmH(f)}); } os = gather(list); } catch(_){} }
+  const g = vw.n >= os.n*0.7 && vw.n ? vw : os;
+  let zmin = Infinity, zmax = -Infinity;
+  for(let y = -R4; y <= R4; y += 20) for(let x = -R4; x <= R4; x += 20){ if(x*x + y*y > R4*R4) continue; const q = L.b(x, y), z = demSample(q[0], q[1], 'dtm', false); if(z == null) continue; if(z < zmin) zmin = z; if(z > zmax) zmax = z; }
+  return {n: g.n, cov: g.area/(Math.PI*R4*R4)*100, med: g.fl.length ? g.fl[Math.floor(g.fl.length/2)] : null, max: g.fl.length ? g.fl[g.fl.length - 1] : null, src: g === vw ? 'vw' : 'osm', zmin: Number.isFinite(zmin) ? zmin : null, zmax: Number.isFinite(zmax) ? zmax : null};
+}
+function setupWalkLayers(underB){
+  for(const id of ['st-iso', 'st-route']) if(!map.getSource(id)) map.addSource(id, {type:'geojson', data: FC()});
+  map.addLayer({id:'st-iso', type:'fill', source:'st-iso', paint:{'fill-color': cssVar('--accent'), 'fill-opacity': ['match', ['get','m'], 5, 0.16, 10, 0.1, 0.06]}}, underB);
+  map.addLayer({id:'st-iso-line', type:'line', source:'st-iso', layout:{'line-join':'round'}, paint:{'line-color': cssVar('--accent'), 'line-width': ['match', ['get','m'], 5, 2, 10, 1.4, 1], 'line-opacity': 0.85}}, underB);
+  map.addLayer({id:'st-route', type:'line', source:'st-route', layout:{'line-cap':'round', 'line-join':'round'}, paint:{'line-color': cssVar('--site'), 'line-width': 4, 'line-opacity': 0.9}});
+  const sym = (map.getStyle().layers || []).find(l => l.type === 'symbol' && l.layout && Array.isArray(l.layout['text-font']));
+  map.addLayer({id:'st-poi-lbl', type:'symbol', source:'st-poi', filter:['has', 'lbl'], layout:{'text-field':['get','lbl'], 'text-font': sym ? sym.layout['text-font'] : ['Noto Sans Regular'], 'text-size': 11.5, 'text-offset':[0, 0.9], 'text-anchor':'top', 'text-optional': true},
+    paint:{'text-color': cssVar('--ink'), 'text-halo-color': cssVar('--paper'), 'text-halo-width': 1.6}});
+}
+const fmtMin = t => !Number.isFinite(t) ? '—' : t < 60 ? '1분 이내' : `${Math.round(t/60)}분`;
+function walkShow(res){
+  const c = res.c;
+  setData('st-radius', [400, 800, 1200].map(m => ({type:'Feature', properties:{m}, geometry:{type:'LineString', coordinates: circleRing(c.lng, c.lat, m)}})));
+  setData('st-iso', res.bands.slice().reverse().flatMap(b => b.polys.map(pg => ({type:'Feature', properties:{m: b.m}, geometry:{type:'Polygon', coordinates: pg}}))));
+  const nearest = new Set(res.rows.filter(r => r.near).map(r => r.id + '|' + r.near.lng + '|' + r.near.lat));
+  setData('st-poi', res.pois.map(p => { const k = POI_CATS.find(x => x.id === p.cat) || {}, props = {col: k.col || '#888'}; if(nearest.has(p.cat + '|' + p.lng + '|' + p.lat)) props.lbl = `${p.name || k.name} ${fmtMin(p.t)}`; return {type:'Feature', properties: props, geometry:{type:'Point', coordinates:[p.lng, p.lat]}}; }));
+  setData('st-route', []);
+}
+function walkClear(){ for(const id of ['st-radius', 'st-poi', 'st-iso', 'st-route']) setData(id, []); S.radiusRes = null; keepScroll(renderStudio); }
+function walkRoute(cat){
+  const res = S.radiusRes; if(!res) return; const r = res.rows.find(x => x.id === cat);
+  if(!r || !r.path){ toast(`15분 안에 ${r ? r.name : '그런 곳'}이 없어요`); return; }
+  res.sel = res.sel === cat ? null : cat;
+  setData('st-route', res.sel ? [{type:'Feature', properties:{}, geometry:{type:'LineString', coordinates: r.path.ll}}] : []);
+  if(res.sel){ try { map.fitBounds(boundsOfRings([r.path.ll], 30), {padding: padForPanel(), maxZoom: 17.5, duration: 600}); } catch(_){} toast(`${r.near.name || r.name}까지 길 따라 ${Math.round(r.path.len)}m${r.path.up >= 3 ? ` · 오르막 ${Math.round(r.path.up)}m` : ''} · 걸어서 ${fmtMin(r.near.t)}`, 4500); }
+  keepScroll(renderStudio);
+}
+async function radiusAnalysis(){
+  if(WALK.busy || !S.mapReady) return; WALK.busy = true;
+  const s = curSite(), c0 = s ? siteCenter(s) : map.getCenter(), c = {lng: c0.lng, lat: c0.lat}, slow = WALK.pace === 'slow';
+  const bb = boundsOfRings([circleRing(c.lng, c.lat, WALK_R + 100)]);
+  try {
+    let data = WALK.cache && hav(WALK.cache.c, c) < 1 ? WALK.cache.data : null;
+    if(!data){
+      toast('길과 시설 자료를 불러오는 중… 10초쯤 걸려요', 20000);
+      await viewBounds(bb, 16); await demPrefetchB(bb);
+      try { data = await walkFetch(c); } catch(_){ data = walkFromTiles(); }
+      if(!data.lines.length){ toast('주변 길 자료를 불러오지 못했어요 · 인터넷 연결을 확인해 주세요', 5000); return; }
+      WALK.cache = {c, data};
+    }
+    toast('경사와 계단을 따라 걷는 시간을 계산하는 중…', 10000);
+    await new Promise(r => setTimeout(r, 30));
+    const res = walkCompute(c, data, slow);
+    if(!res){ toast('시작점 300m 안에 길이 없어요', 4000); return; }
+    res.ctx = walkContext(res);
+    S.radiusRes = res; walkShow(res); $('#toast').hidden = true;
+  } finally { WALK.busy = false; }
+  if(S.panel !== 'studio') openPanel('studio'); else keepScroll(renderStudio);
+}
+function walkCardHTML(){
+  const rr = S.radiusRes;
+  let h = `<h4 class="sub">걸어서 닿는 범위</h4>
+    <div class="seg" role="group" aria-label="걷는 속도"><button data-act="walkPace" data-v="norm" aria-pressed="${WALK.pace !== 'slow'}">보통 걸음</button><button data-act="walkPace" data-v="slow" aria-pressed="${WALK.pace === 'slow'}">천천히 · 어르신·유모차</button></div>
+    <div class="menu-list row"><button class="btn sm pri" data-act="radius">${rr ? '다시 분석' : '도보 5·10·15분 분석'}</button>${rr ? '<button class="btn sm" data-act="radSvg">다이어그램 SVG</button><button class="btn sm ghost" data-act="radClear">지우기</button>' : ''}</div>`;
+  if(!rr) return h + `<p class="hint">실제 길(골목·계단 포함)을 따라, 오르막에서는 느려지게 걷는 시간을 계산해요. 산복도로처럼 경사진 동네에서는 직선 반경보다 훨씬 정확해요.</p>`;
+  const x = rr.ctx || {}, pct = rr.ideal15 ? Math.round(rr.area15/rr.ideal15*100) : null;
+  h += `<table class="rtab wk"><thead><tr><th></th><th>5분</th><th>10분</th><th>15분</th><th>가장 가까운 곳 · 누르면 길 표시</th></tr></thead><tbody>${rr.rows.map(r => `<tr data-act="radRoute" data-cat="${r.id}" class="${rr.sel === r.id ? 'on' : ''}"><td><i style="background:${r.col}"></i>${esc(r.name)}</td><td>${r.n[0]}</td><td>${r.n[1]}</td><td>${r.n[2]}</td><td>${r.near ? `${esc(r.near.name || '이름 없음')}<br><small>걸어서 ${fmtMin(r.near.t)} · 길 ${Math.round(r.path ? r.path.len : r.near.dl)}m${r.path && r.path.up >= 3 ? ` · 오르막 ${Math.round(r.path.up)}m` : ''}</small>` : '<small>15분 안에 없음</small>'}</td></tr>`).join('')}</tbody></table>
+    <dl class="spec tight"><dt>15분 도보권</dt><dd>${(rr.area15/1e6).toFixed(2)}㎢${pct != null ? ` · 평지라면 닿을 원(반지름 ${(rr.rIdeal/1000).toFixed(2)}km)의 ${pct}%` : ''}</dd>
+      ${x.n ? `<dt>주변 400m</dt><dd>건물 ${x.n.toLocaleString('ko-KR')}동 · 보통 ${x.med}층 · 가장 높은 ${x.max}층 · 건폐 밀도 ${x.cov.toFixed(0)}%</dd>` : ''}
+      ${x.zmin != null ? `<dt>표고</dt><dd>${rr.zc != null ? `기준점 ${rr.zc.toFixed(0)}m · ` : ''}400m 안 ${x.zmin.toFixed(0)}~${x.zmax.toFixed(0)}m (차이 ${(x.zmax - x.zmin).toFixed(0)}m)</dd>` : ''}</dl>
+    <p class="hint">${rr.slow ? '천천히(평지 시속 3.5km, 계단은 더 느리게)' : '보통 걸음(평지 시속 5km)'} 기준 · 오르막과 급한 내리막은 토블러 보행 함수로 느려지고, 계단은 한 층(3m) 오를 때 약 10초 더 걸리게 했어요. 길 ${rr.edges.toLocaleString('ko-KR')}개 구간 중 계단 ${rr.steps.toLocaleString('ko-KR')}개 · ${rr.src === 'osm' ? '길·시설 © OpenStreetMap 기여자' : '지도 타일에서 길을 읽어 일부 골목·계단이 빠졌을 수 있어요'} · 경사는 지형 자료(30m 간격) 기준이라 옹벽·엘리베이터는 반영되지 않아요.${x.src === 'osm' && x.n ? ' 건물 수는 오픈스트리트맵 기준이에요.' : ''}</p>`;
+  return h;
+}
+function secCardHTML(){
+  return `<section class="card"><h3>단면 · 평면 · 주변</h3><div class="menu-list row"><button class="btn sm pri" data-act="secNew">단면선 긋기</button>${S.section ? '<button class="btn sm" data-act="secOpen">마지막 단면</button>' : ''}${typeof planCardBtns === 'function' ? planCardBtns() : ''}</div>${walkCardHTML()}</section>`;
+}
+function walkSVG(res){ // presentation diagram: streets coloured by minutes, bands, places, scale and north
+  const W = 720, Hh = 720, half = 1250, k = W/(2*half), X = x => (x + half)*k, Y = y => (half - y)*k;
+  const col = {bg:'#FFFFFF', ink:'#1C2120', ink3:'#8A938F', hair:'#E3E5E0', acc:'#2C47C4', site:'#C23B22'};
+  const band = t => t <= 300 ? 0 : t <= 600 ? 1 : t <= 900 ? 2 : 3, bandCol = ['#1F3AA8', '#4E6BD6', '#93A6EA', '#D3D7D1'], bandW = [1.6, 1.3, 1.1, 0.6];
+  const paths = ['', '', '', ''];
+  for(const [x1, y1, x2, y2, t] of res.net){ if(Math.max(Math.abs(x1), Math.abs(y1)) > half + 50 && Math.max(Math.abs(x2), Math.abs(y2)) > half + 50) continue; paths[band(t)] += `M${X(x1).toFixed(1)} ${Y(y1).toFixed(1)}L${X(x2).toFixed(1)} ${Y(y2).toFixed(1)}`; }
+  let g = `<rect width="${W}" height="${Hh + 96}" fill="${col.bg}"/><clipPath id="cp"><rect width="${W}" height="${Hh}"/></clipPath><g clip-path="url(#cp)">`;
+  for(const b of res.bands.slice().reverse()) g += `<path d="${b.polysL.map(pg => pg.map(r => 'M' + r.map(p => `${X(p[0]).toFixed(1)} ${Y(p[1]).toFixed(1)}`).join('L') + 'Z').join('')).join('')}" fill="${col.acc}" fill-opacity="${b.m === 5 ? 0.16 : b.m === 10 ? 0.1 : 0.06}" fill-rule="evenodd" stroke="${col.acc}" stroke-width="${b.m === 5 ? 1.6 : 1}" stroke-opacity="0.7"/>`;
+  for(let i = 3; i >= 0; i--) if(paths[i]) g += `<path d="${paths[i]}" fill="none" stroke="${bandCol[i]}" stroke-width="${bandW[i]}" stroke-linecap="round"/>`;
+  for(const m of [400, 800]) g += `<circle cx="${X(0)}" cy="${Y(0)}" r="${(m*k).toFixed(1)}" fill="none" stroke="${col.ink3}" stroke-width="0.8" stroke-dasharray="4 4"/><text x="${X(0) + 4}" y="${(Y(0) - m*k - 3).toFixed(1)}" font-size="9" fill="${col.ink3}">직선 ${m}m</text>`;
+  const s = curSite(); if(s){ const L = mkLocal(res.c.lng, res.c.lat); for(const r of siteRings(s)) g += `<path d="M${r.map(p => { const q = L.f(p[0], p[1]); return `${X(q[0]).toFixed(1)} ${Y(q[1]).toFixed(1)}`; }).join('L')}Z" fill="${col.site}" fill-opacity="0.25" stroke="${col.site}" stroke-width="1.6"/>`; }
+  for(const p of res.pois){ const kc = POI_CATS.find(x => x.id === p.cat) || {}; g += `<circle cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="3.2" fill="${kc.col || '#888'}" stroke="#fff" stroke-width="0.8"/>`; }
+  for(const r of res.rows) if(r.near){ const L = mkLocal(res.c.lng, res.c.lat), q = L.f(r.near.lng, r.near.lat); g += `<text x="${(X(q[0]) + 5).toFixed(1)}" y="${(Y(q[1]) - 4).toFixed(1)}" font-size="9.5" font-weight="600" fill="${col.ink}" stroke="#fff" stroke-width="2.4" paint-order="stroke">${esc((r.near.name || r.name).slice(0, 14))} ${fmtMin(r.near.t)}</text>`; }
+  g += `<circle cx="${X(0)}" cy="${Y(0)}" r="6" fill="${col.site}" stroke="#fff" stroke-width="2"/></g>`;
+  g += `<g transform="translate(${W - 34},34)"><path d="M0 -16 L7 10 L0 5 L-7 10Z" fill="${col.ink}"/><text y="-20" text-anchor="middle" font-size="11" font-weight="700" fill="${col.ink}">N</text></g>`;
+  const sb = 500*k; g += `<g transform="translate(16,${Hh - 18})"><rect width="${sb.toFixed(1)}" height="5" fill="${col.ink}"/><rect width="${(sb/2).toFixed(1)}" height="5" fill="#fff" stroke="${col.ink}" stroke-width="0.6"/><text y="-4" font-size="10" fill="${col.ink}">0</text><text x="${sb.toFixed(1)}" y="-4" text-anchor="end" font-size="10" fill="${col.ink}">500m</text></g>`;
+  let lx = 16, ly = Hh + 22;
+  g += `<text x="16" y="${ly - 4}" font-size="13" font-weight="700" fill="${col.ink}">걸어서 5·10·15분 · ${res.slow ? '천천히 걷기(어르신·유모차)' : '보통 걸음'} · 경사·계단 반영</text>`;
+  ly += 18;
+  for(const [i, lb] of ['5분', '10분', '15분', '그 밖'].entries()){ g += `<line x1="${lx}" x2="${lx + 18}" y1="${ly}" y2="${ly}" stroke="${bandCol[i]}" stroke-width="3"/><text x="${lx + 22}" y="${ly + 3.5}" font-size="10" fill="${col.ink}">${lb}</text>`; lx += 64; }
+  lx = 16; ly += 20;
+  for(const r of res.rows){ const t = `${r.name} ${r.n[2]}`; g += `<circle cx="${lx + 4}" cy="${ly}" r="4" fill="${r.col}"/><text x="${lx + 11}" y="${ly + 3.5}" font-size="10" fill="${col.ink}">${esc(t)}</text>`; lx += 14 + t.length*9.5; if(lx > W - 120){ lx = 16; ly += 16; } }
+  g += `<text x="${W - 12}" y="${Hh + 90}" text-anchor="end" font-size="8.5" fill="${col.ink3}">길·시설 © OpenStreetMap 기여자 · 지형 Mapzen Terrain · 답사 지도 3D</text>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${Hh + 96}" width="${W}" height="${Hh + 96}" font-family="IBM Plex Sans KR, Apple SD Gothic Neo, Malgun Gothic, sans-serif">${g}</svg>`;
+}
+
+
+/* ---------- 평면 자르기: one horizontal plane through the ground, the buildings, my masses and my models ---------- */
+S.plan = null;
+function planCardBtns(){ const p = S.plan; return `<button class="btn sm pri" data-act="planNew">평면 자르기</button>${p ? '<button class="btn sm" data-act="planOpen">마지막 평면</button>' : ''}${p && p.clip ? '<button class="btn sm ghost" data-act="planOff">3D 자르기 끄기</button>' : ''}`; }
+async function vwSettle(){ // national buildings for the current view, loaded now rather than after the usual pause
+  if(!(VW.key && VW.ok !== false && VW.on.bldg) || !map || map.getZoom() < 15.3) return;
+  clearTimeout(VW.timer); for(let t = 0; VW.busy && t < 60; t++) await new Promise(r => setTimeout(r, 200));
+  try { await loadVw(); } catch(_){}
+}
+async function makePlan(half, keepZ){
+  if(!S.mapReady) return;
+  const s = curSite(), c0 = s ? siteCenter(s) : map.getCenter(), c = {lng: c0.lng, lat: c0.lat}, L = mkLocal(c.lng, c.lat);
+  if(!half){ half = 120; if(s){ let m = 0; for(const r of siteRings(s)) for(const p of r){ const q = L.f(p[0], p[1]); m = Math.max(m, Math.abs(q[0]), Math.abs(q[1])); } half = m + 40 <= 60 ? 60 : m + 40 <= 120 ? 120 : 250; } }
+  toast('평면을 자를 준비를 하는 중…', 9000);
+  const sq = [L.b(-half, -half), L.b(half, -half), L.b(half, half), L.b(-half, half), L.b(-half, -half)], bb = boundsOfRings([sq], 8);
+  await demPrefetchB(bb); await viewBounds(bb, 18); await vwSettle();
+  const cell = Math.max(0.5, Math.min(2.5, 2*half/200)), nx = Math.round(2*half/cell) + 1, G = new Float32Array(nx*nx); let zmin = Infinity, zmax = -Infinity, miss = 0;
+  for(let j = 0; j < nx; j++) for(let i = 0; i < nx; i++){ const q = L.b(-half + i*cell, half - j*cell), z = demSample(q[0], q[1], 'dtm', false), k = j*nx + i; if(z == null){ G[k] = NaN; miss++; } else { G[k] = z; if(z < zmin) zmin = z; if(z > zmax) zmax = z; } }
+  if(!Number.isFinite(zmin)){ toast('지형 자료가 없어 평면을 자를 수 없어요 · 인터넷 연결을 확인해 주세요', 5000); return; }
+  if(miss) for(let k = 0; k < G.length; k++) if(G[k] !== G[k]) G[k] = zmin;
+  const P = planBuild({c, half, L, cell, nx, G, zmin, zmax, site: s});
+  const top = Math.max(zmax, ...P.bl.map(b => b.gz + b.h), ...P.models.map(m => m.gz + (+m.o.base || 0) + m.h), ...((s && s.masses) || []).map(m => { const ct = centroid(m.ring); return (demSample(ct[0], ct[1], 'dtm', false) ?? zmin) + (+m.base || 0) + (+m.floors || 1)*(+m.fh || 3); }));
+  P.lo = Math.floor(zmin - 2); P.hi = Math.ceil(top + 2);
+  P.z = keepZ != null && keepZ >= P.lo && keepZ <= P.hi ? keepZ : Math.round(((P.siteZ ?? demSample(c.lng, c.lat, 'dtm', false) ?? zmin) + 1.2)*10)/10;
+  P.clip = S.plan ? S.plan.clip : true;
+  S.plan = P; planApply3d(); $('#toast').hidden = true;
+  openPanel('plan');
+}
+function planBuild(P){ // everything that does not depend on the cut height
+  const {L, half, site: s} = P, inA = p => { const q = L.f(p[0], p[1]); return Math.abs(q[0]) <= half && Math.abs(q[1]) <= half; };
+  const bl = [];
+  if(VW.key && VW.ok !== false && VW.on.bldg && VW.bldg.size) for(const [k, v] of VW.bldg){ const r = largestRing(v.geom); if(r && r.some(inA)) bl.push({k, ring: r, h: v.h, fl: v.reg ? v.reg.fl : v.floors, b: 0}); }
+  if(!bl.length && SRC){ try { const seen = new Set(); for(const f of map.querySourceFeatures(SRC, {sourceLayer: 'building'})){ const r = largestRing(f.geometry); if(!r || !r.some(inA)) continue; const key = f.id != null ? 'o' + f.id : r[0].map(v => v.toFixed(6)).join(','); if(seen.has(key)) continue; seen.add(key); bl.push({oid: f.id ?? null, ring: r, h: osmH(f), b: Math.max(0, +(f.properties && f.properties.render_min_height) || 0)}); } } catch(_){} }
+  for(const b of bl){ const ct = centroid(b.ring); b.gz = demSample(ct[0], ct[1], 'dtm', false) ?? P.zmin; b.lr = b.ring.map(p => L.f(p[0], p[1])); b.gone = onSiteHidden(s, ct); }
+  P.bl = bl;
+  P.models = s ? modelFootprints(s).map(m => ({m, it: m.it, o: m.o, lr: m.ring.map(p => L.f(p[0], p[1])), gz: modelGround(m, 'dtm') ?? P.zmin, h: m.h, org: L.f(m.o.lng, m.o.lat)})) : [];
+  P.siteL = s ? siteRings(s).map(r => r.map(p => L.f(p[0], p[1]))) : [];
+  if(s){ const sc = siteCenter(s); P.siteZ = demSample(sc.lng, sc.lat, 'dtm', false); } else P.siteZ = null;
+  const span = P.zmax - P.zmin, iv = span > 60 ? 2 : 1, major = iv === 2 ? 10 : 5; P.contours = [];
+  for(let z = Math.ceil(P.zmin/iv)*iv; z <= P.zmax; z += iv) P.contours.push({z, major: z % major === 0, lines: isoLines(P.G, P.nx, P.nx, z, false)});
+  P._z = null;
+  return P;
+}
+function planMassClip(m){ const P = S.plan; if(!P || !P.clip) return null; const ct = centroid(m.ring), q = P.L.f(ct[0], ct[1]); if(Math.abs(q[0]) > P.half || Math.abs(q[1]) > P.half) return null; const gz = demSample(ct[0], ct[1], 'dtm', false); return gz == null ? null : P.z - gz; }
+function planSlice(md, Z){ // cut lines through my model's triangles, in plan metres
+  const it = md.it, o = md.o; if(!it || !it.root || !M3.T) return null;
+  const tr = modelTris(it); if(!tr) return null;
+  const k = (o.unit || 1)*(o.scale || 1), yc = (Z - md.gz - (+o.base || 0))/k + 1e-7, r = (o.rot || 0)*D2R, cr = Math.cos(r), sr = Math.sin(r), out = [];
+  const put = (x, z) => { const X = x*k, Zs = z*k; return [md.org[0] + X*cr - Zs*sr, md.org[1] - (X*sr + Zs*cr)]; };
+  for(let t = 0; t < tr.length; t += 9){ const a = tr[t+1], b = tr[t+4], c = tr[t+7];
+    if((a > yc && b > yc && c > yc) || (a < yc && b < yc && c < yc)) continue;
+    const pts = []; const cut = (i, j) => { const y1 = tr[t + i*3 + 1], y2 = tr[t + j*3 + 1]; if((y1 - yc)*(y2 - yc) < 0){ const f = (yc - y1)/(y2 - y1); pts.push(put(tr[t + i*3] + (tr[t + j*3] - tr[t + i*3])*f, tr[t + i*3 + 2] + (tr[t + j*3 + 2] - tr[t + i*3 + 2])*f)); } };
+    cut(0, 1); cut(1, 2); cut(2, 0);
+    if(pts.length >= 2) out.push(pts[0][0], pts[0][1], pts[1][0], pts[1][1]); }
+  return out;
+}
+function planCut(P){
+  if(P._z === P.z) return; P._z = P.z;
+  const Z = P.z;
+  P.terr = isoLines(P.G, P.nx, P.nx, Z, true); P.cutLines = isoLines(P.G, P.nx, P.nx, Z, false);
+  let nc = 0, nb = 0, na = 0;
+  for(const b of P.bl){ if(b.gone){ b.st = 'gone'; continue; } const z0 = b.gz + (b.b || 0), z1 = b.gz + b.h; b.st = Z >= z1 ? 'below' : Z <= z0 ? 'above' : 'cut'; if(b.st === 'cut') nc++; else if(b.st === 'below') nb++; else na++; }
+  P.n = {cut: nc, below: nb, above: na};
+  const s = P.site; P.ms = s ? (s.masses || []).map((m, i) => { const ct = centroid(m.ring), gz = demSample(ct[0], ct[1], 'dtm', false) ?? P.zmin, fh = +m.fh || 3, z0 = gz + (+m.base || 0), z1 = z0 + (+m.floors || 1)*fh;
+    return {name: m.name || `매스 ${i + 1}`, lr: m.ring.map(p => P.L.f(p[0], p[1])), st: Z >= z1 ? 'below' : Z <= z0 ? 'above' : 'cut', fl: Math.floor((Z - z0)/fh) + 1}; }) : [];
+  for(const md of P.models){ const z0 = md.gz + (+md.o.base || 0), z1 = z0 + md.h; md.st = Z >= z1 ? 'below' : Z <= z0 ? 'above' : 'cut'; md.segs = md.st === 'cut' ? planSlice(md, Z) : null; }
+}
+function planInfo(P){
+  planCut(P);
+  const rel = P.siteZ != null ? P.z - P.siteZ : null, mc = P.ms.filter(m => m.st === 'cut');
+  return `<b>해발 ${P.z.toFixed(1)}m</b>${rel != null ? ` · 대지 바닥보다 ${rel >= 0 ? '+' : '−'}${Math.abs(rel).toFixed(1)}m` : ''} · 잘린 건물 ${P.n.cut}동 · 아래로 보이는 건물 ${P.n.below}동 · 위에 있는 건물 ${P.n.above}동${mc.length ? ` · ${mc.map(m => `${esc(m.name)} ${m.fl}층`).join(', ')}` : ''}${P.models.some(m => m.st === 'cut') ? ` · 내 모델 단면 ${P.models.filter(m => m.st === 'cut').length}개` : ''}`;
+}
+function planChips(P){
+  const out = [], s = P.site;
+  if(P.siteZ != null) out.push([P.siteZ + 1.2, '대지 바닥 +1.2m']);
+  if(s) (s.masses || []).slice(0, 3).forEach((m, i) => { const ct = centroid(m.ring), gz = demSample(ct[0], ct[1], 'dtm', false); if(gz == null) return; const fh = +m.fh || 3; for(let f = 0; f < Math.min(+m.floors || 1, 15); f++) out.push([gz + (+m.base || 0) + f*fh + Math.min(1.2, fh*0.45), `${m.name || '매스 ' + (i + 1)} ${f + 1}층`]); });
+  for(const md of P.models.slice(0, 3)){ const it = md.it; if(!it || !it.dims) continue; const fl = Math.max(1, Math.min(modelFloors(md.o, it), 15)), fh = it.dims[1]/fl; for(let f = 0; f < fl; f++) out.push([md.gz + (+md.o.base || 0) + f*fh + Math.min(1.2, fh*0.45), `${md.o.name || '내 모델'} ${f + 1}층`]); }
+  return out;
+}
+function planSVG(P, forExport){
+  planCut(P);
+  const W = 720, half = P.half, k = W/(2*half), X = x => ((x + half)*k).toFixed(1), Y = y => ((half - y)*k).toFixed(1), GX = i => (i*P.cell*k).toFixed(1);
+  const C = {bg:'#FFFFFF', low:'#F5F3EE', ink:'#1C2120', ink2:'#56605C', ink3:'#8A938F', cont:'#DAD5CA', contM:'#C2BBAC', bl:'#E3E5E0', mass:'#2C47C4', site:'#C23B22', mdl:'#ECE6DA'};
+  const ring = r => 'M' + r.map(p => `${X(p[0])} ${Y(p[1])}`).join('L') + 'Z', line = l => 'M' + l.map(q => `${GX(q[0])} ${GX(q[1])}`).join('L');
+  let g = `<defs><pattern id="planHatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="#DCD6C9"/><line x1="0" y1="0" x2="0" y2="5" stroke="#A59E8E" stroke-width="1.1"/></pattern><clipPath id="planClipR"><rect width="${W}" height="${W}"/></clipPath></defs>`;
+  g += `<rect width="${W}" height="${W + 92}" fill="${C.bg}"/><g clip-path="url(#planClipR)"><rect width="${W}" height="${W}" fill="${C.low}"/>`;
+  for(const cz of P.contours) if(cz.lines.length) g += `<path d="${cz.lines.map(line).join('')}" fill="none" stroke="${cz.major ? C.contM : C.cont}" stroke-width="${cz.major ? 0.9 : 0.55}"/>`;
+  if(P.terr.length) g += `<path d="${P.terr.map(l => line(l) + 'Z').join('')}" fill="url(#planHatch)" fill-rule="evenodd" stroke="none"/>`;
+  const vis = P.bl.filter(b => b.st !== 'gone');
+  for(const b of vis) if(b.st === 'below') g += `<path d="${ring(b.lr)}" fill="${C.bl}" stroke="${C.ink3}" stroke-width="0.7"/>`;
+  for(const m of P.ms) if(m.st === 'below') g += `<path d="${ring(m.lr)}" fill="${C.mass}" fill-opacity="0.14" stroke="${C.mass}" stroke-width="1"/>`;
+  for(const md of P.models) if(md.st === 'below') g += `<path d="${ring(md.lr)}" fill="${C.mdl}" stroke="${C.ink3}" stroke-width="0.8"/>`;
+  if(P.cutLines.length){ g += `<path d="${P.cutLines.map(line).join('')}" fill="none" stroke="${C.ink}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>`;
+    const lng = P.cutLines.reduce((a, l) => l.length > a.length ? l : a, []), q = lng[Math.floor(lng.length/2)]; // label the longest cut line
+    if(q) g += `<text x="${GX(q[0])}" y="${(+GX(q[1]) - 5).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="600" fill="${C.ink}" stroke="#fff" stroke-width="2.6" paint-order="stroke">EL ${P.z.toFixed(1)}</text>`; }
+  for(const b of vis) if(b.st === 'cut') g += `<path d="${ring(b.lr)}" fill="${C.ink}" stroke="${C.ink}" stroke-width="0.6"/>`;
+  for(const m of P.ms) if(m.st === 'cut'){ g += `<path d="${ring(m.lr)}" fill="${C.mass}" stroke="${C.mass}" stroke-width="1.2"/>`; const ct = centroid(m.lr); g += `<text x="${X(ct[0])}" y="${Y(ct[1])}" text-anchor="middle" dominant-baseline="middle" font-size="11" font-weight="700" fill="#fff">${m.fl}F</text>`; }
+  for(const md of P.models) if(md.st === 'cut'){ g += `<path d="${ring(md.lr)}" fill="none" stroke="${C.ink3}" stroke-width="0.6" stroke-dasharray="3 3"/>`; if(md.segs && md.segs.length){ let d = ''; for(let i = 0; i < md.segs.length; i += 4) d += `M${X(md.segs[i])} ${Y(md.segs[i+1])}L${X(md.segs[i+2])} ${Y(md.segs[i+3])}`; g += `<path d="${d}" fill="none" stroke="${C.ink}" stroke-width="2.2" stroke-linecap="round"/>`; } }
+  for(const b of vis) if(b.st === 'above') g += `<path d="${ring(b.lr)}" fill="none" stroke="${C.ink3}" stroke-width="0.7" stroke-dasharray="3 2.5"/>`;
+  for(const m of P.ms) if(m.st === 'above') g += `<path d="${ring(m.lr)}" fill="none" stroke="${C.mass}" stroke-width="1" stroke-dasharray="4 3"/>`;
+  for(const md of P.models) if(md.st === 'above') g += `<path d="${ring(md.lr)}" fill="none" stroke="${C.ink2}" stroke-width="0.9" stroke-dasharray="4 3"/>`;
+  for(const r of P.siteL) g += `<path d="${ring(r)}" fill="none" stroke="${C.site}" stroke-width="1.7" stroke-dasharray="9 3 2 3"/>`;
+  g += `</g><rect x="0.5" y="0.5" width="${W - 1}" height="${W - 1}" fill="none" stroke="${C.ink3}" stroke-width="1"/>`;
+  g += `<g transform="translate(${W - 30},34)"><circle r="17" fill="#fff" fill-opacity="0.85"/><path d="M0 -14 L6 9 L0 4.5 L-6 9Z" fill="${C.ink}"/><text y="-19" text-anchor="middle" font-size="10" font-weight="700" fill="${C.ink}">N</text></g>`;
+  const sbm = half > 150 ? 50 : half > 70 ? 20 : 10, sb = sbm*k;
+  g += `<g transform="translate(14,${W - 16})"><rect x="-4" y="-17" width="${(sb + 30).toFixed(0)}" height="26" fill="#fff" fill-opacity="0.85"/><rect width="${sb.toFixed(1)}" height="4" fill="${C.ink}"/><rect width="${(sb/2).toFixed(1)}" height="4" fill="#fff" stroke="${C.ink}" stroke-width="0.6"/><text y="-5" font-size="10" fill="${C.ink}">0</text><text x="${sb.toFixed(1)}" y="-5" text-anchor="end" font-size="10" fill="${C.ink}">${sbm}m</text></g>`;
+  const rel = P.siteZ != null ? P.z - P.siteZ : null;
+  g += `<text x="14" y="${W + 24}" font-size="14" font-weight="700" fill="${C.ink}">평면 · 해발 ${P.z.toFixed(1)}m에서 자름${rel != null ? ` (대지 바닥 ${rel >= 0 ? '+' : '−'}${Math.abs(rel).toFixed(1)}m)` : ''}</text>`;
+  const lg = [[`<rect width="14" height="10" fill="url(#planHatch)"/>`, '자른 면보다 높은 땅'], [`<line x1="0" x2="14" y1="5" y2="5" stroke="${C.ink}" stroke-width="2"/>`, '땅이 잘린 선'], [`<rect width="14" height="10" fill="${C.ink}"/>`, '잘린 건물'], [`<rect width="14" height="10" fill="${C.bl}" stroke="${C.ink3}"/>`, '아래 건물(지붕)'], [`<rect width="14" height="10" fill="none" stroke="${C.ink3}" stroke-dasharray="3 2"/>`, '자른 면 위 건물'], [`<rect width="14" height="10" fill="${C.mass}"/>`, '매스'], [`<line x1="0" x2="14" y1="5" y2="5" stroke="${C.ink}" stroke-width="3"/>`, '내 모델 단면'], [`<line x1="0" x2="14" y1="5" y2="5" stroke="${C.site}" stroke-width="2" stroke-dasharray="5 2"/>`, '대지']];
+  let lx = 14, ly = W + 46;
+  for(const [sym, t] of lg){ const w = 30 + t.length*11.5; if(lx + w > W - 10){ lx = 14; ly += 18; } g += `<g transform="translate(${lx},${ly - 9})">${sym}</g><text x="${lx + 19}" y="${ly}" font-size="10.5" fill="${C.ink2}">${t}</text>`; lx += w; }
+  g += `<text x="${W - 10}" y="${W + 86}" text-anchor="end" font-size="8.5" fill="${C.ink3}">지형 30m 간격 위성 자료(또는 올린 수치지형도) · 건물 바닥은 중심점 지형 높이 · 답사 지도 3D</text>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${W + 92}" width="${W}" height="${W + 92}" font-family="IBM Plex Sans KR, Apple SD Gothic Neo, Malgun Gothic, sans-serif">${g}</svg>`;
+}
+function renderPlan(){
+  const P = S.plan; if(!P){ closePanel(); return; }
+  const chips = planChips(P);
+  panel.innerHTML = head('평면 자르기 · 수평 단면') + `<div class="scroll">
+    <div class="secwrap planwrap" id="planSvg">${planSVG(P, false)}</div>
+    <div class="planz"><button class="btn sm" data-act="planZ" data-d="-3" aria-label="3m 내리기">−3</button><button class="btn sm" data-act="planZ" data-d="-0.5" aria-label="0.5m 내리기">−.5</button><input type="range" id="planZ" min="${P.lo}" max="${P.hi}" step="0.1" value="${P.z}" aria-label="자르는 높이(해발)"><button class="btn sm" data-act="planZ" data-d="0.5" aria-label="0.5m 올리기">+.5</button><button class="btn sm" data-act="planZ" data-d="3" aria-label="3m 올리기">+3</button></div>
+    <p class="hint" id="planInfo">${planInfo(P)}</p>
+    ${chips.length ? `<div class="planchips">${chips.map(([z, lb]) => `<button class="chip" data-act="planFloor" data-z="${z.toFixed(2)}" aria-pressed="${Math.abs(z - P.z) < 0.05}">${esc(lb)}</button>`).join('')}</div>` : ''}
+    <div class="seg" role="group" aria-label="자르는 범위">${[60, 120, 250].map(h => `<button data-act="planHalf" data-v="${h}" aria-pressed="${P.half === h}">${h*2}m 범위</button>`).join('')}</div>
+    <label class="tgl"><input type="checkbox" data-act2="planClip" ${P.clip ? 'checked' : ''}> 3D 지도도 이 높이에서 자르기 · 건물·매스·내 모델</label>
+    <div class="menu-list"><button class="btn" data-act="planSvg">SVG로 저장 (일러스트레이터용)</button><button class="btn" data-act="planPng">PNG로 저장</button><button class="btn" data-act="planDxf">DXF로 저장 · 캐드·라이노 (동부원점 좌표)</button><button class="btn ghost" data-act="toStudio">대지 분석으로</button></div>
+    <p class="hint" style="margin-top:12px">${P.site ? '대지' : '지금 화면 가운데'}를 중심으로 ${P.half*2}m 범위를 잘랐어요. 해칭은 자른 면보다 높은 땅, 굵은 선은 그 높이에서 땅이 잘리는 선이에요. 땅은 30m 간격 위성 지형(올린 수치지형도가 있으면 그 자료)이라 옹벽·계단은 안 보이고, 건물 바닥은 중심점의 지형 높이로 봤어요.</p>
+  </div>`;
+}
+let planRaf = 0, planT = 0;
+function planLive(){
+  const P = S.plan; if(!P) return;
+  P.z = Math.max(P.lo, Math.min(P.hi, P.z));
+  if(!planRaf) planRaf = requestAnimationFrame(() => { planRaf = 0; const Q = S.plan; if(!Q || S.panel !== 'plan') return;
+    const w = $('#planSvg'); if(w) w.innerHTML = planSVG(Q, false); const inf = $('#planInfo'); if(inf) inf.innerHTML = planInfo(Q);
+    const sl = $('#planZ'); if(sl && Math.abs(+sl.value - Q.z) > 0.01) sl.value = Q.z;
+    for(const c of document.querySelectorAll('[data-act="planFloor"]')) c.setAttribute('aria-pressed', String(Math.abs(+c.dataset.z - Q.z) < 0.05)); });
+  clearTimeout(planT); planT = setTimeout(planApply3d, 150);
+}
+panel.addEventListener('input', e => { if(e.target.id === 'planZ' && S.plan){ S.plan.z = +e.target.value; planLive(); } });
+function setupPlanLayers(underB){
+  for(const id of ['plan-3d', 'plan-line']) if(!map.getSource(id)) map.addSource(id, {type:'geojson', data: FC()});
+  map.addLayer({id:'plan-3d', type:'fill-extrusion', source:'plan-3d', minzoom: 14, paint:{'fill-extrusion-color': ['match', ['get','st'], 'cut', '#2F3532', 'above', '#ECE8DF', cssVar('--bldg')], 'fill-extrusion-height': ['get','h'], 'fill-extrusion-base': ['get','b'], 'fill-extrusion-opacity': 0.92}}, underB);
+  map.addLayer({id:'plan-line', type:'line', source:'plan-line', filter:['!=', ['get','t'], 'area'], layout:{'line-join':'round', 'line-cap':'round'}, paint:{'line-color': cssVar('--site'), 'line-width': 2.6}});
+  map.addLayer({id:'plan-area', type:'line', source:'plan-line', filter:['==', ['get','t'], 'area'], paint:{'line-color': cssVar('--ink-2'), 'line-width': 1.2, 'line-dasharray': [3, 2]}});
+}
+function planApply3d(){
+  if(!S.mapReady) return;
+  const P = S.plan, on = !!(P && P.clip);
+  if(P) planCut(P);
+  PLANHIDE.vw = on ? P.bl.filter(b => b.k != null).map(b => b.k) : []; PLANHIDE.osm = on ? P.bl.filter(b => b.oid != null).map(b => b.oid) : [];
+  applyHideExisting();
+  const feats = [];
+  if(on) for(const b of P.bl){ if(b.st === 'gone') continue;
+    const h = b.st === 'cut' ? P.z - b.gz : b.st === 'below' ? b.h : (b.b || 0) + 0.4;
+    feats.push({type:'Feature', properties:{st: b.st, h: Math.max((b.b || 0) + 0.2, h), b: b.b || 0}, geometry:{type:'Polygon', coordinates:[b.ring]}}); }
+  setData('plan-3d', feats);
+  const lines = [];
+  if(on){ const gl = q => P.L.b(-P.half + q[0]*P.cell, P.half - q[1]*P.cell);
+    for(const l of P.cutLines) if(l.length >= 2) lines.push({type:'Feature', properties:{t:'cut'}, geometry:{type:'LineString', coordinates: l.map(gl)}});
+    lines.push({type:'Feature', properties:{t:'area'}, geometry:{type:'LineString', coordinates: [[-1, -1], [1, -1], [1, 1], [-1, 1], [-1, -1]].map(([a, b2]) => P.L.b(a*P.half, b2*P.half))}}); }
+  setData('plan-line', lines);
+  renderStudioMap();
+  if(M3.T){ const T = M3.T;
+    for(const it of M3.items.values()){ if(!it.scene) continue;
+      let y = null;
+      if(on && it.hullLL){ const o = it.o, q = P.L.f(o.lng, o.lat); if(Math.abs(q[0]) <= P.half && Math.abs(q[1]) <= P.half){ const gz = modelGround({o, ring: it.hullLL, it}, 'dtm'); if(gz != null) y = (P.z - gz - (+o.base || 0))/((o.unit || 1)*(o.scale || 1)); } }
+      if(!it.clipPlane) it.clipPlane = new T.Plane(new T.Vector3(0, -1, 0), 0);
+      it.clipPlane.constant = y ?? 0;
+      it.scene.traverse(ch => { if(!ch.isMesh) return; for(const mt of Array.isArray(ch.material) ? ch.material : [ch.material]){ if(!mt) continue; const has = !!(mt.clippingPlanes && mt.clippingPlanes.length);
+        if(y != null && !has){ mt.clippingPlanes = [it.clipPlane]; mt.needsUpdate = true; } else if(y == null && has){ mt.clippingPlanes = []; mt.needsUpdate = true; } } });
+    }
+    if(M3.layer) map.triggerRepaint();
+  }
+}
+function planDXF(P){
+  planCut(P);
+  const T5 = (x, y) => { const q = P.L.b(x, y); return tm5187(q[0], q[1]); }, G5 = q => T5(-P.half + q[0]*P.cell, P.half - q[1]*P.cell), ents = [], Z = P.z;
+  const rp = lr => { const pts = lr.map(p => T5(p[0], p[1])); const f = pts[0], l = pts[pts.length - 1]; if(f[0] === l[0] && f[1] === l[1]) pts.pop(); return pts; };
+  for(const l of P.cutLines) if(l.length >= 2) ents.push({t:'pl', layer:'PLAN_CUT_GROUND', pts: l.map(G5), closed: false, z: Z});
+  for(const cz of P.contours) for(const l of cz.lines) if(l.length >= 2) ents.push({t:'pl', layer: cz.major ? 'CONTOUR_MAJOR' : 'CONTOUR_MINOR', pts: l.map(G5), closed: false, z: cz.z});
+  for(const b of P.bl){ if(b.st === 'gone') continue; ents.push({t:'pl', layer: b.st === 'cut' ? 'PLAN_BLDG_CUT' : b.st === 'below' ? 'PLAN_BLDG_BELOW' : 'PLAN_BLDG_ABOVE', pts: rp(b.lr), closed: true, z: b.st === 'below' ? b.gz + b.h : b.st === 'cut' ? Z : b.gz}); }
+  for(const m of P.ms) ents.push({t:'pl', layer: m.st === 'cut' ? 'PLAN_MASS_CUT' : m.st === 'below' ? 'PLAN_MASS_BELOW' : 'PLAN_MASS_ABOVE', pts: rp(m.lr), closed: true, z: Z});
+  for(const md of P.models){ ents.push({t:'pl', layer:'PLAN_MODEL_OUTLINE', pts: rp(md.lr), closed: true, z: Z}); if(md.segs) for(let i = 0; i < md.segs.length; i += 4) ents.push({t:'pl', layer:'PLAN_MODEL_CUT', pts: [T5(md.segs[i], md.segs[i+1]), T5(md.segs[i+2], md.segs[i+3])], closed: false, z: Z}); }
+  for(const r of P.siteL) ents.push({t:'pl', layer:'SITE', pts: rp(r), closed: true, z: Z});
+  const q = T5(-P.half + 2, -P.half + 2); ents.push({t:'tx', layer:'PLAN_LABEL', x: q[0], y: q[1], z: Z, h: Math.max(1, P.half/40), s: `PLAN CUT EL. ${Z.toFixed(2)} m`});
+  return dxfText(ents, [['PLAN_CUT_GROUND', 7], ['PLAN_BLDG_CUT', 7], ['PLAN_BLDG_BELOW', 8], ['PLAN_BLDG_ABOVE', 9], ['PLAN_MASS_CUT', 5], ['PLAN_MASS_BELOW', 4], ['PLAN_MASS_ABOVE', 4], ['PLAN_MODEL_CUT', 1], ['PLAN_MODEL_OUTLINE', 8], ['CONTOUR_MAJOR', 30], ['CONTOUR_MINOR', 31], ['SITE', 1], ['PLAN_LABEL', 7]], 6);
+}
+
 /* ---------------- boot ---------------- */
-if(/[?&]debug/.test(location.search)) window.__dbg = {REG, KK, VW, regParse, regItem, regMatch, regHeight, regPnuCands, regDongKey, regApply, regFetch, regPick, regSave, regWorkerCode, regStatText, flushVwBldg, vwIdxAdd, kkoOpen, kkoClose, kkoMode, kkoLevel, bldMeta, smoothDem, topoTileHit, decodeTerrarium, encodeTerrarium, cmExport, rhinoContours, cmPreview, TOPO, CRSDEF, crsOf, crsInv, tmF, makeConv, detectCrs, prjToCrs, parseTopoDXF, parseShp, parseDbf, parseShpLayer, unzipFiles, readTopoFiles, buildTopoDem, localDemAt, isoLines, simplifyPL, cmCompute, cmLayers, cmPack, cmSVG, cmDXF, cmInfoText, cmCardHTML, topoCardHTML, topoActivate, importTopo, renderLook, applyBldMode, vwFillMissing, topoFloorsAt, vwEstimate, floorTap, heightCounts, demSample, DEMT, demXY, sunTimes, sunDir, shadowObj, shadowPoly, projPt, terrBlocked, sunDateStr, renderSunbar, elevAsync, migrateElev, cleanRec, S, openPanel, blankObsDraft, sectionSVG, renderStudio, saveSite, curSite, selectSite, envelopeCells, massStats, refreshMassStats, startPlacing, measureMsg, measureFeatures, rectFrom, parseDXF, inv5187, tm5187, modelAreas, cleanSite, objCardHTML, startObjEdit, hav, ringAreaM2, mkLocal, numAdd, finishDraft, useInfo, vwIdxAdd, vwBldgAt, innerPoint, liveBld, HFIX, hfixPut, vwApplyFixes, VW, renderDraft};
+if(/[?&]debug/.test(location.search)) window.__dbg = {planBuild, mkLocal, M3, planLive, makePlan, planCut, planSVG, planDXF, planApply3d, planSlice, renderPlan, PLANHIDE, walkTime, walkCompute, walkParse, walkSVG, nestRings, MinHeap, WALK, POI_CATS, demFilter, demFilterOff, morph, mkQuiet, onZoom, REG, KK, VW, regParse, regItem, regMatch, regHeight, regPnuCands, regDongKey, regApply, regFetch, regPick, regSave, regWorkerCode, regStatText, flushVwBldg, vwIdxAdd, kkoOpen, kkoClose, kkoMode, kkoLevel, bldMeta, smoothDem, topoTileHit, decodeTerrarium, encodeTerrarium, cmExport, rhinoContours, cmPreview, TOPO, CRSDEF, crsOf, crsInv, tmF, makeConv, detectCrs, prjToCrs, parseTopoDXF, parseShp, parseDbf, parseShpLayer, unzipFiles, readTopoFiles, buildTopoDem, localDemAt, isoLines, simplifyPL, cmCompute, cmLayers, cmPack, cmSVG, cmDXF, cmInfoText, cmCardHTML, topoCardHTML, topoActivate, importTopo, renderLook, applyBldMode, vwFillMissing, topoFloorsAt, vwEstimate, floorTap, heightCounts, demSample, DEMT, demXY, sunTimes, sunDir, shadowObj, shadowPoly, projPt, terrBlocked, sunDateStr, renderSunbar, elevAsync, migrateElev, cleanRec, S, openPanel, blankObsDraft, sectionSVG, renderStudio, saveSite, curSite, selectSite, envelopeCells, massStats, refreshMassStats, startPlacing, measureMsg, measureFeatures, rectFrom, parseDXF, inv5187, tm5187, modelAreas, cleanSite, objCardHTML, startObjEdit, hav, ringAreaM2, mkLocal, numAdd, finishDraft, useInfo, vwIdxAdd, vwBldgAt, innerPoint, liveBld, HFIX, hfixPut, vwApplyFixes, VW, renderDraft};
 (async function boot(){
   if(!window.maplibregl){ $('#offline').hidden = false; }
   const ok = await DB.open();
