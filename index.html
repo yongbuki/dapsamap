@@ -2,7 +2,8 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
 <title>답사 지도 3D</title>
 <meta name="description" content="답사한 건물과 장소를 3D 건물 지도 위에 기록하는 앱">
 <meta name="theme-color" content="#FAFAF8" media="(prefers-color-scheme: light)">
@@ -37,7 +38,7 @@
   --c-arch:#FF6E61; --c-public:#3DC2C8; --c-park:#6CC47D; --c-street:#E7B23B; --c-interior:#B98BE7; --c-etc:#9BA59F;
   --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 34px rgba(0,0,0,.45); --hs-shadow:#000000; --hs-light:#4A5552; --contour:#E0B676; --adm:#A9B2F0; --parcel:#E8A07A; --site:#FF7A5C; --env:#F2C14E; --draw:#B197FC; --imp:#74C0FC; --meas:#FF6B9A; color-scheme:dark}}
 *{box-sizing:border-box}
-html,body{height:100%;margin:0}
+html,body{height:100%;margin:0;overscroll-behavior:none}
 body{background:var(--paper);color:var(--ink);font-family:var(--f-sans);font-size:14px;line-height:1.5;overflow:hidden;-webkit-tap-highlight-color:transparent}
 button,input,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
@@ -186,6 +187,10 @@ body.placing .mk{pointer-events:none;opacity:.55}
 #sunDate{border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:6px;padding:5px 8px;font:13px var(--f-mono);justify-self:start}
 #sunbar .seg button{padding:6px 4px}
 #sunMsg{font-size:13px}
+button,.tools,.placebar,.fab,.addmenu,.seg{touch-action:manipulation}
+.panel,.placebar,.toast{word-break:keep-all;overflow-wrap:break-word}
+.panel .scroll{overscroll-behavior:contain}
+@media (min-width:900px){body.panel-open .placebar{left:calc((100% - 420px)/2)}}
 .tools button.half{background:var(--paper);color:var(--ink);box-shadow:inset 0 -3px 0 var(--ink)}
 .cmrow{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;font-size:12.5px;color:var(--ink-2);margin:6px 0}
 .cmrow label{display:inline-flex;align-items:center;gap:4px}
@@ -494,6 +499,7 @@ function hydrate(root){
 /* ---------------- state ---------------- */
 const S = { recs: [], cats: new Set(CATS.map(c => c.id)), selId: null, selDay: null, panel: null, draft: null,
   placing: null, pick: null, is3D: true, sat: false, mapReady: false, me: null, terrain: true, hasDem: false };
+S.lite = (() => { try { return localStorage.getItem('dapsa3d.lite') === '1'; } catch(_){ return false; } })();
 try { if(localStorage.getItem('dapsa3d.terrain') === '0') S.terrain = false; S.listMode = localStorage.getItem('dapsa3d.listMode') || 'date'; S.cfocus = localStorage.getItem('dapsa3d.cfocus') === '1'; } catch(_){}
 const panel = $('#panel');
 function visible(){ return S.recs.filter(r => S.cats.has(CAT[r.cat] ? r.cat : 'etc') && (!S.project || r.project === S.project)); }
@@ -520,7 +526,8 @@ async function initMap(){
   }
   if(typeof style === 'string'){ $('#offline').hidden = false; }
   map = new maplibregl.Map({
-    container: 'map', style, center: BUSAN, zoom: 11.5, pitch: 0, bearing: 0, maxPitch: 78,
+    container: 'map', style, center: BUSAN, zoom: 11.5, pitch: 0, bearing: 0, maxPitch: S.lite ? 60 : 72,
+    pixelRatio: S.lite ? 1 : Math.min(window.devicePixelRatio || 1, 2), refreshExpiredTiles: false, fadeDuration: 150,
     attributionControl: {compact: true},
     localIdeographFontFamily: "'IBM Plex Sans KR','Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif",
   });
@@ -558,14 +565,14 @@ function setupLayers(){
   map.addLayer({id:'routes', type:'line', source:'routes', filter:['!=', ['get','on'], true], layout:{'line-cap':'round','line-join':'round'}, paint:{'line-color': cssVar('--ink-2'), 'line-width': 2, 'line-dasharray':[2, 2], 'line-opacity': 0.75}}, FIRST_SYM);
   map.addLayer({id:'routes-on', type:'line', source:'routes', filter:['==', ['get','on'], true], layout:{'line-cap':'round','line-join':'round'}, paint:{'line-color': cssVar('--accent'), 'line-width': 4.5}}, FIRST_SYM);
   if(SRC){
-    map.addLayer({id:'bldg3d', type:'fill-extrusion', source:SRC, 'source-layer':'building', minzoom:13.5,
+    map.addLayer({id:'bldg3d', type:'fill-extrusion', source:SRC, 'source-layer':'building', minzoom:14,
       paint:{
         'fill-extrusion-color': cssVar('--bldg'),
         'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 13.5, 0, 14.6, ['coalesce', ['feature-state','h'], ['get','render_height'], 6]],
         'fill-extrusion-base': ['coalesce', ['get','render_min_height'], 0],
         'fill-extrusion-opacity': 0.9,
       }}, FIRST_SYM);
-    if(!map.getLayer('bldg3d')) map.addLayer({id:'bldg3d', type:'fill-extrusion', source:SRC, 'source-layer':'building', minzoom:13.5, // fallback without corrections
+    if(!map.getLayer('bldg3d')) map.addLayer({id:'bldg3d', type:'fill-extrusion', source:SRC, 'source-layer':'building', minzoom:14, // fallback without corrections
       paint:{'fill-extrusion-color': cssVar('--bldg'), 'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 13.5, 0, 14.6, ['coalesce', ['get','render_height'], 6]], 'fill-extrusion-base': ['coalesce', ['get','render_min_height'], 0], 'fill-extrusion-opacity': 0.9}}, FIRST_SYM);
   }
   const underB = map.getLayer('bldg3d') ? 'bldg3d' : FIRST_SYM;
@@ -590,7 +597,7 @@ function setupLayers(){
   map.addLayer({id:'drawpts', type:'circle', source:'drawpts', paint:{'circle-radius':['case', ['to-boolean', ['get','first']], 7, 5], 'circle-color': cssVar('--sheet'), 'circle-stroke-color': cssVar('--accent'), 'circle-stroke-width': 2.4}});
   map.addLayer({id:'picked', type:'fill-extrusion', source:'picked', filter:['==', ['get','kind'], 'building'], paint:{'fill-extrusion-color': cssVar('--accent'), 'fill-extrusion-height':['get','h'], 'fill-extrusion-base':['get','b'], 'fill-extrusion-opacity':0.92}}, FIRST_SYM);
   S.mapReady = true;
-  osmApplyFixes(); applyBldMode(); setTimeout(loadTopos, 0);
+  osmApplyFixes(); applyBldMode(); applyLite(); setTimeout(loadTopos, 0);
   if(S.cfocus) setContourFocus(true);
   renderStudioMap();
   onZoom(); renderMap(); scheduleCrumb();
@@ -666,24 +673,32 @@ function setTerrain(on){
   try {
     map.setTerrain(S.terrain ? {source:'dem', exaggeration: 1} : null);
     for(const id of ['hillshade', 'contour-lines', 'contour-labels']) if(map.getLayer(id)) map.setLayoutProperty(id, 'visibility', S.terrain ? 'visible' : 'none');
+    applyLite();
   } catch(_){}
 }
 /* The free elevation data is a satellite surface model: buildings and trees show up as small mounds that
    poke through extruded buildings. Before the terrain mesh is built, each tile is "opened" (min filter, then
    max filter) to shave off bumps narrower than ~40 m, then lightly blurred — a quick DSM→DTM approximation. */
+const DTMC = new Map(); // processed elevation tiles shared by the terrain and the hillshade
+async function dtmTile(url){
+  let res = null;
+  for(let a = 0; a < 2 && !(res && res.ok); a++){ try { res = await fetch(url); } catch(e){ res = null; if(a) throw e; await new Promise(r => setTimeout(r, 400)); } }
+  if(!res || !res.ok) throw new Error('elevation ' + (res ? res.status : ''));
+  const buf = await res.arrayBuffer();
+  const mt = url.match(/\/(\d+)\/(\d+)\/(\d+)\.png/) || [], z = +(mt[1] || 0), tx = +(mt[2] || 0), ty = +(mt[3] || 0);
+  const r = z >= 14 ? 2 : z >= 13 ? 1 : 0, hit = topoTileHit(z, tx, ty);
+  if(!r && !hit) return buf;
+  try { return await smoothDem(buf, r, hit ? [z, tx, ty] : null); } catch(_){ return buf; }
+}
 function setupDtm(){
   if(S.dtmTried) return; S.dtmTried = true;
   try {
     if(typeof createImageBitmap !== 'function') return;
-    maplibregl.addProtocol('dtm', async (params, ac) => {
-      const url = params.url.replace(/^dtm:\/\//, 'https://').replace(/\?.*$/, '');
-      const res = await fetch(url, {signal: ac && ac.signal});
-      if(!res.ok) throw new Error('elevation ' + res.status);
-      const buf = await res.arrayBuffer();
-      const mt = url.match(/\/(\d+)\/(\d+)\/(\d+)\.png/) || [], z = +(mt[1] || 0), tx = +(mt[2] || 0), ty = +(mt[3] || 0);
-      const r = z >= 14 ? 2 : z >= 13 ? 1 : 0, hit = topoTileHit(z, tx, ty);
-      if(!r && !hit) return {data: buf};
-      try { return {data: await smoothDem(buf, r, hit ? [z, tx, ty] : null)}; } catch(_){ return {data: buf}; }
+    maplibregl.addProtocol('dtm', async params => {
+      const key = params.url; let p = DTMC.get(key);
+      if(p){ DTMC.delete(key); DTMC.set(key, p); }
+      else { p = dtmTile(key.replace(/^dtm:\/\//, 'https://').replace(/\?.*$/, '')); DTMC.set(key, p); if(DTMC.size > 96) DTMC.delete(DTMC.keys().next().value); }
+      try { const b = await p; return {data: b.slice(0)}; } catch(e){ DTMC.delete(key); throw e; }
     });
     S.dtm = true;
   } catch(_){ S.dtm = false; }
@@ -715,8 +730,10 @@ async function smoothDem(buf, r, tile){
   const ctx = cv.getContext('2d', {willReadFrequently: true});
   ctx.drawImage(bmp, 0, 0);
   const img = ctx.getImageData(0, 0, W, H);
-  let h = decodeTerrarium(img.data, W*H);
-  if(r){ h = morph(morph(h, W, H, r, 'min'), W, H, r, 'max'); h = morph(h, W, H, 1, 'mean'); }
+  const raw = decodeTerrarium(img.data, W*H); let h = raw;
+  if(r){ h = morph(morph(h, W, H, r, 'min'), W, H, r, 'max'); h = morph(h, W, H, 1, 'mean');
+    // each tile is filtered on its own, so ease back to the untouched values at the tile edge — neighbours then meet without a step
+    for(let y = 0; y < H; y++) for(let x = 0; x < W; x++){ const d = Math.min(x, y, W - 1 - x, H - 1 - y); if(d < 7){ const w = Math.max(0, (d - 1)/6), k = y*W + x; h[k] = raw[k]*(1 - w) + h[k]*w; } } }
   if(tile && W === 256 && H === 256) topoOverride(h, tile[0], tile[1], tile[2]);
   encodeTerrarium(h, img.data);
   ctx.putImageData(img, 0, 0);
@@ -1396,7 +1413,7 @@ function vwApplyVisibility(){
     for(const id of ['vw-parcel-fill', 'vw-parcel-line', 'vw-parcel-label']) vis(id, live && VW.on.parcel);
     for(const id of ['vw-zone-fill', 'vw-zone-line']) vis(id, live && VW.on.zoning);
     // national building data replaces OSM buildings once zoomed in
-    if(map.getLayer('bldg3d')) map.setLayerZoomRange('bldg3d', 13.5, (live && VW.on.bldg) ? 15.3 : 24);
+    if(map.getLayer('bldg3d')) map.setLayerZoomRange('bldg3d', 14, (live && VW.on.bldg) ? 15.3 : 24);
     if(map.getLayer('vw-bldg')) map.setLayerZoomRange('vw-bldg', 15.3, 24);
     if(S.sat) vwSatSync();
   } catch(_){}
@@ -1427,7 +1444,7 @@ function cellsIn(b, size, cap){
 }
 async function loadVw(){
   if(!S.mapReady || !VW.key || VW.ok === false || VW.busy) return;
-  VW.busy = true; let bchg = false;
+  VW.busy = true; let bchg = false, nb = 0, pchg = false, np = 0;
   try {
     const z = map.getZoom(), b = map.getBounds();
     const jobs = [];
@@ -1440,20 +1457,18 @@ async function loadVw(){
       try {
         if(kind === 'bldg'){
           const fs = await vwData('LT_C_SPBD', c.bbox);
-          if(VW.bldg.size > 30000){ VW.bldg.clear(); VW.cells.bldg.clear(); VWI.clear(); VW.cells.bldg.add(c.k); }
+          if(VW.bldg.size > 20000) vwPrune();
           for(const f of fs){ const p = f.properties || {}; const k = String(f.id || p.bd_mgt_sn || p.BD_MGT_SN || JSON.stringify((vwOuterRings(f.geometry)[0] || [])[0]));
             const fl = +(p.gro_flo_co ?? p.GRO_FLO_CO ?? p.grnd_flr ?? 0) || 0, ui = useInfo(p.bdtyp_cd ?? p.BDTYP_CD ?? p.bdtyp_code), h0 = fl > 0 ? Math.max(3, fl*ui.fh) : 6, src = fl > 0 ? 'vw' : 'none';
             const v = {geom: f.geometry, h: h0, base: h0, src, baseSrc: src, floors: fl || null, fh: ui.fh, use: ui.name, name: [p.buld_nm || p.BULD_NM, p.buld_nm_dc || p.BULD_NM_DC].filter(Boolean).join(' ').trim()};
             VW.bldg.set(k, v); vwIdxAdd(k, v); }
-          vwFillMissing(); vwApplyFixes(); vwEstimate(); bchg = true;
-          setData('vw-bldg', vwBldgFeatures());
-          if(S.hideEx) applyHideExisting();
+          bchg = true; if(++nb === 1 || nb % 3 === 0) flushVwBldg();
         } else if(kind === 'parcel'){
           const fs = await vwData('LP_PA_CBND_BUBUN', c.bbox);
           for(const f of fs){ const p = f.properties || {}; const k = String(p.pnu || p.PNU || f.id);
             VW.parcel.set(k, {geom: f.geometry, jibun: String(p.jibun || p.JIBUN || '').trim(), addr: String(p.addr || p.ADDR || '').trim(), jiga: +(p.jiga || p.JIGA || 0) || null}); }
-          if(VW.parcel.size > 30000){ VW.parcel.clear(); VW.cells.parcel.clear(); }
-          setData('vw-parcel', [...VW.parcel].map(([k, v]) => ({type:'Feature', properties:{k, jb: v.jibun}, geometry: v.geom})));
+          if(VW.parcel.size > 30000){ VW.parcel.clear(); VW.cells.parcel.clear(); VW.cells.parcel.add(c.k); }
+          pchg = true; if(++np === 1 || np % 3 === 0) setData('vw-parcel', vwParcelFeatures());
         } else {
           let fs = [];
           for(const layer of ['LT_C_UQ111', 'LT_C_UQ112']){ try { fs = fs.concat(await vwData(layer, c.bbox, {maxPages: 2})); } catch(e){ if(vwFatal(e)) throw e; } }
@@ -1471,7 +1486,8 @@ async function loadVw(){
       }
     }
   } finally { VW.busy = false; }
-  if(bchg) renderMap();
+  if(bchg){ flushVwBldg(); renderMap(); }
+  if(pchg) setData('vw-parcel', vwParcelFeatures());
   if(VW.key && VW.ok !== false){ const z = map.getZoom(), b = map.getBounds(); const pending = (VW.on.bldg && z >= 15.3 && cellsIn(b, 0.004, 9).some(c => !VW.cells.bldg.has(c.k))) || (VW.on.parcel && z >= 15.5 && cellsIn(b, 0.003, 9).some(c => !VW.cells.parcel.has(c.k))); if(pending) scheduleVw(); }
 }
 function zoneAtPoint(lng, lat){
@@ -1915,11 +1931,12 @@ function zoneListHTML(list){
 function terrainStatus(){
   if(!S.mapReady) return '지도 준비 중';
   let n = 0; try { if(map.getSource('contours')) n = map.querySourceFeatures('contours', {sourceLayer:'contours'}).length; } catch(_){}
-  return `지형 상태 · 지형 ${S.hasDem ? (S.terrain ? '켜짐' : '꺼짐') : '없음'} · 지형 보정 ${S.dtm ? '켜짐' : '꺼짐'} · 등고선 도구 ${window.mlcontour ? '정상' : '불러오지 못함'} · 지금 화면 등고선 ${S.terrain ? n + '개' : '꺼짐'}${S.demErrs ? ` · 불러오기 실패 ${S.demErrs}건` : ''} · 브이월드 ${VW.key ? (VW.ok === false ? '오류' : VW.ok ? '연결됨' : '확인 중') : '미연결'} (건물 ${VW.bldg.size} · 필지 ${VW.parcel.size}) · 대지 ${S.sites.length} · 버전 2026-10-14a`;
+  return `지형 상태 · 지형 ${S.hasDem ? (S.terrain ? '켜짐' : '꺼짐') : '없음'} · 지형 보정 ${S.dtm ? '켜짐' : '꺼짐'} · 등고선 도구 ${window.mlcontour ? '정상' : '불러오지 못함'} · 지금 화면 등고선 ${S.terrain ? n + '개' : '꺼짐'}${S.demErrs ? ` · 불러오기 실패 ${S.demErrs}건` : ''} · 브이월드 ${VW.key ? (VW.ok === false ? '오류' : VW.ok ? '연결됨' : '확인 중') : '미연결'} (건물 ${VW.bldg.size} · 필지 ${VW.parcel.size}) · 대지 ${S.sites.length} · 버전 2026-10-14b`;
 }
 function renderMenu(){
   const ex = S.recs.filter(r => r.example).length;
   panel.innerHTML = head('설정 · 내보내기') + `<div class="scroll">
+    <label class="tgl" style="margin-bottom:10px"><input type="checkbox" data-act2="lite" ${S.lite ? 'checked' : ''}> 가벼운 모드 · 화면 해상도를 낮추고 지형 음영을 꺼서 느린 폰에서도 부드럽게</label>
     ${vwSectionHTML()}
     <p class="note">기록과 사진은 이 브라우저에만 저장돼요. 브라우저 데이터를 지우면 함께 사라지니, 가끔 내보내기 파일로 백업해 두세요. 이 파일은 Claude 답사 지도에서도 그대로 가져올 수 있어요.</p>
     <div class="menu-list">
@@ -2156,6 +2173,7 @@ panel.addEventListener('change', async e => {
   if(tg.dataset && tg.dataset.act2 === 'hideEx'){ S.hideEx = tg.checked; try { localStorage.setItem('dapsa3d.hideEx', S.hideEx ? '1' : '0'); } catch(_){} SUNCTX = null; applyHideExisting(); toast(S.hideEx ? '대지 안 기존 건물을 숨겼어요 · 그림자·단면에서도 빠져요' : '기존 건물을 다시 보여요'); return; }
   if(tg.dataset && tg.dataset.topoCrs){ await topoReproject(tg.dataset.topoCrs, tg.value); keepScroll(renderStudio); return; }
   if(tg.dataset && tg.dataset.cm){ const k = tg.dataset.cm; S.cm[k] = tg.type === 'checkbox' ? tg.checked : k === 'area' ? tg.value : +tg.value; cmSave(); if(k === 'area'){ keepScroll(renderStudio); } clearTimeout(S.cmT); S.cmT = setTimeout(() => { if(S.panel === 'studio') cmPreview(); }, 350); return; }
+  if(tg.dataset && tg.dataset.act2 === 'lite'){ S.lite = tg.checked; try { localStorage.setItem('dapsa3d.lite', S.lite ? '1' : '0'); } catch(_){} applyLite(); toast(S.lite ? '가벼운 모드를 켰어요' : '가벼운 모드를 껐어요'); return; }
   if(tg.dataset && tg.dataset.act2 === 'env'){ S.envOn = tg.checked; renderStudioMap(); if(S.envOn){ const cs = curSite(); if(cs) map.easeTo({pitch: 55, duration: 600}); } return; }
   if(e.target.dataset && e.target.dataset.vwopt){ VW.on[e.target.dataset.vwopt] = e.target.checked; vwSaveOpts(); vwApplyVisibility(); scheduleVw(); return; } if(e.target.id === 'f-photo'){ const files = [...e.target.files]; e.target.value = ''; await addPhotos(files); } });
 panel.addEventListener('submit', e => { e.preventDefault(); if(e.target.id === 'sForm') doSearch($('#sQ').value); });
@@ -3021,7 +3039,7 @@ function ensureModelLayer(){
         const mc = maplibregl.MercatorCoordinate.fromLngLat([o.lng, o.lat], rel + (+o.base || 0)), k = mc.meterInMercatorCoordinateUnits()*(o.unit || 1)*(o.scale || 1);
         const l = new T.Matrix4().makeTranslation(mc.x, mc.y, mc.z).scale(new T.Vector3(k, -k, k)).multiply(new T.Matrix4().makeRotationX(Math.PI/2)).multiply(new T.Matrix4().makeRotationY(-(o.rot || 0)*D2R));
         this.cam.projectionMatrix = base.clone().multiply(l);
-        this.r.resetState(); this.r.render(it.scene, this.cam);
+        this.r.resetState(); this.r.render(it.scene, this.cam); this.r.resetState();
       }
     }});
   map.on('idle', refreshAnchors);
@@ -3677,7 +3695,7 @@ function demFetch(tx, ty){
 function demPut(tx, ty, raw){
   let mx = -Infinity; for(let i = 0; i < raw.length; i++) if(raw[i] > mx) mx = raw[i];
   const t = {raw, dtm: null, max: mx, used: Date.now()}; DEMT.set(tx + '/' + ty, t);
-  if(DEMT.size > 48){ let ok = null, ou = Infinity; for(const [kk, v] of DEMT) if(v.used < ou){ ou = v.used; ok = kk; } DEMT.delete(ok); }
+  if(DEMT.size > 32){ let ok = null, ou = Infinity; for(const [kk, v] of DEMT) if(v.used < ou){ ou = v.used; ok = kk; } DEMT.delete(ok); }
   demLoaded(); return t;
 }
 const demDtm = t => t.dtm || (t.dtm = morph(morph(morph(t.raw, 256, 256, 2, 'min'), 256, 256, 2, 'max'), 256, 256, 1, 'mean'));
@@ -3914,7 +3932,7 @@ $('#flP').onclick = () => { const P = S.placing; if(P && P.mode === 'mfloor'){ P
 S.bldMode = (() => { try { const v = localStorage.getItem('dapsa3d.bldMode'); return ['3d', 'flat', 'off'].includes(v) ? v : '3d'; } catch(_){ return '3d'; } })();
 function setupFlatLayers(underB){
   try {
-    if(SRC) map.addLayer({id:'flat-bldg', type:'fill', source: SRC, 'source-layer':'building', minzoom: 13.5, layout:{visibility:'none'}, paint:{'fill-color': cssVar('--bldg'), 'fill-outline-color': cssVar('--ink-3')}}, underB);
+    if(SRC) map.addLayer({id:'flat-bldg', type:'fill', source: SRC, 'source-layer':'building', minzoom: 14, layout:{visibility:'none'}, paint:{'fill-color': cssVar('--bldg'), 'fill-outline-color': cssVar('--ink-3')}}, underB);
     if(map.getSource('vw-bldg')) map.addLayer({id:'flat-vwb', type:'fill', source:'vw-bldg', minzoom: 15.3, layout:{visibility:'none'}, paint:{'fill-color': cssVar('--bldg'), 'fill-outline-color': cssVar('--ink-3')}}, underB);
   } catch(_){}
 }
@@ -3926,7 +3944,7 @@ function applyBldMode(){
   const vis = (id, on) => { try { if(map.getLayer(id)) map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none'); } catch(_){} };
   vis('bldg3d', m === '3d'); vis('vw-bldg', m === '3d' && live); vis('visited', m === '3d');
   vis('flat-bldg', m === 'flat'); vis('flat-vwb', m === 'flat' && live);
-  try { if(map.getLayer('flat-bldg')) map.setLayerZoomRange('flat-bldg', 13.5, live ? 15.3 : 24); } catch(_){}
+  try { if(map.getLayer('flat-bldg')) map.setLayerZoomRange('flat-bldg', 14, live ? 15.3 : 24); } catch(_){}
 }
 $('#tBld').onclick = () => {
   S.bldMode = S.bldMode === '3d' ? 'flat' : S.bldMode === 'flat' ? 'off' : '3d';
@@ -4246,7 +4264,7 @@ function topoOverride(h, z, x, y){ const n = 2**z;
     for(let i = 0; i < 256; i++){ const lng = (x + (i + 0.5)/256)/n*360 - 180, r = localDemAt(lng, lat); if(r && r.w > 0){ const k = j*256 + i; h[k] = h[k]*(1 - r.w) + r.v*r.w; } } } }
 function refreshTerrainTiles(){
   if(!S.mapReady || !S.dtm) return; TOPO.ver++;
-  const url = `${DEM_URL.replace('https://', 'dtm://')}?v=${TOPO.ver}`;
+  const url = `${DEM_URL.replace('https://', 'dtm://')}?v=${TOPO.ver}`; DTMC.clear();
   for(const id of ['dem', 'dem-hs']){ try { const src = map.getSource(id); if(src && src.setTiles) src.setTiles([url]); } catch(_){} }
   SUNCTX = null; if(S.sun && S.sun.on) setTimeout(scheduleSun, 800);
 }
@@ -4562,6 +4580,24 @@ async function renderShot(){
   const ymd = sunDateStr();
   try { await exportPNG({title: [S.project, curSite() ? curSite().name : '', `렌더 · ${({winter:'동지', equinox:'춘·추분', summer:'하지', today:'오늘'})[S.sun.day] || ymd} ${fmtHM(S.sun.h)} · 태양 고도 ${(S.sun.alt || 0).toFixed(1)}°`].filter(Boolean).join(' · '), file: '렌더', noMarks: true}); }
   finally { renderLook(false, sv); }
+}
+
+
+/* ---------- lighter: batched national data, far-away pruning, 가벼운 모드 ---------- */
+function flushVwBldg(){ vwFillMissing(); vwApplyFixes(); vwEstimate(); setData('vw-bldg', vwBldgFeatures()); if(S.hideEx) applyHideExisting(); }
+const vwParcelFeatures = () => [...VW.parcel].map(([k, v]) => ({type:'Feature', properties:{k, jb: v.jibun}, geometry: v.geom}));
+function vwPrune(){
+  const c = map.getCenter(), far = (x, y) => Math.abs(x - c.lng) > 0.03 || Math.abs(y - c.lat) > 0.025;
+  for(const [k, v] of VW.bldg) if(!v.bb || far((v.bb[0] + v.bb[2])/2, (v.bb[1] + v.bb[3])/2)) VW.bldg.delete(k);
+  for(const ck of [...VW.cells.bldg]){ const [i, j] = ck.split(':').map(Number); if(far((i + 0.5)*0.004, (j + 0.5)*0.004)) VW.cells.bldg.delete(ck); }
+  VWI.clear(); for(const [k, v] of VW.bldg) vwIdxAdd(k, v);
+}
+function applyLite(){
+  if(!S.mapReady) return;
+  try { if(typeof map.setPixelRatio === 'function') map.setPixelRatio(S.lite ? 1 : Math.min(window.devicePixelRatio || 1, 2)); } catch(_){}
+  try { map.setMaxPitch(S.lite ? 60 : 72); } catch(_){}
+  try { if(map.getLayer('hillshade')) map.setLayoutProperty('hillshade', 'visibility', S.terrain && !S.lite ? 'visible' : 'none'); } catch(_){}
+  try { if(map.getLayer('contour-labels')) map.setLayoutProperty('contour-labels', 'visibility', S.terrain && !S.lite ? 'visible' : 'none'); } catch(_){}
 }
 
 /* ---------------- boot ---------------- */
