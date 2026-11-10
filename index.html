@@ -2885,7 +2885,7 @@ function setStyleMode(mode){
 
 /* ---------- PNG export ---------- */
 function download(blob, name){ const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 5000); }
-const fileStamp = () => { const d = new Date(); return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`; };
+const fileStamp = () => { const d = new Date(); return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}-${String(d.getMilliseconds()).padStart(3, '0')}`; };
 async function exportPNG(opts = {}){
   if(!S.mapReady) return;
   toast('도판을 만드는 중…', 8000);
@@ -2959,15 +2959,36 @@ function collectContext(area){
   return out;
 }
 function dxfText(entities, layers, insunits){
+  // Korea 2000 coordinates are far from (0, 0); save a fitted opening view.
+  const valid = entities.filter(e => e.t === 'pl'
+    ? Array.isArray(e.pts) && e.pts.length >= 2 && e.pts.every(q => q && Number.isFinite(q[0]) && Number.isFinite(q[1])) && Number.isFinite(e.z ?? 0) && Number.isFinite(e.th ?? 0)
+    : e.t === 'tx' && [e.x, e.y, e.z ?? 0, e.h ?? 1].every(Number.isFinite));
+  let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+  for(const e of valid) for(const [x, y] of e.t === 'pl' ? e.pts : [[e.x, e.y]]){
+    minX = Math.min(minX, x); minY = Math.min(minY, y); minZ = Math.min(minZ, e.z || 0);
+    maxX = Math.max(maxX, x); maxY = Math.max(maxY, y); maxZ = Math.max(maxZ, (e.z || 0) + (e.th || 0));
+  }
+  if(!valid.length){ minX = minY = minZ = 0; maxX = maxY = 1; maxZ = 0; }
+  const viewX = (minX + maxX)/2, viewY = (minY + maxY)/2, viewH = Math.max(maxY - minY, (maxX - minX)/1.6, 1)*1.2;
   const L = [];
   const p = (c, v) => { L.push(String(c)); L.push(String(v)); };
-  p(0, 'SECTION'); p(2, 'HEADER'); p(9, '$ACADVER'); p(1, 'AC1009'); if(insunits){ p(9, '$INSUNITS'); p(70, insunits); } p(0, 'ENDSEC');
+  p(0, 'SECTION'); p(2, 'HEADER'); p(9, '$ACADVER'); p(1, 'AC1009'); if(insunits){ p(9, '$INSUNITS'); p(70, insunits); }
+  p(9, '$EXTMIN'); p(10, minX); p(20, minY); p(30, minZ);
+  p(9, '$EXTMAX'); p(10, maxX); p(20, maxY); p(30, maxZ);
+  p(0, 'ENDSEC');
   p(0, 'SECTION'); p(2, 'TABLES');
   p(0, 'TABLE'); p(2, 'LTYPE'); p(70, 1); p(0, 'LTYPE'); p(2, 'CONTINUOUS'); p(70, 0); p(3, 'Solid line'); p(72, 65); p(73, 0); p(40, '0.0'); p(0, 'ENDTAB');
+  p(0, 'TABLE'); p(2, 'VPORT'); p(70, 1);
+  p(0, 'VPORT'); p(2, '*ACTIVE'); p(70, 0);
+  p(10, 0); p(20, 0); p(11, 1); p(21, 1);
+  p(12, viewX); p(22, viewY); p(16, 0); p(26, 0); p(36, 1);
+  p(17, 0); p(27, 0); p(37, 0); p(40, viewH); p(41, 1.6);
+  p(0, 'ENDTAB');
+  if(!layers.some(([n]) => n === '0')) layers = [['0', 7], ...layers];
   p(0, 'TABLE'); p(2, 'LAYER'); p(70, layers.length); for(const [n, c] of layers){ p(0, 'LAYER'); p(2, n); p(70, 0); p(62, c); p(6, 'CONTINUOUS'); } p(0, 'ENDTAB');
   p(0, 'ENDSEC'); p(0, 'SECTION'); p(2, 'ENTITIES');
   const f3 = v => (Math.round(v*1000)/1000).toFixed(3);
-  for(const e of entities){
+  for(const e of valid){
     if(e.t === 'pl'){ p(0, 'POLYLINE'); p(8, e.layer); p(66, 1); p(10, '0.0'); p(20, '0.0'); p(30, f3(e.z || 0)); if(e.th) p(39, f3(e.th)); p(70, e.closed ? 1 : 0);
       for(const [x, y] of e.pts){ p(0, 'VERTEX'); p(8, e.layer); p(10, f3(x)); p(20, f3(y)); p(30, f3(e.z || 0)); }
       p(0, 'SEQEND'); p(8, e.layer); }
@@ -2996,6 +3017,7 @@ async function exportDXF(){
   if(S.section) ents.push({t:'pl', layer:'SECTION_LINE', pts: S.section.coords.map(q => P(q[0], q[1])), closed: false});
   for(const r of visible().filter(hasLoc)){ if(!inBounds(area.bounds, r.lng, r.lat)) continue; const q = P(r.lng, r.lat); ents.push({t:'tx', layer:'RECORDS', x: q[0], y: q[1], h: 1.5, s: (r.time || '') + ' ' + (r.name || '')}); }
   const layers = [['SITE', 1], ['MASSES', 5], ['MY_MODEL', 5], ['MY_DRAWING', 6], ['MY_DXF', 4], ['PARKING', 9], ['BUILDINGS', 7], ['BUILDINGS_ON_SITE', 9], ['BUILDING_FLOORS', 8], ['PARCELS', 8], ['PARCEL_NO', 8], ['ROADS_MAIN', 252], ['ROADS', 253], ['ROADS_PATH', 254], ['CONTOUR_MAJOR', 30], ['CONTOUR_MINOR', 31], ['SECTION_LINE', 1], ['RECORDS', 3]];
+  if(!ents.length){ toast('내보낼 도형이 없어요. 지도 자료가 표시된 뒤 다시 시도해 주세요.', 6000); return; }
   const txt = dxfText(ents, layers);
   download(new Blob([txt], {type:'application/dxf'}), `답사지도-${(s && s.name) || '주변'}-${fileStamp()}.dxf`.replace(/[\\/:*?"<>|]/g, ''));
   toast(`DXF 저장 · 건물 ${ctx.bldgs.length} · 필지 ${ctx.parcels.length} · 도로 ${ctx.roads.length} · 등고선 ${ctx.contours.length}`, 5000);
