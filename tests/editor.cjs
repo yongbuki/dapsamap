@@ -11,7 +11,7 @@ const {chromium}=require('playwright');
  const obj=g.toOBJ([o]);assert.equal(obj.split('\n').filter(x=>x.startsWith('v ')).length,12);
  assert.ok(obj.includes('v 0 10 0'));assert.throws(()=>g.validate([{...o,floors:0}]));
  console.log('PASS: rotated geometry, concave triangulation, invalid polygon rejection, DXF units and OBJ extrusion');
- const server=http.createServer((req,res)=>{const name=req.url.split('?')[0];const f=name==='/studio-editor.mjs'||name==='/studio-editor.css'?name.slice(1):'index.html';res.setHeader('Content-Type',f.endsWith('.mjs')?'text/javascript':f.endsWith('.css')?'text/css':'text/html;charset=utf-8');res.end(fs.readFileSync(path.join(root,f)));});
+ const server=http.createServer((req,res)=>{const name=req.url.split('?')[0];const f=['/studio-editor.mjs','/architectural-model.mjs','/studio-editor.css'].includes(name)?name.slice(1):'index.html';res.setHeader('Content-Type',f.endsWith('.mjs')?'text/javascript':f.endsWith('.css')?'text/css':'text/html;charset=utf-8');res.end(fs.readFileSync(path.join(root,f)));});
  await new Promise(r=>server.listen(0,'127.0.0.1',r));let browser;
  try{
   browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});

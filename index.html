@@ -2199,7 +2199,7 @@ function cleanSite(x){
     masses: Array.isArray(x.masses) ? x.masses.slice(0, 60).filter(Boolean).map(m => { const ring = cleanLine8(m.ring); if(ring && ring.length < 4) return null; return ring ? {id: s2(m.id) || newId(), name: s2(m.name).slice(0, 30), ring, floors: Math.max(1, Math.min(80, Math.round(+m.floors || 1))), fh: Math.max(2, Math.min(10, +m.fh || 3)), base: Math.max(0, Math.min(100, +m.base || 0))} : null; }).filter(Boolean) : [],
     parking: Array.isArray(x.parking) ? x.parking.slice(0, 80).filter(Boolean).map(k => { const ring = cleanRingArr(k.ring); return ring ? {ring} : null; }).filter(Boolean) : [],
     objects: Array.isArray(x.objects) ? x.objects.slice(0, 40).map(cleanObj).filter(Boolean) : [],
-    brief: cleanBrief(x.brief), households: Math.max(1, Math.round(+x.households || 8)), parkTarget: Math.max(0, Math.round(+x.parkTarget || 0)), createdAt: +x.createdAt || Date.now(), updatedAt: +x.updatedAt || Date.now()};
+    architecture: cleanArchitecture(x.architecture), brief: cleanBrief(x.brief), households: Math.max(1, Math.round(+x.households || 8)), parkTarget: Math.max(0, Math.round(+x.parkTarget || 0)), createdAt: +x.createdAt || Date.now(), updatedAt: +x.updatedAt || Date.now()};
 }
 let importing = false;
 async function importData(file){
@@ -2386,6 +2386,12 @@ panel.addEventListener('click', async e => {
 });
 let sunRaf = 0;
 panel.addEventListener('input', e => {
+  if(e.target.dataset.brief||e.target.dataset.program){
+    const s=curSite();if(!s)return;const q=briefOf(s),tg=e.target;
+    if(tg.dataset.brief){const k=tg.dataset.brief;if(['title','concept','observations','questions','schemeName'].includes(k))q[k]=String(tg.value).slice(0,2000);else if(k==='efficiency'&&Number.isFinite(tg.valueAsNumber))q.efficiency=Math.max(.3,Math.min(1,tg.valueAsNumber/100));}
+    else{const p=q.program.find(p=>p.id===tg.dataset.program);if(p){if(tg.dataset.k==='name')p.name=tg.value.slice(0,80);else if(tg.dataset.k==='area'&&Number.isFinite(tg.valueAsNumber))p.area=Math.max(0,Math.min(1e6,tg.valueAsNumber));else if(tg.dataset.k==='count'&&Number.isFinite(tg.valueAsNumber))p.count=Math.max(1,Math.min(999,Math.round(tg.valueAsNumber)));}}
+    s.brief=q;clearTimeout(S.briefSaveTimer);S.briefSaveTimer=setTimeout(()=>{const current=S.sites.find(x=>x.id===s.id);if(current)saveSite({...current,brief:q}).catch(()=>toast('과제 노트를 저장하지 못했어요'));},400);return;
+  }
   if(e.target.id === 'sunH'){ S.sun.h = +e.target.value; const lb = $('#sunHv'); if(lb) lb.textContent = `${pad(Math.floor(S.sun.h))}:${pad(Math.round((S.sun.h % 1)*60))}`; if(!sunRaf) sunRaf = requestAnimationFrame(() => { sunRaf = 0; showShadows(); }); return; }
   if(e.target.dataset.obs && S.draft && S.draft.obs){ S.draft.obs[e.target.dataset.obs] = e.target.value; return; }
   const k = e.target.dataset.f; if(!k || !S.draft) return;
@@ -2398,6 +2404,7 @@ panel.addEventListener('input', e => {
 panel.addEventListener('change', async e => {
   const tg = e.target;
   if(tg.dataset.brief || tg.dataset.program){
+    clearTimeout(S.briefSaveTimer);
     const s=curSite(); if(!s) return; const q=briefOf(s);
     if(tg.dataset.brief){ const k=tg.dataset.brief; if(['title','concept','observations','questions','schemeName'].includes(k)) q[k]=String(tg.value).slice(0,2000); else if(k==='efficiency') q.efficiency=Math.max(0.3,Math.min(1,(+tg.value||75)/100)); }
     else { const p=q.program.find(p=>p.id===tg.dataset.program); if(!p) return; const k=tg.dataset.k; if(k==='name') p.name=String(tg.value).slice(0,80); else if(k==='area') p.area=Math.max(0,Math.min(1e6,+tg.value||0)); else if(k==='count') p.count=Math.max(1,Math.min(999,Math.round(+tg.value||1))); }
@@ -2645,7 +2652,7 @@ async function massStats(s){
     ms.forEach((m, i) => { const t = (+m.base || 0) + (+m.floors || 1)*(+m.fh || 3); const over = m.ring.some(p => { const q = L.f(p[0], p[1]); const d = northDist([q[0] + 0.001, q[1] + 0.001], lr); return t > northLightMax(d) + 0.05; }); if(over) envOver.push(m.name || `매스 ${i+1}`); });
   }
   // my 3D models: roof-plan footprint and per-floor cuts
-  let mgfa = 0, mbca = 0, approx = false; const mf = modelFootprints(s);
+  let mgfa = 0, mbca = 0, approx = false; const mf = modelFootprints(s).filter(m=>m.o.source!=='architecture');
   for(const m of mf){ const a = await modelAreas(m.it); if(!a) continue; mgfa += a.gfa; mbca += a.bca; approx = approx || !!a.approx; const t = (+m.o.base || 0) + m.h; top = Math.max(top, t);
     if(needsNorthLight(s.zoning)){ const c = siteCenter(s), L = mkLocal(c.lng, c.lat), lr = siteRings(s).map(r => r.map(p => L.f(p[0], p[1]))); if(m.ring.some(p => { const q = L.f(p[0], p[1]); return t > northLightMax(northDist([q[0] + 0.001, q[1] + 0.001], lr)) + 0.05; })) envOver.push(m.o.name || '내 모델'); } }
   gfa += mgfa; bca += mbca;
@@ -3084,7 +3091,7 @@ function courseCardHTML(s,M){
 async function saveScheme(){
   const s=curSite(); if(!s) return; const q=briefOf(s);
   if(q.schemes.length>=12){ toast('지표는 12개까지 기록할 수 있어요'); return; }
-  if(!(s.masses||[]).length&&!modelFootprints(s).length){ toast('매스를 그리거나 모델을 추가한 뒤 기록하세요'); return; }
+  if(!(s.masses||[]).length&&!modelFootprints(s).some(m=>m.o.source!=='architecture')){ toast('매스를 그리거나 모델을 추가한 뒤 기록하세요'); return; }
   const stamp=s.updatedAt, M=await massStats(s);
   if(curSite()!==s||s.updatedAt!==stamp){ toast('설계안이 변경됐어요. 다시 기록해 주세요'); return; }
   q.schemes.push({id:newId(),name:q.schemeName.trim()||`설계안 ${q.schemes.length+1}`,at:new Date().toISOString(),siteArea:s.area,...Object.fromEntries(['bca','gfa','top','bcr','far','approx'].map(k=>[k,M[k]]))});
@@ -3174,7 +3181,7 @@ function renderStudio(){
   if(s) h += `<div class="p-actions"><button class="btn" data-act="siteRedo">대지 다시 정하기</button><button class="btn danger" data-act="siteAskDel">대지 삭제</button></div><div class="confirm" id="siteConfirm" hidden><p>이 대지와 매스·주차 배치를 삭제할까요? 되돌릴 수 없어요.</p><button class="btn sm" data-act="siteNoDel">취소</button><button class="btn sm danger solid" data-act="siteDel">삭제</button></div>`;
   panel.innerHTML = head('대지 분석') + `<div class="scroll">${h}</div>`;
 }
-async function refreshMassStats(){ const s=curSite(),run=S.massRun=(S.massRun||0)+1; const M=s&&((s.masses||[]).length||modelFootprints(s).length)?await massStats(s):null; if(run!==S.massRun||curSite()!==s) return; S.massRes=M; S.massResSite=s&&s.id; if(S.panel==='studio') keepScroll(renderStudio); }
+async function refreshMassStats(){ const s=curSite(),run=S.massRun=(S.massRun||0)+1; const M=s&&((s.masses||[]).length||modelFootprints(s).some(m=>m.o.source!=='architecture'))?await massStats(s):null; if(run!==S.massRun||curSite()!==s) return; S.massRes=M; S.massResSite=s&&s.id; if(S.panel==='studio') keepScroll(renderStudio); }
 
 /* ================= STUDIO 2: measure · draft · my models & plans ================= */
 const brgOf = (a, b) => { const L = mkLocal(a[0], a[1]); const [x, y] = L.f(b[0], b[1]); return (Math.atan2(x, y)/D2R + 360) % 360; };
@@ -3396,7 +3403,7 @@ async function syncModels(){
     if(it){ it.o = o; updateModelDerived(it); continue; }
     if(M3.loading && M3.loading.has(o.id)) continue;
     (M3.loading = M3.loading || new Set()).add(o.id);
-    try { await loadModel(o); ensureModelLayer(); if(S.panel === 'studio') refreshMassStats(); } catch(e){ toast(`3D 모델을 불러오지 못했어요 · ${e.message || e}`, 5000); } finally { M3.loading.delete(o.id); }
+    try { await loadModel(o); if(!objsOf(curSite()).some(x=>x.id===o.id&&x.blobId===o.blobId)){disposeModel(o.id);continue;} ensureModelLayer(); if(S.panel === 'studio') refreshMassStats(); } catch(e){ toast(`3D 모델을 불러오지 못했어요 · ${e.message || e}`, 5000); } finally { M3.loading.delete(o.id); }
   }
   if(M3.layer) map.triggerRepaint();
 }
@@ -3849,17 +3856,18 @@ function objCardHTML(s){
   const objs = objsOf(s), KL = {draw:'도면', dxf:'DXF', image:'이미지', model:'3D'};
   const row = o => {
     let info = '';
-    if(o.kind === 'draw') info = o.closed ? `${fmtA2(ringAreaM2(closeR(o.coords)))} · 둘레 ${fmtD(pathLen(closeR(o.coords)))}` : `길이 ${fmtD(pathLen(o.coords))}`;
+    if(o.source==='architecture') info='벽·바닥·개구부 모델 · 면적 비교는 매스 기준';
+    else if(o.kind === 'draw') info = o.closed ? `${fmtA2(ringAreaM2(closeR(o.coords)))} · 둘레 ${fmtD(pathLen(closeR(o.coords)))}` : `길이 ${fmtD(pathLen(o.coords))}`;
     else if(o.kind === 'model'){ const it = M3.items.get(o.id), ar = it && it.areas; info = it && it.dims ? `${it.dims[0].toFixed(1)}×${it.dims[2].toFixed(1)}×높이 ${it.dims[1].toFixed(1)}m · ${modelFloors(o, it)}개 층${ar ? ` · 건축 ${fmtA2(ar.bca)} · 연면적 ${fmtA2(ar.gfa)}${ar.approx ? ' (외곽 어림)' : ''}` : ''}` : (M3.loading && M3.loading.has(o.id) ? '불러오는 중…' : '아직 안 불러옴'); }
     else if(o.kind === 'image') info = `폭 ${(+o.w).toFixed(1)}m · 투명도 ${Math.round((o.opacity ?? 0.7)*100)}%`;
     else info = `선 ${o.lines.length.toLocaleString('ko-KR')}개${o.georef ? ' · 좌표 일치' : ` · ${UNIT_NAME(o.unit || 1)}`}`;
-    const per = o.kind === 'model' && M3.items.get(o.id) && M3.items.get(o.id).areas;
+    const per = o.source!=='architecture' && o.kind === 'model' && M3.items.get(o.id) && M3.items.get(o.id).areas;
     return `<div class="obj${o.hidden ? ' off' : ''}"><span class="ok k-${o.kind}">${KL[o.kind]}</span><input type="text" data-obj="${esc(o.id)}" value="${esc(o.name || '')}" aria-label="이름" maxlength="40">
       <span class="mm">${esc(info)}</span>
       ${per && per.per.length > 1 && !per.approx ? `<span class="mm fl">층별 ${per.per.map((a, i) => `${i + 1}층 ${Math.round(a)}`).join(' · ')}㎡</span>` : ''}
-      <span class="ob"><button class="btn sm" data-act="objEdit" data-id="${esc(o.id)}">위치 조정</button>${o.kind === 'draw' && o.closed ? `<button class="btn sm" data-act="objMass" data-id="${esc(o.id)}">매스로</button>` : ''}<button class="btn sm ghost" data-act="objVis" data-id="${esc(o.id)}">${o.hidden ? '보이기' : '숨기기'}</button><button class="btn sm ghost" data-act="objDel" data-id="${esc(o.id)}">삭제</button></span></div>`;
+      <span class="ob">${o.source==='architecture'?'<button class="btn sm" data-act="designEditor">건축 요소 편집</button>':`<button class="btn sm" data-act="objEdit" data-id="${esc(o.id)}">위치 조정</button>`}${o.kind === 'draw' && o.closed ? `<button class="btn sm" data-act="objMass" data-id="${esc(o.id)}">매스로</button>` : ''}<button class="btn sm ghost" data-act="objVis" data-id="${esc(o.id)}">${o.hidden ? '보이기' : '숨기기'}</button>${o.source==='architecture'?'':`<button class="btn sm ghost" data-act="objDel" data-id="${esc(o.id)}">삭제</button>`}</span></div>`;
   };
-  return `<section class="card"><h3>내 도면 · 모델</h3>
+  return `<section class="card"><h3>내 도면 · 모델</h3>${architectureSummary(s)}<p class="hint">벽·바닥·문·창은 편집기에서 수정합니다. 생성 모델의 위치·크기는 편집기 기준이며, 과제의 건폐율·용적률 비교는 매스·일반 모델 기준입니다. 기존 일조·그림자는 모델 외곽을 사용해 개구부의 채광을 해석하지 않습니다.</p>
     ${objs.map(row).join('') || '<p class="hint">평면을 길이·각도로 정확히 그리거나, 캐드 DXF·도면 이미지를 깔고, 라이노·스케치업·블렌더에서 내보낸 GLB·OBJ 모델을 대지 위에 세워 볼 수 있어요.</p>'}
     <div class="menu-list row"><button class="btn sm pri" data-act="designEditor">도면·매스 편집기 열기</button><button class="btn sm" data-act="drawNew">지도에 선 그리기</button><button class="btn sm" data-act="modelUp">3D 모델 올리기</button><button class="btn sm" data-act="planUp">도면 파일 (DXF·이미지)</button></div>
     <label class="tgl"><input type="checkbox" data-act2="hideEx" ${S.hideEx ? 'checked' : ''}> 대지 안 기존 건물 숨기기</label>
@@ -3868,18 +3876,38 @@ function objCardHTML(s){
 }
 
 async function openDesignEditor(){
-  let target=curSite(); if(!target){toast('대지를 먼저 정해 주세요');return;}
-  const c=siteCenter(target),L=mkLocal(c.lng,c.lat);let expected=JSON.stringify(target.masses||[]);
-  try {
-    const {openEditor}=await import('./studio-editor.mjs');
+  let target=curSite();if(!target){toast('대지를 먼저 정해 주세요');return;}
+  const saved=cleanArchitecture(target.architecture),c=saved?{lng:saved.origin[0],lat:saved.origin[1]}:siteCenter(target),L=mkLocal(c.lng,c.lat);
+  let expected=JSON.stringify([target.masses||[],target.architecture||null]);
+  try{
+    const {openEditor,toOBJ,validate}=await import('./studio-editor.mjs');
     const points=ring=>{const p=ring.map(q=>L.f(...q));if(p.length>1&&Math.hypot(p[0][0]-p.at(-1)[0],p[0][1]-p.at(-1)[1])<0.00001)p.pop();return p;};
-    openEditor({name:target.name,siteRings:siteRings(target).map(points),items:(target.masses||[]).map(m=>({id:m.id,name:m.name||'매스',points:points(m.ring),floors:+m.floors||1,fh:+m.fh||3,base:+m.base||0})),onSave:async items=>{
-      const current=curSite();if(!current||current.id!==target.id||JSON.stringify(current.masses||[])!==expected)throw Error('다른 작업으로 대지가 변경됐습니다. 닫고 편집기를 다시 열어 주세요.');
-      const masses=items.map(o=>{const ring=o.points.map(p=>L.b(...p).map(v=>+v.toFixed(8)));ring.push(ring[0].slice());return {id:o.id,name:o.name.slice(0,30),ring,floors:o.floors,fh:o.fh,base:o.base};});
-      const next={...current,masses};await saveSite(next);target=next;expected=JSON.stringify(next.masses);SUNCTX=null;S.sunRes=null;refreshMassStats().catch(()=>{});
+    openEditor({name:target.name,siteRings:siteRings(target).map(points),items:[...(target.masses||[]).map(m=>({id:m.id,type:'mass',name:m.name||'매스',points:points(m.ring),floors:+m.floors||1,fh:+m.fh||3,base:+m.base||0})),...(saved?saved.elements:[])],onSave:async items=>{
+      const current=curSite();if(!current||current.id!==target.id||JSON.stringify([current.masses||[],current.architecture||null])!==expected)throw Error('다른 작업으로 대지가 변경됐습니다. 닫고 편집기를 다시 열어 주세요.');
+      validate(items);const elements=items.filter(o=>o.type==='wall'||o.type==='slab');
+      const masses=items.filter(o=>!o.type||o.type==='mass').map(o=>{const ring=o.points.map(p=>L.b(...p).map(v=>+v.toFixed(8)));ring.push(ring[0].slice());return {id:o.id,name:o.name.slice(0,30),ring,floors:o.floors,fh:o.fh,base:o.base};});
+      const old=objsOf(current).filter(o=>o.source==='architecture'),objects=objsOf(current).filter(o=>o.source!=='architecture');
+      if(elements.length&&objects.length>=40)throw Error('도면·모델 목록에 공간이 부족합니다. 사용하지 않는 항목을 정리해 주세요.');
+      const photos=new Map();if(elements.length){const all=elements.flatMap(o=>o.points),xs=all.map(p=>p[0]),ys=all.map(p=>p[1]),cx=(Math.min(...xs)+Math.max(...xs))/2,cy=(Math.min(...ys)+Math.max(...ys))/2,ll=L.b(cx,cy),blobId=newId();
+        photos.set(blobId,new Blob([toOBJ(elements)],{type:'text/plain'}));objects.push({id:newId(),kind:'model',source:'architecture',name:'벽·바닥·개구부 모델',blobId,ftype:'obj',unit:1,scale:1,rot:0,base:Math.min(...elements.map(o=>o.base)),zup:false,anchor:'center',floors:1,lng:ll[0],lat:ll[1],createdAt:Date.now()});}
+      const next={...current,masses,objects,architecture:{origin:[c.lng,c.lat],elements},updatedAt:Date.now()};
+      await DB.batch({sites:new Map([[next.id,next]]),photos});const i=S.sites.findIndex(s=>s.id===next.id);S.sites[i]=next;target=next;expected=JSON.stringify([next.masses,next.architecture]);SUNCTX=null;S.sunRes=null;
+      for(const o of old){disposeModel(o.id);try{await DB.delPhoto(o.blobId);}catch(_){}}
+      renderStudioMap();refreshMassStats().catch(()=>{});
     }});
-  } catch(e){toast(e.message||'편집기를 불러오지 못했어요',5000);}
+  }catch(e){toast(e.message||'편집기를 불러오지 못했어요',5000);}
 }
+function architectureSummary(s){
+  const a=s.architecture&&s.architecture.elements||[];if(!a.length)return '';
+  const walls=a.filter(o=>o.type==='wall'),slabs=a.filter(o=>o.type==='slab'),holes=walls.flatMap(o=>o.openings||[]),area=slabs.reduce((n,o)=>n+Math.abs(ringArea(o.points)),0);
+  return `<p class="note">벽 ${walls.length}개 · 바닥판 ${slabs.length}개 · 문 ${holes.filter(h=>h.kind==='door').length}개 · 창 ${holes.filter(h=>h.kind==='window').length}개<br>바닥판 면적 합계 ${fmtA2(area)} · 겹친 바닥판은 각각 합산됩니다.</p>`;
+}
+function cleanArchitecture(q){
+  if(!q||!Array.isArray(q.origin)||q.origin.length!==2||coord(q.origin[0],180)===null||coord(q.origin[1],90)===null||!Array.isArray(q.elements))return null;
+  const elements=q.elements.slice(0,60).filter(o=>o&&['wall','slab'].includes(o.type)&&Array.isArray(o.points)&&o.points.length>=3&&o.points.length<=400&&o.points.every(p=>Array.isArray(p)&&p.length===2&&p.every(v=>typeof v==='number'&&Number.isFinite(v)&&Math.abs(v)<=10000))&&Number.isFinite(o.fh)&&o.fh>0&&o.fh<=10&&Number.isFinite(o.base)&&o.base>=0&&o.base<=100).map(o=>({id:String(o.id||newId()).slice(0,120),type:o.type,name:String(o.name||'').slice(0,30),points:o.points.map(p=>p.slice()),floors:1,fh:o.fh,base:o.base,openings:(Array.isArray(o.openings)?o.openings:[]).slice(0,20).filter(h=>h&&['door','window'].includes(h.kind)&&['offset','width','height','sill'].every(k=>typeof h[k]==='number'&&Number.isFinite(h[k])&&h[k]>=0)).map(h=>({kind:h.kind,offset:h.offset,width:h.width,height:h.height,sill:h.sill}))}));
+  return {origin:q.origin.map(Number),elements};
+}
+function disposeModel(id){const it=M3.items.get(id);if(it&&it.root)it.root.traverse(ch=>{ch.geometry?.dispose();for(const m of Array.isArray(ch.material)?ch.material:[ch.material])m?.dispose();});M3.items.delete(id);}
 
 /* ---------- import / export sanitising ---------- */
 function cleanLine8(a, max = 400){ if(!Array.isArray(a)) return null; const l = a.filter(validCoordPair).slice(0, max).map(c => [+(+c[0]).toFixed(8), +(+c[1]).toFixed(8)]); return l.length >= 2 ? l : null; }
@@ -3894,7 +3922,7 @@ function cleanObj(o){
     return lines.length ? {...base, ...p, lines, georef: !!o.georef, rot: num(o.rot, -180, 180, 0), scale: num(o.scale, 0.001, 1000, 1), unit: num(o.unit, 0.0001, 10, 1)} : null; }
   const blobId = s2(o.blobId); if(!blobId) return null;
   if(o.kind === 'image') return {...base, ...p, blobId, ar: num(o.ar, 0.01, 100, 1), w: num(o.w, 0.5, 5000, 50), rot: num(o.rot, -180, 180, 0), opacity: num(o.opacity, 0.05, 1, 0.7)};
-  return {...base, ...p, blobId, ftype: o.ftype === 'obj' ? 'obj' : 'glb', unit: num(o.unit, 0.0001, 10, 1), scale: num(o.scale, 0.001, 1000, 1), rot: num(o.rot, -180, 180, 0), base: num(o.base, -30, 200, 0), zup: !!o.zup, anchor: o.anchor === 'center' ? 'center' : 'min', floors: o.floors == null ? null : Math.round(num(o.floors, 1, 120, 1))};
+  return {...base, ...p, blobId, source:o.source==='architecture'?'architecture':undefined, ftype: o.ftype === 'obj' ? 'obj' : 'glb', unit: num(o.unit, 0.0001, 10, 1), scale: num(o.scale, 0.001, 1000, 1), rot: num(o.rot, -180, 180, 0), base: num(o.base, -30, 200, 0), zup: !!o.zup, anchor: o.anchor === 'center' ? 'center' : 'min', floors: o.floors == null ? null : Math.round(num(o.floors, 1, 120, 1))};
 }
 
 wireObjBar();
