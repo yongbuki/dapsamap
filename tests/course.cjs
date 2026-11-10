@@ -1,0 +1,66 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const http=require('node:http');
+const path=require('node:path');
+const {chromium}=require('playwright');
+(async()=>{
+  let report='';
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'));
+  const server=http.createServer((req,res)=>{res.setHeader('Content-Type','text/html;charset=utf-8');res.end(req.url==='/report'?report:html);});
+  await new Promise(r=>server.listen(0,'127.0.0.1',r));
+  let browser;
+  try{
+    browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||(fs.existsSync('/usr/bin/chromium')?'/usr/bin/chromium':undefined),headless:true,args:['--no-sandbox']});
+    const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+    const errors=[];page.on('pageerror',e=>errors.push(e.message));
+    await page.route('https://**',r=>r.abort());
+    const url=`http://127.0.0.1:${server.address().port}`;
+    await page.goto(url+'/?debug');
+    await page.waitForFunction(()=>window.__dbg&&/기록 0곳/.test(document.querySelector('#stat').textContent));
+    await page.evaluate(async()=>{
+      const d=__dbg,L=d.mkLocal(129.06,35.16),ring=[[0,0],[20,0],[20,10],[0,10],[0,0]].map(p=>L.b(...p));
+      const brief=d.cleanBrief({title:'<script>window.pwned=1</script>',concept:'중정을 통한 세대 간 교류',program:[{id:'p1',name:'작업실',area:30,count:2},{id:'p2',name:'라운지',area:40,count:1}],efficiency:0.8});
+      const p=d.programStats(brief);if(p.net!==100||p.gross!==125)throw Error('Schedule totals incorrect');
+      const bad=d.cleanBrief({efficiency:0,program:[null,{area:-10,count:-2}],schemes:[null,{gfa:'bad'}]});
+      if(bad.efficiency!==0.75||bad.program[0].area!==0||bad.program[0].count!==1||bad.schemes[0].gfa!==0)throw Error('Invalid backup data accepted');
+      const site={id:'course',name:'테스트 대지',project:'설계 스튜디오',polys:[{ring}],area:200,masses:[{id:'mass',name:'A동',ring,floors:3,fh:3,base:0}],objects:[],parking:[],brief,updatedAt:Date.now()};
+      await d.saveSite(site);d.selectSite(site.id);d.openPanel('studio');await d.refreshMassStats();
+    });
+    await page.locator('#brief-concept').fill('빛이 들어오는 중정');
+    await page.locator('#brief-title').click();
+    await page.waitForFunction(()=>__dbg.curSite().brief.concept==='빛이 들어오는 중정');
+    await page.locator('[data-act="schemeSave"]').click();
+    await page.waitForFunction(()=>__dbg.curSite().brief.schemes.length===1);
+    await page.evaluate(async()=>{const s=__dbg.curSite();s.masses[0].floors=4;await __dbg.saveSite(s);});
+    await page.locator('[data-act="schemeSave"]').click();
+    await page.waitForFunction(()=>__dbg.curSite().brief.schemes.length===2);
+    report=await page.evaluate(async()=>{
+      const d=__dbg,s=d.curSite(),q=s.brief;
+      if(Math.abs(q.schemes[0].gfa-600)>0.1||Math.abs(q.schemes[1].gfa-800)>0.1)throw Error('Snapshots mutated or wrong floor area');
+      if(Math.abs(q.schemes[0].far-300)>0.1)throw Error('FAR incorrect');
+      const cleaned=d.cleanSite(JSON.parse(JSON.stringify(s)));
+      if(cleaned.brief.schemes.length!==2||cleaned.brief.program.length!==2)throw Error('Backup drops course data');
+      const M=await d.massStats(s);return d.courseReportHTML(s,M);
+    });
+    assert.ok(report.includes('&lt;script&gt;'));
+    assert.ok(report.includes('A3 landscape'));
+    await page.setViewportSize({width:320,height:568});
+    const overflow=await page.locator('#panel .scroll').evaluate(e=>({extra:e.scrollWidth-e.clientWidth,items:[...e.querySelectorAll('*')].filter(x=>x.getBoundingClientRect().right>e.getBoundingClientRect().right+1&&!x.closest('.brief-compare')).map(x=>({tag:x.tagName,cls:x.className,text:x.textContent.slice(0,60),width:x.getBoundingClientRect().width})).slice(0,12)}));
+    assert.ok(overflow.extra<=1,'Course card overflows mobile '+JSON.stringify(overflow));
+    await page.reload();
+    await page.waitForFunction(()=>window.__dbg&&__dbg.S.sites.some(s=>s.id==='course'));
+    assert.equal(await page.evaluate(()=>__dbg.S.sites.find(s=>s.id==='course').brief.schemes.length),2);
+    console.log('PASS: room totals, sanitized backup, immutable design metrics, mobile editor and persistence');
+    const output=await browser.newPage();
+    await output.goto(url+'/report');
+    assert.equal(await output.evaluate(()=>window.pwned),undefined);
+    assert.equal(await output.locator('svg path').count()>0,true);
+    assert.equal(await output.locator('table').count(),3);
+    await output.emulateMedia({media:'print'});
+    const pdf=await output.pdf({preferCSSPageSize:true,printBackground:true});
+    assert.equal(pdf.subarray(0,4).toString(),'%PDF');
+    fs.writeFileSync('/workspace/course-report-preview.pdf',pdf);
+    assert.deepEqual(errors,[]);
+    console.log('PASS: standalone report, escaped user text, vector plan and A3 PDF rendering');
+  }finally{if(browser)await browser.close();await new Promise(r=>server.close(r));}
+})().catch(e=>{console.error(e);process.exitCode=1;});

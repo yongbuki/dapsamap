@@ -337,12 +337,14 @@ body.placing .toast{bottom:auto;top:calc(66px + env(safe-area-inset-top,0px))}
 .primary-nav{display:contents}
 .nav-label,.tools-toggle{display:none}
 .mobile-only{display:none}
+.toast{pointer-events:none}
 .walk-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:12px 0}
 .walk-metrics>div{display:grid;gap:3px;padding:9px 6px;border:1px solid var(--hair);border-radius:8px;background:var(--paper);text-align:center;font-size:11px;color:var(--ink-2)}
 .walk-metrics b{font-size:15px;color:var(--ink)}
 .walk-route{width:100%;border:0;background:none;text-align:left;padding:6px 3px;font-size:12px;color:var(--ink);white-space:normal}
 .walk-route[aria-pressed="true"]{color:var(--accent);font-weight:600}
 .walk-origin{margin:10px 0;line-height:1.6}
+.brief-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}.brief-program{display:grid;grid-template-columns:minmax(0,1fr) 64px 64px 44px;gap:5px;align-items:center;margin:6px 0}.brief-program input{width:100%;min-width:0;border:1px solid var(--line);border-radius:6px;background:var(--paper);padding:7px 5px;font-size:13px}.brief-program label{font-size:11px;color:var(--ink-2)}.brief-compare{overflow-x:auto;min-width:0;max-width:100%}.brief-compare table{min-width:360px}.brief-grid textarea{min-height:70px}
 .rtab.wk{table-layout:fixed}.rtab.wk th:first-child{width:19%}.rtab.wk th:nth-child(2),.rtab.wk th:nth-child(3),.rtab.wk th:nth-child(4){width:10%}
 .ib:disabled{opacity:.4;cursor:default}
 @media (max-width:899.98px){
@@ -379,6 +381,8 @@ body.placing .toast{bottom:auto;top:calc(66px + env(safe-area-inset-top,0px))}
   .formbar{padding:10px 16px;flex:none}
   .formbar .btn{min-height:48px}
   .panel button,.placebar button,.addmenu button,.kko button{min-height:44px}
+  .panel .btn{white-space:normal;min-width:0;max-width:100%}
+  .panel .menu-list:not(.row){grid-template-columns:minmax(0,1fr);min-width:0}
   .panel .x,.kko .x,.lb .x,.stp button,.rate button,.phedit .th button{min-width:44px;min-height:44px}
   .panel input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),.panel textarea,.panel select,.placebar input:not([type="checkbox"]):not([type="range"]),.placebar select{font-size:16px!important;min-height:44px;min-width:0;max-width:100%}
   .panel input[type="checkbox"],.placebar input[type="checkbox"]{width:20px;height:20px;flex:none}
@@ -2194,7 +2198,7 @@ function cleanSite(x){
     masses: Array.isArray(x.masses) ? x.masses.slice(0, 60).filter(Boolean).map(m => { const ring = cleanLine8(m.ring); if(ring && ring.length < 4) return null; return ring ? {id: s2(m.id) || newId(), name: s2(m.name).slice(0, 30), ring, floors: Math.max(1, Math.min(80, Math.round(+m.floors || 1))), fh: Math.max(2, Math.min(10, +m.fh || 3)), base: Math.max(0, Math.min(100, +m.base || 0))} : null; }).filter(Boolean) : [],
     parking: Array.isArray(x.parking) ? x.parking.slice(0, 80).filter(Boolean).map(k => { const ring = cleanRingArr(k.ring); return ring ? {ring} : null; }).filter(Boolean) : [],
     objects: Array.isArray(x.objects) ? x.objects.slice(0, 40).map(cleanObj).filter(Boolean) : [],
-    households: Math.max(1, Math.round(+x.households || 8)), parkTarget: Math.max(0, Math.round(+x.parkTarget || 0)), createdAt: +x.createdAt || Date.now(), updatedAt: +x.updatedAt || Date.now()};
+    brief: cleanBrief(x.brief), households: Math.max(1, Math.round(+x.households || 8)), parkTarget: Math.max(0, Math.round(+x.parkTarget || 0)), createdAt: +x.createdAt || Date.now(), updatedAt: +x.updatedAt || Date.now()};
 }
 let importing = false;
 async function importData(file){
@@ -2336,6 +2340,11 @@ panel.addEventListener('click', async e => {
     case 'radSvg': if(S.radiusRes) download(new Blob([walkSVG(S.radiusRes)], {type:'image/svg+xml'}), `도보권-${fileStamp()}.svg`); break;
     case 'walkPace': WALK.pace = b.dataset.v === 'slow' ? 'slow' : 'norm'; try { localStorage.setItem('dapsa3d.walkPace', WALK.pace); } catch(_){} if(S.radiusRes) radiusAnalysis(S.radiusRes.c); else keepScroll(renderStudio); break;
     case 'mapFocus': S.mapFocus = !S.mapFocus; applyPerm(); keepScroll(renderStudio); break;
+    case 'programAdd': { const s=curSite(); if(s){ const q=briefOf(s); if(q.program.length>=40){ toast('실 프로그램은 40개까지 기록할 수 있어요'); break; } q.program.push({id:newId(),name:'',area:0,count:1}); s.brief=q; await saveSite(s); keepScroll(renderStudio); } break; }
+    case 'programDel': { const s=curSite(); if(s){ const q=briefOf(s); q.program=q.program.filter(p=>p.id!==b.dataset.id); s.brief=q; await saveSite(s); keepScroll(renderStudio); } break; }
+    case 'schemeSave': await saveScheme(); break;
+    case 'schemeDel': { const s=curSite(); if(s){ const q=briefOf(s); q.schemes=q.schemes.filter(p=>p.id!==b.dataset.id); s.brief=q; await saveSite(s); keepScroll(renderStudio); } break; }
+    case 'courseReport': await exportCourseReport(); break;
     case 'style': setStyleMode(b.dataset.v); keepScroll(renderStudio); break;
     case 'png': exportPNG(); break;
     case 'render': if(window.innerWidth < 900) closePanel(); renderShot(); break;
@@ -2386,6 +2395,12 @@ panel.addEventListener('input', e => {
 });
 panel.addEventListener('change', async e => {
   const tg = e.target;
+  if(tg.dataset.brief || tg.dataset.program){
+    const s=curSite(); if(!s) return; const q=briefOf(s);
+    if(tg.dataset.brief){ const k=tg.dataset.brief; if(['title','concept','observations','questions','schemeName'].includes(k)) q[k]=String(tg.value).slice(0,2000); else if(k==='efficiency') q.efficiency=Math.max(0.3,Math.min(1,(+tg.value||75)/100)); }
+    else { const p=q.program.find(p=>p.id===tg.dataset.program); if(!p) return; const k=tg.dataset.k; if(k==='name') p.name=String(tg.value).slice(0,80); else if(k==='area') p.area=Math.max(0,Math.min(1e6,+tg.value||0)); else if(k==='count') p.count=Math.max(1,Math.min(999,Math.round(+tg.value||1))); }
+    s.brief=q; await saveSite(s); keepScroll(renderStudio); return;
+  }
   if(tg.dataset.act2 === 'walkAvoidSteps'){ WALK.avoidSteps = tg.checked; try { localStorage.setItem('dapsa3d.walkAvoidSteps', WALK.avoidSteps ? '1' : '0'); } catch(_){} if(S.radiusRes) radiusAnalysis(S.radiusRes.c); return; }
   if(tg.dataset.act2 === 'walkRings'){ WALK.rings = tg.checked; if(S.radiusRes) walkShow(S.radiusRes); return; }
   if(tg.dataset && tg.dataset.proj){ const nw = $('#' + tg.id + 'New'); if(tg.value === '__new'){ if(nw){ nw.hidden = false; const i = $('#' + tg.id + 'Name'); if(i) i.focus(); } return; } setProject(tg.value); if(S.panel === 'studio') renderStudio(); else if(S.panel === 'list') renderList(); return; }
@@ -2533,7 +2548,7 @@ function projectSelectHTML(id){
 async function loadSites(){ try { S.sites = (await DB.allSites()).filter(s => s && s.id); } catch(_){ S.sites = []; } for(const x of S.sites) if(x.stats && x.stats.v !== 3) x.stats = null; /* heights saved before the absolute-elevation fix */ try { const k = localStorage.getItem('dapsa3d.siteId'); if(k && S.sites.some(s => s.id === k)) S.siteId = k; } catch(_){} }
 const curSite = () => S.sites.find(s => s.id === S.siteId) || null;
 async function saveSite(s){ s.updatedAt = Date.now(); await DB.putSite(s); const i = S.sites.findIndex(x => x.id === s.id); if(i >= 0) S.sites[i] = s; else S.sites.push(s); renderStudioMap(); }
-function selectSite(id){ if(S.siteId !== id) resetWalk(); S.siteId = id; try { localStorage.setItem('dapsa3d.siteId', id || ''); } catch(_){} renderStudioMap(); }
+function selectSite(id){ if(S.siteId !== id){ resetWalk(); S.massRun=(S.massRun||0)+1; S.massRes=null; } S.siteId = id; try { localStorage.setItem('dapsa3d.siteId', id || ''); } catch(_){} renderStudioMap(); }
 function siteRings(s){ return (s && s.polys || []).map(p => p.ring); }
 function siteCenter(s){ const c = shapeCenter(s.polys); return {lng: c[0], lat: c[1]}; }
 
@@ -3035,13 +3050,71 @@ function regRowsHTML(s, st){
   return `<dl class="spec tight"><dt>건폐율</dt><dd>${mk(st ? st.bcr : 0, lim.bcr)} · 최대 건축면적 ${fmtM2(maxBca)}</dd><dt>용적률</dt><dd>${mk(st ? st.far : 0, lim.far)} · 최대 연면적 ${fmtM2(maxGfa)}</dd></dl>
     <p class="hint">${lim.nat ? '국토계획법 시행령 상한' : '부산시 도시계획 조례 기준'}이에요. 지구단위계획·고도지구·경관지구가 있으면 더 엄격할 수 있으니 토지이음에서 꼭 확인하세요.</p>`;
 }
+/* Course work: persistent brief, room schedule, metric snapshots and print report. */
+function cleanBrief(raw){
+  const q=raw && typeof raw==='object' ? raw : {}, str=v=>String(v??'').slice(0,2000);
+  const num=(v,max=1e12)=>Number.isFinite(+v)?Math.max(0,Math.min(max,+v)):0;
+  return {title:str(q.title),concept:str(q.concept),observations:str(q.observations),questions:str(q.questions),schemeName:str(q.schemeName),efficiency:Number.isFinite(+q.efficiency)&&+q.efficiency>=0.3&&+q.efficiency<=1?+q.efficiency:0.75,
+    program:(Array.isArray(q.program)?q.program:[]).filter(p=>p&&typeof p==='object').slice(0,40).map(p=>({id:String(p.id||newId()).slice(0,120),name:str(p.name).slice(0,80),area:num(p.area,1e6),count:Math.max(1,Math.round(num(p.count,999)))})),
+    schemes:(Array.isArray(q.schemes)?q.schemes:[]).filter(p=>p&&typeof p==='object').slice(0,12).map(p=>({id:String(p.id||newId()).slice(0,120),name:str(p.name).slice(0,80),at:str(p.at).slice(0,40),siteArea:num(p.siteArea),bca:num(p.bca),gfa:num(p.gfa),top:num(p.top,1e4),bcr:num(p.bcr,1e6),far:num(p.far,1e6),approx:!!p.approx}))};
+}
+const briefOf=s=>cleanBrief(s&&s.brief);
+function programStats(q){ const net=q.program.reduce((n,p)=>n+p.area*p.count,0); return {net,gross:net/q.efficiency}; }
+function schemeTable(q,remove=false){
+  return `<table class="rtab"><thead><tr><th>설계안</th><th>연면적 ㎡</th><th>건폐율 %</th><th>용적률 %</th><th>높이 m</th>${remove?'<th></th>':''}</tr></thead><tbody>${q.schemes.map(p=>`<tr><td>${esc(p.name)}${p.approx?' *':''}<br><small>대지 ${fmtM2(p.siteArea)}</small></td><td>${p.gfa.toFixed(1)}</td><td>${p.bcr.toFixed(1)}</td><td>${p.far.toFixed(1)}</td><td>${p.top.toFixed(1)}</td>${remove?`<td><button class="x sm" data-act="schemeDel" data-id="${esc(p.id)}" aria-label="${esc(p.name)} 지표 삭제">×</button></td>`:''}</tr>`).join('')}</tbody></table>`;
+}
+function courseCardHTML(s,M){
+  const q=briefOf(s), p=programStats(q);
+  const field=(k,label,placeholder)=>`<div class="fld"><label for="brief-${k}">${label}</label><textarea id="brief-${k}" data-brief="${k}" placeholder="${placeholder}">${esc(q[k])}</textarea></div>`;
+  return `<section class="card"><h3>과제 노트 · 프로그램 · 설계안 비교</h3><div class="brief-grid">
+    <div class="fld"><label for="brief-title">과제 제목</label><input type="text" id="brief-title" data-brief="title" value="${esc(q.title)}" placeholder="예: 초량동 세대 공존 커뮤니티"></div>
+    ${field('concept','설계 의도','누구를 위한 공간인지, 해결할 문제와 공간 전략')}${field('observations','현장 관찰 · 근거','사진·답사 날짜, 경사·진입·소음·조망 등 확인한 내용')}${field('questions','다음 크리틱 질문','검토할 대안, 교수님께 물어볼 점, 다음 작업')}
+    <h4 class="sub">실별 소요면적</h4><p class="hint">실 하나의 순면적과 개수를 입력하세요. 목표 연면적은 순면적 합계 ÷ 전용률로 계산합니다.</p>
+    ${q.program.map(p=>`<div class="brief-program"><label>실 이름<input type="text" data-program="${esc(p.id)}" data-k="name" value="${esc(p.name)}" aria-label="실 이름"></label><label>㎡ / 실<input type="number" min="0" step="0.1" data-program="${esc(p.id)}" data-k="area" value="${p.area}" aria-label="실당 순면적"></label><label>개수<input type="number" min="1" max="999" data-program="${esc(p.id)}" data-k="count" value="${p.count}" aria-label="실 개수"></label><button class="x" data-act="programDel" data-id="${esc(p.id)}" aria-label="${esc(p.name||'프로그램')} 삭제">×</button></div>`).join('')}
+    <button class="btn" data-act="programAdd">+ 실 추가</button><label class="fh">계획 전용률 <input type="number" min="30" max="100" data-brief="efficiency" value="${Math.round(q.efficiency*100)}" aria-label="계획 전용률">%</label>
+    <p class="note">순면적 합계 <b>${fmtM2(p.net)}</b> · 목표 연면적 <b>${fmtM2(p.gross)}</b>${M&&p.gross?`<br>현재 ${fmtM2(M.gfa)} · 목표 대비 ${M.gfa>=p.gross?'여유':'부족'} ${fmtM2(Math.abs(M.gfa-p.gross))}`:''}</p>
+    <h4 class="sub">설계안 지표 기록</h4><p class="hint">현재 매스·모델의 면적과 높이를 계산해 비교표에 기록합니다. 형상 복원용 파일은 설정의 전체 백업을 사용하세요.</p>
+    <div class="fld"><label for="brief-schemeName">설계안 이름</label><input type="text" id="brief-schemeName" data-brief="schemeName" value="${esc(q.schemeName)}" placeholder="예: A안 · 중정형 4층"></div>
+    <button class="btn" data-act="schemeSave">현재 설계안 지표 기록 (${q.schemes.length}/12)</button>${q.schemes.length?`<div class="brief-compare">${schemeTable(q,true)}</div>`:''}
+    <button class="btn pri" data-act="courseReport">과제 분석 보고서 · A3 / PDF</button><p class="hint">보고서 HTML을 열고 인쇄에서 PDF로 저장하세요. 대지·매스 평면, 과제 노트, 프로그램표와 비교표를 포함합니다.</p>
+  </div></section>`;
+}
+async function saveScheme(){
+  const s=curSite(); if(!s) return; const q=briefOf(s);
+  if(q.schemes.length>=12){ toast('지표는 12개까지 기록할 수 있어요'); return; }
+  if(!(s.masses||[]).length&&!modelFootprints(s).length){ toast('매스를 그리거나 모델을 추가한 뒤 기록하세요'); return; }
+  const stamp=s.updatedAt, M=await massStats(s);
+  if(curSite()!==s||s.updatedAt!==stamp){ toast('설계안이 변경됐어요. 다시 기록해 주세요'); return; }
+  q.schemes.push({id:newId(),name:q.schemeName.trim()||`설계안 ${q.schemes.length+1}`,at:new Date().toISOString(),siteArea:s.area,...Object.fromEntries(['bca','gfa','top','bcr','far','approx'].map(k=>[k,M[k]]))});
+  s.brief=q; await saveSite(s); if(S.panel==='studio') keepScroll(renderStudio); toast('설계안 지표를 기록했어요');
+}
+function coursePlanSVG(s){
+  const c=siteCenter(s),L=mkLocal(c.lng,c.lat),rings=[...siteRings(s),...(s.masses||[]).map(m=>m.ring)],bb=ringsBBox(rings.map(r=>r.map(p=>L.f(...p))));
+  const W=520,H=300,k=Math.min(440/Math.max(1,bb[2]-bb[0]),220/Math.max(1,bb[3]-bb[1])),X=x=>40+(x-bb[0])*k,Y=y=>260-(y-bb[1])*k;
+  const path=r=>'M'+r.map(p=>{const q=L.f(...p);return `${X(q[0]).toFixed(2)} ${Y(q[1]).toFixed(2)}`;}).join('L')+'Z';
+  let g=siteRings(s).map(r=>`<path d="${path(r)}" fill="#f3f4ef" stroke="#b8342c" stroke-width="1.5" stroke-dasharray="5 3"/>`).join('');
+  (s.masses||[]).forEach((m,i)=>{ const q=L.f(...centroid(m.ring));g+=`<path d="${path(m.ring)}" fill="#cbd3ee" stroke="#2c47c4"/><text x="${X(q[0])}" y="${Y(q[1])}" text-anchor="middle" font-size="12">${i+1}</text>`; });
+  let bar=1; for(const n of [1,2,5,10,20,50,100,200,500,1000]) if(n*k<=130) bar=n;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="대지와 매스 평면 다이어그램"><rect width="520" height="300" fill="white"/>${g}<path d="M490 18l-5 18h10Z" fill="#1c2120"/><text x="490" y="13" text-anchor="middle" font-size="11">N</text><path d="M40 280h${bar*k}" stroke="#1c2120" stroke-width="4"/><text x="40" y="295" font-size="11">0 — ${bar}m · 화면 맞춤 축척</text></svg>`;
+}
+function courseReportHTML(s,M){
+  const q=briefOf(s),p=programStats(q),title=q.title||s.name,st=s.stats;
+  const para=t=>esc(t||'미작성').replace(/\n/g,'<br>');
+  const rows=[['대지면적',fmtM2(s.area)],['용도지역',s.zoning||'미확인'],['건축면적',fmtM2(M.bca)],['연면적',fmtM2(M.gfa)],['건폐율 / 용적률',`${pct(M.bcr)} / ${pct(M.far)}`],['최고 높이',M.top.toFixed(1)+'m'],['표고 / 경사',st?`${st.emin}~${st.emax}m / ${st.slope}%`:'미분석']];
+  return `<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)} · 과제 분석</title><style>@page{size:A3 landscape;margin:15mm}*{box-sizing:border-box}body{font:14px/1.6 system-ui,sans-serif;color:#1c2120;margin:24px}h1{margin:0;font-size:30px}h2{font-size:18px;border-top:2px solid;padding-top:10px;margin-top:24px}p{overflow-wrap:anywhere}.meta,small{color:#56605c}.layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px}svg{width:100%;max-height:300px}table{width:100%;border-collapse:collapse}td,th{padding:6px;text-align:left;border-bottom:1px solid #d9ddd5;overflow-wrap:anywhere}th{font-size:12px}.notes{border:1px solid #d9ddd5;padding:12px}.toolbar{margin-bottom:20px}button{padding:10px 18px}section{break-inside:avoid}@media print{body{margin:0;font-size:11pt}.toolbar{display:none}}@media screen and (max-width:700px){.layout{grid-template-columns:1fr}.table-wrap{overflow:auto}}</style><div class="toolbar"><button onclick="window.print()">인쇄 / PDF로 저장</button> <small>A3 가로 · 한 장을 넘으면 다음 페이지로 이어집니다.</small></div><header><p class="meta">ARCHITECTURE STUDIO · ${esc(s.project||'설계 과제')} · ${todayStr()}</p><h1>${esc(title)}</h1><p>${esc(s.name)} · ${esc(s.address||[s.region,s.dong].filter(Boolean).join(' '))}</p></header><div class="layout"><div><section><h2>01 대지 · 현재 매스</h2>${coursePlanSVG(s)}<p class="meta">점선: 대지 / 파란 면: 직접 그린 매스${(s.masses||[]).map((m,i)=>` · ${i+1}: ${esc(m.name||'매스')} ${m.floors}층`).join('')}<br>가져온 3D 모델은 면적 지표에 반영되며 이 평면 도식에는 표시하지 않습니다.</p><table>${rows.map(([a,b])=>`<tr><th>${a}</th><td>${esc(b)}</td></tr>`).join('')}</table></section><section><h2>02 설계 의도</h2><p class="notes">${para(q.concept)}</p><h2>03 현장 관찰 · 근거</h2><p>${para(q.observations)}</p><h2>다음 크리틱 질문</h2><p>${para(q.questions)}</p></section></div><div><section><h2>04 프로그램 · 소요면적</h2><table><thead><tr><th>실</th><th>㎡ / 실</th><th>개수</th><th>순면적 합계</th></tr></thead><tbody>${q.program.map(r=>`<tr><td>${esc(r.name||'미정')}</td><td>${r.area}</td><td>${r.count}</td><td>${(r.area*r.count).toFixed(1)}㎡</td></tr>`).join('')}</tbody></table><p>순면적 합계 ${fmtM2(p.net)} / 계획 전용률 ${Math.round(q.efficiency*100)}%<br>목표 연면적 <b>${fmtM2(p.gross)}</b> / 현재 연면적 ${fmtM2(M.gfa)}</p></section><section><h2>05 설계안 지표 비교</h2>${q.schemes.length?`<div class="table-wrap">${schemeTable(q)}</div>`:'<p>기록된 설계안 지표가 없습니다.</p>'}<p class="meta">각 기록 당시의 대지면적으로 비율을 계산한 비교입니다. *: 모델 면적 일부 어림.</p></section><section><h2>자료 · 계산 조건</h2><p class="meta">작성일 ${todayStr()}. 대지·매스는 사용자가 지정한 형상 기준. 연면적은 매스 바닥면적 × 층수와 불러온 모델 계산값의 합계이며 법정 연면적 산정의 제외 항목은 반영하지 않습니다. ${M.approx?'모델 면적 일부는 외곽선으로 어림했습니다. ':''}지형은 Mapzen Terrain(약 30~90m 간격), 지도는 OpenStreetMap·OpenFreeMap, 국가공간정보 사용 시 브이월드 자료입니다. 용도지역과 법규는 토지이음 및 해당 지자체 조례로 확인하세요. 대지 경계·표고는 측량 성과가 아닙니다.</p></section></div></div></html>`;
+}
+async function exportCourseReport(){
+  const s=curSite(); if(!s) return; const stamp=s.updatedAt;
+  try { const M=await massStats(s); if(curSite()!==s||s.updatedAt!==stamp){ toast('대지나 설계안이 변경됐어요. 다시 내보내 주세요'); return; } download(new Blob([courseReportHTML(s,M)],{type:'text/html;charset=utf-8'}),`과제분석-${fileStamp()}.html`); toast('보고서를 저장했어요. 파일을 열어 인쇄에서 PDF로 저장하세요',6000); }
+  catch(_){ toast('보고서를 만들지 못했어요. 잠시 후 다시 시도해 주세요'); }
+}
 function renderStudio(){
   const s = curSite() && siteInProject(curSite()) ? curSite() : null;
   const list = S.sites.filter(siteInProject);
   let h = projectSelectHTML('projSelS');
   h += `<div class="sitelist">${list.map(x => `<button class="sitechip" data-act="siteSel" data-id="${esc(x.id)}" aria-pressed="${s && x.id === s.id}"><b>${esc(x.name)}</b><span>${fmtM2(x.area)}${x.zoning ? ' · ' + esc(x.zoning) : ''}</span></button>`).join('')}<button class="sitechip add" data-act="siteNew"><b>+ 대지 정하기</b><span>필지를 탭하거나 범위를 그려요</span></button></div>`;
   if(s){
-    const st = s.stats, M = S.massRes;
+    const st = s.stats, M = S.massResSite===s.id ? S.massRes : null;
     const jb = (s.parcels || []).map(p => p.jibun).filter(Boolean);
     const jiga = (s.parcels || []).map(p => p.jiga).filter(Boolean);
     h += `<section class="card"><div class="cardhead"><input type="text" id="siteName" data-site="name" value="${esc(s.name)}" aria-label="대지 이름"><button class="btn sm ghost" data-act="siteFly">보기</button></div>
@@ -3073,6 +3146,7 @@ function renderStudio(){
         <dt>주차</dt><dd><input type="number" min="0" max="50" data-site="parkTarget" value="${s.parkTarget ?? 2}" class="numin"> 대 계획 · ${(s.parking || []).length}대 배치</dd></dl>
         ${M.envOver.length ? `<p class="warn">정북 일조사선을 넘는 매스: ${esc(M.envOver.join(', '))}</p>` : ''}` : ''}
     </section>`;
+    h += courseCardHTML(s,M);
     h += objCardHTML(s);
     // sun
     const sr = S.sunRes;
@@ -3098,7 +3172,7 @@ function renderStudio(){
   if(s) h += `<div class="p-actions"><button class="btn" data-act="siteRedo">대지 다시 정하기</button><button class="btn danger" data-act="siteAskDel">대지 삭제</button></div><div class="confirm" id="siteConfirm" hidden><p>이 대지와 매스·주차 배치를 삭제할까요? 되돌릴 수 없어요.</p><button class="btn sm" data-act="siteNoDel">취소</button><button class="btn sm danger solid" data-act="siteDel">삭제</button></div>`;
   panel.innerHTML = head('대지 분석') + `<div class="scroll">${h}</div>`;
 }
-async function refreshMassStats(){ const s = curSite(); S.massRes = s && ((s.masses || []).length || modelFootprints(s).length) ? await massStats(s) : null; if(S.panel === 'studio') keepScroll(renderStudio); }
+async function refreshMassStats(){ const s=curSite(),run=S.massRun=(S.massRun||0)+1; const M=s&&((s.masses||[]).length||modelFootprints(s).length)?await massStats(s):null; if(run!==S.massRun||curSite()!==s) return; S.massRes=M; S.massResSite=s&&s.id; if(S.panel==='studio') keepScroll(renderStudio); }
 
 /* ================= STUDIO 2: measure · draft · my models & plans ================= */
 const brgOf = (a, b) => { const L = mkLocal(a[0], a[1]); const [x, y] = L.f(b[0], b[1]); return (Math.atan2(x, y)/D2R + 360) % 360; };
@@ -5687,7 +5761,7 @@ function planDXF(P){
 }
 
 /* ---------------- boot ---------------- */
-if(/[?&]debug/.test(location.search)) window.__dbg = {planBuild, mkLocal, M3, planLive, makePlan, planCut, planSVG, planDXF, planApply3d, planSlice, renderPlan, PLANHIDE, walkTime, walkCompute, walkParse, walkSVG, walkCardHTML, walkShow, walkNetworkFeatures, walkClear, walkRoute, radiusAnalysis, resetWalk, fitPadding, nestRings, MinHeap, WALK, POI_CATS, demFilter, demFilterOff, morph, mkQuiet, onZoom, REG, KK, VW, regParse, regItem, regMatch, regHeight, regPnuCands, regDongKey, regApply, regFetch, regPick, regSave, regWorkerCode, regStatText, flushVwBldg, vwIdxAdd, kkoOpen, kkoClose, kkoMode, kkoLevel, bldMeta, smoothDem, topoTileHit, decodeTerrarium, encodeTerrarium, cmExport, rhinoContours, cmPreview, TOPO, CRSDEF, crsOf, crsInv, tmF, makeConv, detectCrs, prjToCrs, parseTopoDXF, parseShp, parseDbf, parseShpLayer, unzipFiles, readTopoFiles, buildTopoDem, localDemAt, isoLines, simplifyPL, cmCompute, cmLayers, cmPack, cmSVG, cmDXF, cmInfoText, cmCardHTML, topoCardHTML, topoActivate, importTopo, renderLook, applyBldMode, vwFillMissing, topoFloorsAt, vwEstimate, floorTap, heightCounts, demSample, DEMT, demXY, sunTimes, sunDir, shadowObj, shadowPoly, projPt, terrBlocked, sunDateStr, renderSunbar, elevAsync, migrateElev, cleanRec, S, openPanel, blankObsDraft, sectionSVG, renderStudio, saveSite, curSite, selectSite, envelopeCells, massStats, refreshMassStats, startPlacing, measureMsg, measureFeatures, rectFrom, parseDXF, inv5187, tm5187, modelAreas, cleanSite, objCardHTML, startObjEdit, hav, ringAreaM2, mkLocal, numAdd, finishDraft, useInfo, vwIdxAdd, vwBldgAt, innerPoint, liveBld, HFIX, hfixPut, vwApplyFixes, VW, renderDraft};
+if(/[?&]debug/.test(location.search)) window.__dbg = {cleanBrief, programStats, courseReportHTML, coursePlanSVG, saveScheme, planBuild, mkLocal, M3, planLive, makePlan, planCut, planSVG, planDXF, planApply3d, planSlice, renderPlan, PLANHIDE, walkTime, walkCompute, walkParse, walkSVG, walkCardHTML, walkShow, walkNetworkFeatures, walkClear, walkRoute, radiusAnalysis, resetWalk, fitPadding, nestRings, MinHeap, WALK, POI_CATS, demFilter, demFilterOff, morph, mkQuiet, onZoom, REG, KK, VW, regParse, regItem, regMatch, regHeight, regPnuCands, regDongKey, regApply, regFetch, regPick, regSave, regWorkerCode, regStatText, flushVwBldg, vwIdxAdd, kkoOpen, kkoClose, kkoMode, kkoLevel, bldMeta, smoothDem, topoTileHit, decodeTerrarium, encodeTerrarium, cmExport, rhinoContours, cmPreview, TOPO, CRSDEF, crsOf, crsInv, tmF, makeConv, detectCrs, prjToCrs, parseTopoDXF, parseShp, parseDbf, parseShpLayer, unzipFiles, readTopoFiles, buildTopoDem, localDemAt, isoLines, simplifyPL, cmCompute, cmLayers, cmPack, cmSVG, cmDXF, cmInfoText, cmCardHTML, topoCardHTML, topoActivate, importTopo, renderLook, applyBldMode, vwFillMissing, topoFloorsAt, vwEstimate, floorTap, heightCounts, demSample, DEMT, demXY, sunTimes, sunDir, shadowObj, shadowPoly, projPt, terrBlocked, sunDateStr, renderSunbar, elevAsync, migrateElev, cleanRec, S, openPanel, blankObsDraft, sectionSVG, renderStudio, saveSite, curSite, selectSite, envelopeCells, massStats, refreshMassStats, startPlacing, measureMsg, measureFeatures, rectFrom, parseDXF, inv5187, tm5187, modelAreas, cleanSite, objCardHTML, startObjEdit, hav, ringAreaM2, mkLocal, numAdd, finishDraft, useInfo, vwIdxAdd, vwBldgAt, innerPoint, liveBld, HFIX, hfixPut, vwApplyFixes, VW, renderDraft};
 (async function boot(){
   if(!window.maplibregl){ $('#offline').hidden = false; }
   const ok = await DB.open();
