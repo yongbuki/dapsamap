@@ -168,3 +168,38 @@ node tests/elements.cjs
 
 개구부의 정확한 제거 체적, 겹침·경계 검사, 바닥 두께, 회전 후 개구부 유지,
 저장·재열기·백업 속성과 지도용 모델 생성 및 3D 미리보기를 검증합니다.
+
+## IFC4 내보내기 · 개구부 직사광
+
+편집기의 `IFC4` 버튼은 로컬 미터, Z축 위 기준 IFC4 STEP 파일을 저장합니다.
+벽은 IfcWall, 바닥판은 IfcSlab, 매스는 IfcBuildingElementProxy로 기록하고,
+IfcOpeningElement·IfcRelVoidsElement·IfcRelFillsElement로 문·창과 벽의 관계를
+기록합니다. 문·창의 치수와 배치도 포함하지만 문짝·유리·창틀 형상은 생성하지 않습니다.
+한 개의 설계 기준 레벨과 요소별 설치 높이를 사용합니다. 대지 위경도는 참조 정보이며
+측량 좌표계 변환(IfcMapConversion)이나 IFC 가져오기·왕복 편집은 지원하지 않습니다.
+IfcOpenShell로 스키마·EXPRESS 규칙, 단위·관계와 개구부 제거 후의 벽 체적을 검증했습니다.
+Revit 등 개별 상용 프로그램에서의 호환성은 별도 확인이 필요합니다.
+[관계 정의: buildingSMART](https://standards.buildingsmart.org/IFC/RELEASE/IFC4/ADD2_TC1/HTML/schema/ifcproductextension/lexical/ifcrelfillselement.htm)
+
+`요소 선택`에서 바닥판을 선택하고 날짜·KST 시각·작업면 높이를 입력한 뒤
+`선택 바닥판 직사광 분석`을 실행하세요. 태양 위치는 대지 위경도와 해당 시각으로 계산합니다.
+편집기 내부의 매스·벽·바닥과 실제 개구부를 대상으로 작업면 표본에서 태양 방향으로
+광선을 추적합니다. 초록은 개구부를 통과한 직사광, 노랑은 직접 노출, 회색은 차폐 또는
+태양 없음입니다. 비율의 분모는 바닥판 작업면의 표본 수이며 벽 면적을 뺀 실사용 면적이
+아닙니다. 최대 약 500개 표본으로 추정하므로 작은 채광 패턴은 놓칠 수 있습니다.
+
+2D 색상과 3D 작업면 표본을 확인하고 `표본 CSV 저장`으로 좌표·시각·결과를 내보낼 수
+있습니다. 모델이나 조건 변경 시 결과를 다시 계산해야 합니다. 주변 지도 건물·지형,
+실제 유리 투과율·문짝·반사광·기상은 포함하지 않으며 조도(lux), 연간 채광 성능이나
+법규 적합 판정으로 사용하지 않습니다. 기존 매스도 차폐하므로 같은 건물의 외곽 매스를
+벽 모델과 겹쳐 두면 창을 통한 빛이 막힐 수 있습니다.
+
+```sh
+node tests/bim.cjs
+# IfcOpenShell과 pytest가 설치된 Python 환경에서:
+python tests/validate_ifc.py /tmp/dapsamap-bim-test.ifc
+```
+
+창을 연 모델과 막은 모델, 차폐체·태양 방향·야간의 대조 검사 및 모바일 표본 표시,
+CSV/IFC 다운로드와 변경 후 결과 무효화를 검증합니다. IFC 검증용 Python 패키지는
+배포 앱의 실행 의존성이 아닙니다.

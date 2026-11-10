@@ -3882,7 +3882,7 @@ async function openDesignEditor(){
   try{
     const {openEditor,toOBJ,validate}=await import('./studio-editor.mjs');
     const points=ring=>{const p=ring.map(q=>L.f(...q));if(p.length>1&&Math.hypot(p[0][0]-p.at(-1)[0],p[0][1]-p.at(-1)[1])<0.00001)p.pop();return p;};
-    openEditor({name:target.name,siteRings:siteRings(target).map(points),items:[...(target.masses||[]).map(m=>({id:m.id,type:'mass',name:m.name||'매스',points:points(m.ring),floors:+m.floors||1,fh:+m.fh||3,base:+m.base||0})),...(saved?saved.elements:[])],onSave:async items=>{
+    openEditor({name:target.name,origin:c,sunVector:(ymd,h)=>{const p=sunPos(kstDate(ymd,h),c.lat,c.lng);return [Math.sin(p.az)*Math.cos(p.alt),Math.cos(p.az)*Math.cos(p.alt),Math.sin(p.alt)];},siteRings:siteRings(target).map(points),items:[...(target.masses||[]).map(m=>({id:m.id,type:'mass',name:m.name||'매스',points:points(m.ring),floors:+m.floors||1,fh:+m.fh||3,base:+m.base||0})),...(saved?saved.elements:[])],onSave:async items=>{
       const current=curSite();if(!current||current.id!==target.id||JSON.stringify([current.masses||[],current.architecture||null])!==expected)throw Error('다른 작업으로 대지가 변경됐습니다. 닫고 편집기를 다시 열어 주세요.');
       validate(items);const elements=items.filter(o=>o.type==='wall'||o.type==='slab');
       const masses=items.filter(o=>!o.type||o.type==='mass').map(o=>{const ring=o.points.map(p=>L.b(...p).map(v=>+v.toFixed(8)));ring.push(ring[0].slice());return {id:o.id,name:o.name.slice(0,30),ring,floors:o.floors,fh:o.fh,base:o.base};});
