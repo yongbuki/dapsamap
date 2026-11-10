@@ -463,6 +463,9 @@ const dParts = s => { const [y,m,d] = String(s||'').split('-').map(Number); retu
 const dayLabel = s => { if(!s) return '날짜 없음'; const {y,m,d} = dParts(s); return `${y}.${pad(m)}.${pad(d)} ${WD[new Date(y,m-1,d).getDay()]}`; };
 const shortDay = s => { if(!s) return '—'; const {y,m,d} = dParts(s); return `${pad(m)}.${pad(d)} ${WD[new Date(y,m-1,d).getDay()]}`; };
 const hasLoc = r => r && Number.isFinite(r.lat) && Number.isFinite(r.lng);
+// Missing coordinates must stay missing: Number(null) and Number('') are both 0.
+const coord = (v, max) => (typeof v === 'number' || (typeof v === 'string' && v.trim())) && Number.isFinite(+v) && Math.abs(+v) <= max ? +v : null;
+const validCoordPair = c => Array.isArray(c) && c.length >= 2 && coord(c[0], 180) !== null && coord(c[1], 90) !== null;
 const fmtCoord = (lat,lng) => `${Math.abs(lat).toFixed(5)}° ${lat>=0?'N':'S'}, ${Math.abs(lng).toFixed(5)}° ${lng>=0?'E':'W'}`;
 const hav = (a, b) => { const la = (a.lat + b.lat)/2, rr = radii(la), dx = (b.lng - a.lng)*D2R*rr.N*Math.cos(la*D2R), dy = (b.lat - a.lat)*D2R*rr.M, d = Math.hypot(dx, dy); if(d < 20000) return d; // ellipsoidal local frame: cm-level over a site
   const p1=a.lat*D2R, p2=b.lat*D2R, dp=p2-p1, dl=(b.lng-a.lng)*D2R; const h=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2; return 2*R*Math.asin(Math.sqrt(h)); };
@@ -499,6 +502,23 @@ const DB = {
     } catch(_){ res(false); }
   }); },
   req(r){ return new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); },
+  batch(changes){
+    if(!DB.db){
+      for(const [name, entries] of Object.entries(changes)) for(const [id, value] of entries) DB.mem[name].set(id, value);
+      return Promise.resolve();
+    }
+    return new Promise((res, rej) => {
+      const tx = DB.db.transaction(Object.keys(changes), 'readwrite');
+      tx.oncomplete = () => res();
+      tx.onabort = () => rej(tx.error || new Error('저장이 취소됐어요'));
+      try {
+        for(const [name, entries] of Object.entries(changes)){
+          const st = tx.objectStore(name);
+          for(const [id, value] of entries) name === 'photos' ? st.put(value, id) : st.put(value);
+        }
+      } catch(e){ tx.abort(); rej(e); }
+    });
+  },
   st(name, mode='readonly'){ return DB.db.transaction(name, mode).objectStore(name); },
   async allRecs(){ return DB.db ? DB.req(DB.st('recs').getAll()) : [...DB.mem.recs.values()]; },
   async putRec(r){ if(DB.db) return DB.req(DB.st('recs','readwrite').put(r)); DB.mem.recs.set(r.id, r); },
@@ -2038,7 +2058,7 @@ function cleanShape(sh){
   if(!sh || !Array.isArray(sh.polys) || !['building','land','area'].includes(sh.kind)) return null;
   const polys = sh.polys.slice(0, 24).map(p => {
     if(!p || !Array.isArray(p.ring)) return null;
-    const ring = p.ring.filter(c => Array.isArray(c) && c.length >= 2 && Number.isFinite(+c[0]) && Number.isFinite(+c[1])).slice(0, 400).map(c => [+(+c[0]).toFixed(6), +(+c[1]).toFixed(6)]);
+    const ring = p.ring.filter(validCoordPair).slice(0, 400).map(c => [+(+c[0]).toFixed(6), +(+c[1]).toFixed(6)]);
     if(ring.length < 4) return null;
     const o = {ring}; if(Number.isFinite(+p.h) && p.h !== null) o.h = +p.h; if(Number.isFinite(+p.b) && p.b !== null) o.b = +p.b; return o;
   }).filter(Boolean);
@@ -2049,9 +2069,9 @@ function cleanShape(sh){
 }
 function cleanRec(r){
   const s = v => String(v ?? '').slice(0, 2000);
-  const lat = +r.lat, lng = +r.lng;
+  const lat = coord(r.lat, 90), lng = coord(r.lng, 180);
   let bld = null;
-  if(r.bld && Array.isArray(r.bld.ring) && r.bld.ring.length >= 4) bld = {ring: r.bld.ring.filter(p => Array.isArray(p) && p.length >= 2).map(p => [+p[0], +p[1]]).slice(0, 400), h: +r.bld.h || 6, b: +r.bld.b || 0};
+  if(r.bld){ const ring = cleanRingArr(r.bld.ring); if(ring) bld = {ring, h: +r.bld.h || 6, b: +r.bld.b || 0}; }
   return {
     id: s(r.id).slice(0, 120), name: s(r.name).slice(0, 120), cat: CAT[r.cat] ? r.cat : 'etc', date: /^\d{4}-\d{2}-\d{2}$/.test(r.date||'') ? r.date : '', time: /^\d{2}:\d{2}$/.test(r.time||'') ? r.time : '',
     lat: Number.isFinite(lat) ? lat : null, lng: Number.isFinite(lng) ? lng : null, bld, shape: cleanShape(r.shape), elev: Number.isFinite(+r.elev) && r.elev !== null && r.elev !== '' ? Math.round(+r.elev) : null,
@@ -2065,25 +2085,36 @@ function cleanRec(r){
     ev: r.ev === 2 ? 2 : 0,
   };
 }
-function cleanLine(a){ const l = a.filter(c => Array.isArray(c) && c.length >= 2 && Number.isFinite(+c[0]) && Number.isFinite(+c[1])).slice(0, 400).map(c => [+(+c[0]).toFixed(6), +(+c[1]).toFixed(6)]); return l.length >= 2 ? l : null; }
+function cleanLine(a){ if(!Array.isArray(a)) return null; const l = a.filter(validCoordPair).slice(0, 400).map(c => [+(+c[0]).toFixed(6), +(+c[1]).toFixed(6)]); return l.length >= 2 ? l : null; }
 function cleanRingArr(r){ const l = cleanLine(r || []); return l && l.length >= 4 ? l : null; }
 function cleanSite(x){
   if(!x || !x.id || !Array.isArray(x.polys)) return null;
   const s2 = v => String(v ?? '').slice(0, 300);
   const polys = x.polys.map(p => p && cleanRingArr(p.ring)).filter(Boolean).map(ring => ({ring})); if(!polys.length) return null;
   return {id: s2(x.id).slice(0, 120), name: s2(x.name).slice(0, 80), project: s2(x.project).slice(0, 60), polys, area: +x.area || polys.reduce((t, p) => t + ringAreaM2(p.ring), 0),
-    parcels: Array.isArray(x.parcels) ? x.parcels.slice(0, 60).map(p => ({key: s2(p.key), jibun: s2(p.jibun).slice(0, 40), addr: s2(p.addr), jiga: +p.jiga || null})) : [],
+    parcels: Array.isArray(x.parcels) ? x.parcels.slice(0, 60).filter(Boolean).map(p => ({key: s2(p.key), jibun: s2(p.jibun).slice(0, 40), addr: s2(p.addr), jiga: +p.jiga || null})) : [],
     zoning: s2(x.zoning).slice(0, 40), region: s2(x.region), dong: s2(x.dong).slice(0, 40), address: s2(x.address), stats: x.stats && typeof x.stats === 'object' && x.stats.v === 3 ? {v: 3, emin: +x.stats.emin, emax: +x.stats.emax, emean: +x.stats.emean, slope: +x.stats.slope, aspect: +x.stats.aspect} : null,
-    masses: Array.isArray(x.masses) ? x.masses.slice(0, 60).map(m => { const ring = cleanLine8(m.ring); if(ring && ring.length < 4) return null; return ring ? {id: s2(m.id) || newId(), name: s2(m.name).slice(0, 30), ring, floors: Math.max(1, Math.min(80, Math.round(+m.floors || 1))), fh: Math.max(2, Math.min(10, +m.fh || 3)), base: Math.max(0, Math.min(100, +m.base || 0))} : null; }).filter(Boolean) : [],
-    parking: Array.isArray(x.parking) ? x.parking.slice(0, 80).map(k => { const ring = cleanRingArr(k.ring); return ring ? {ring} : null; }).filter(Boolean) : [],
+    masses: Array.isArray(x.masses) ? x.masses.slice(0, 60).filter(Boolean).map(m => { const ring = cleanLine8(m.ring); if(ring && ring.length < 4) return null; return ring ? {id: s2(m.id) || newId(), name: s2(m.name).slice(0, 30), ring, floors: Math.max(1, Math.min(80, Math.round(+m.floors || 1))), fh: Math.max(2, Math.min(10, +m.fh || 3)), base: Math.max(0, Math.min(100, +m.base || 0))} : null; }).filter(Boolean) : [],
+    parking: Array.isArray(x.parking) ? x.parking.slice(0, 80).filter(Boolean).map(k => { const ring = cleanRingArr(k.ring); return ring ? {ring} : null; }).filter(Boolean) : [],
     objects: Array.isArray(x.objects) ? x.objects.slice(0, 40).map(cleanObj).filter(Boolean) : [],
     households: Math.max(1, Math.round(+x.households || 8)), parkTarget: Math.max(0, Math.round(+x.parkTarget || 0)), createdAt: +x.createdAt || Date.now(), updatedAt: +x.updatedAt || Date.now()};
 }
+let importing = false;
 async function importData(file){
+  if(importing){ toast('이전 파일을 가져오는 중이에요. 잠시만 기다려 주세요.'); return; }
+  importing = true;
+  try { await importBackup(file); }
+  catch(_){ toast('가져오기를 완료하지 못했어요. 저장 공간과 파일을 확인한 뒤 다시 시도해 주세요.', 6000); }
+  finally { importing = false; }
+}
+async function importBackup(file){
   let j; try { j = JSON.parse(await file.text()); } catch(_){ toast('파일을 읽지 못했어요. 답사 지도에서 내보낸 JSON 파일인지 확인해 주세요.'); return; }
   if(!j || !Array.isArray(j.records)){ toast('답사 지도 기록 파일이 아니에요.'); return; }
   toast('가져오는 중…', 10000);
   const cur = new Map(S.recs.map(r => [r.id, r]));
+  const sites = new Map(S.sites.map(x => [x.id, x]));
+  const changes = {recs: new Map(), sites: new Map(), photos: new Map()};
+  const getPhoto = id => changes.photos.has(id) ? changes.photos.get(id) : DB.getPhoto(id);
   let add = 0, upd = 0, same = 0, nophoto = 0;
   for(const raw of j.records){
     if(!raw || !raw.id || !raw.name) continue;
@@ -2092,18 +2123,22 @@ async function importData(file){
     const keep = [];
     for(const p of r.photos){
       const du = j.photos && j.photos[p.id];
-      if(await DB.getPhoto(p.id)){ keep.push(p); continue; }
-      if(typeof du === 'string' && du.startsWith('data:image/')){ try { const b = await (await fetch(du)).blob(); await DB.putPhoto(p.id, b); keep.push(p); } catch(_){ nophoto++; } }
+      if(await getPhoto(p.id)){ keep.push(p); continue; }
+      if(typeof du === 'string' && du.startsWith('data:image/')){ try { const b = await (await fetch(du)).blob(); changes.photos.set(p.id, b); keep.push(p); } catch(_){ nophoto++; } }
       else nophoto++;
     }
-    r.photos = keep.map(p => { const o = (raw.photos || []).find(q => q && q.id === p.id) || {}; const k = {id: p.id}; if(Number.isFinite(+o.dir) && o.dir !== null) k.dir = Math.round(+o.dir) % 360; if(Number.isFinite(+o.lat) && o.lat !== null){ k.lat = +o.lat; k.lng = +o.lng; } return k; });
-    await DB.putRec(r); old ? upd++ : add++;
+    r.photos = keep.map(p => { const o = (raw.photos || []).find(q => q && q.id === p.id) || {}; const k = {id: p.id}; if(Number.isFinite(+o.dir) && o.dir !== null) k.dir = Math.round(+o.dir) % 360; const lat = coord(o.lat, 90), lng = coord(o.lng, 180); if(lat !== null && lng !== null){ k.lat = lat; k.lng = lng; } return k; });
+    changes.recs.set(r.id, r); cur.set(r.id, r);
   }
   let siteN = 0;
-  if(Array.isArray(j.hfix)){ let n = 0; for(const f of j.hfix){ if(!f || !Number.isFinite(+f.lng) || !Number.isFinite(+f.lat) || !(+f.h >= 2 && +f.h <= 700)) continue; if(HFIX.list.some(x => Math.abs(x.lng - f.lng) < 1e-7 && Math.abs(x.lat - f.lat) < 1e-7)) continue; HFIX.list.push({lng: +f.lng, lat: +f.lat, h: +f.h, fl: f.fl > 0 ? Math.round(+f.fl) : null, osm: f.osm ?? null, t: +f.t || Date.now()}); n++; } if(n){ hfixSave(); applyHfix(); } }
-  if(Array.isArray(j.sites)) for(const raw of j.sites){ const x = cleanSite(raw); if(!x) continue; const old = S.sites.find(y => y.id === x.id); if(old && (old.updatedAt || 0) >= (x.updatedAt || 0)) continue;
-    const keepO = []; for(const o of x.objects){ if(!o.blobId || await DB.getPhoto(o.blobId)){ keepO.push(o); continue; } const du = j.photos && j.photos[o.blobId]; if(typeof du === 'string' && du.startsWith('data:')){ try { await DB.putPhoto(o.blobId, await (await fetch(du)).blob()); keepO.push(o); } catch(_){ nophoto++; } } else nophoto++; }
-    x.objects = keepO; await DB.putSite(x); siteN++; }
+  if(Array.isArray(j.sites)) for(const raw of j.sites){ const x = cleanSite(raw); if(!x) continue; const old = sites.get(x.id); if(old && (old.updatedAt || 0) >= (x.updatedAt || 0)) continue;
+    const keepO = []; for(const o of x.objects){ if(!o.blobId || await getPhoto(o.blobId)){ keepO.push(o); continue; } const du = j.photos && j.photos[o.blobId]; if(typeof du === 'string' && du.startsWith('data:')){ try { changes.photos.set(o.blobId, await (await fetch(du)).blob()); keepO.push(o); } catch(_){ nophoto++; } } else nophoto++; }
+    x.objects = keepO; changes.sites.set(x.id, x); sites.set(x.id, x); siteN++; }
+  // Commit records, sites and binary assets together, after all async decoding.
+  await DB.batch(changes);
+  const existingIds = new Set(S.recs.map(r => r.id));
+  for(const id of changes.recs.keys()) existingIds.has(id) ? upd++ : add++;
+  if(Array.isArray(j.hfix)){ let n = 0; for(const f of j.hfix){ if(!f || coord(f.lng, 180) === null || coord(f.lat, 90) === null || !(+f.h >= 2 && +f.h <= 700)) continue; if(HFIX.list.some(x => Math.abs(x.lng - f.lng) < 1e-7 && Math.abs(x.lat - f.lat) < 1e-7)) continue; HFIX.list.push({lng: +f.lng, lat: +f.lat, h: +f.h, fl: f.fl > 0 ? Math.round(+f.fl) : null, osm: f.osm ?? null, t: +f.t || Date.now()}); n++; } if(n){ hfixSave(); applyHfix(); } }
   if(siteN){ await loadSites(); renderStudioMap(); }
   await reload(); fitAll(true);
   toast(`새 기록 ${add}개, 갱신 ${upd}개${same ? `, 이미 최신 ${same}개` : ''}${nophoto ? ` · 사진 ${nophoto}장은 파일에 없어 빠졌어요` : ''}`, 5000);
@@ -3633,12 +3668,12 @@ function objCardHTML(s){
 }
 
 /* ---------- import / export sanitising ---------- */
-function cleanLine8(a, max = 400){ if(!Array.isArray(a)) return null; const l = a.filter(c => Array.isArray(c) && c.length >= 2 && Number.isFinite(+c[0]) && Number.isFinite(+c[1])).slice(0, max).map(c => [+(+c[0]).toFixed(8), +(+c[1]).toFixed(8)]); return l.length >= 2 ? l : null; }
+function cleanLine8(a, max = 400){ if(!Array.isArray(a)) return null; const l = a.filter(validCoordPair).slice(0, max).map(c => [+(+c[0]).toFixed(8), +(+c[1]).toFixed(8)]); return l.length >= 2 ? l : null; }
 function cleanObj(o){
   if(!o || !o.id || !['draw', 'dxf', 'image', 'model'].includes(o.kind)) return null;
   const s2 = v => String(v ?? '').slice(0, 120), num = (v, a, b, d) => { v = +v; return Number.isFinite(v) ? Math.max(a, Math.min(b, v)) : d; };
   const base = {id: s2(o.id), kind: o.kind, name: s2(o.name).slice(0, 40), hidden: !!o.hidden, createdAt: +o.createdAt || Date.now()};
-  const pos = () => { const lng = +o.lng, lat = +o.lat; return Number.isFinite(lng) && Number.isFinite(lat) && Math.abs(lat) < 90 ? {lng, lat} : null; };
+  const pos = () => { const lng = coord(o.lng, 180), lat = coord(o.lat, 90); return lng !== null && lat !== null && Math.abs(lat) < 90 ? {lng, lat} : null; };
   if(o.kind === 'draw'){ const coords = cleanLine8(o.coords); return coords ? {...base, coords, closed: !!o.closed && coords.length >= 3} : null; }
   const p = pos(); if(!p) return null;
   if(o.kind === 'dxf'){ let total = 0; const lines = []; for(const l of Array.isArray(o.lines) ? o.lines : []){ const c = Array.isArray(l) ? l.filter(q => Array.isArray(q) && Number.isFinite(+q[0]) && Number.isFinite(+q[1])).map(q => [+q[0], +q[1]]) : []; if(c.length < 2) continue; total += c.length; if(total > 80000) break; lines.push(c); }
