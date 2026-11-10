@@ -590,19 +590,19 @@ const DB = {
   },
   st(name, mode='readonly'){ return DB.db.transaction(name, mode).objectStore(name); },
   async allRecs(){ return DB.db ? DB.req(DB.st('recs').getAll()) : [...DB.mem.recs.values()]; },
-  async putRec(r){ if(DB.db) return DB.req(DB.st('recs','readwrite').put(r)); DB.mem.recs.set(r.id, r); },
+  async putRec(r){ await DB.batch({recs: [[r.id, r]]}); },
   async delRec(id){ if(DB.db) return DB.req(DB.st('recs','readwrite').delete(id)); DB.mem.recs.delete(id); },
-  async putPhoto(id, b){ if(DB.db) return DB.req(DB.st('photos','readwrite').put(b, id)); DB.mem.photos.set(id, b); },
+  async putPhoto(id, b){ await DB.batch({photos: [[id, b]]}); const u = URLS.get(id); if(u) URL.revokeObjectURL(u); URLS.delete(id); },
   async getPhoto(id){ return DB.db ? DB.req(DB.st('photos').get(id)) : DB.mem.photos.get(id); },
-  async delPhoto(id){ URLS.delete(id); if(DB.db) return DB.req(DB.st('photos','readwrite').delete(id)); DB.mem.photos.delete(id); },
+  async delPhoto(id){ const u = URLS.get(id); if(u) URL.revokeObjectURL(u); URLS.delete(id); if(DB.db) return DB.req(DB.st('photos','readwrite').delete(id)); DB.mem.photos.delete(id); },
   async allSites(){ return DB.db ? DB.req(DB.st('sites').getAll()) : [...DB.mem.sites.values()]; },
-  async putSite(x){ if(DB.db) return DB.req(DB.st('sites','readwrite').put(x)); DB.mem.sites.set(x.id, x); },
+  async putSite(x){ await DB.batch({sites: [[x.id, x]]}); },
   async delSite(id){ if(DB.db) return DB.req(DB.st('sites','readwrite').delete(id)); DB.mem.sites.delete(id); },
 };
 const URLS = new Map();
 async function photoURL(id){
   if(URLS.has(id)) return URLS.get(id);
-  try { const b = await DB.getPhoto(id); if(!b) return null; const u = URL.createObjectURL(b); URLS.set(id, u); return u; } catch(_){ return null; }
+  try { const b = await DB.getPhoto(id); if(!b) return null; if(URLS.has(id)) return URLS.get(id); const u = URL.createObjectURL(b); URLS.set(id, u); return u; } catch(_){ return null; }
 }
 function hydrate(root){
   for(const img of root.querySelectorAll('img[data-photo]')){
@@ -1464,14 +1464,15 @@ async function updateCrumb(){
   $('#crumbTxt').innerHTML = parts.map((p, i) => `${i ? '<span class="sep">›</span>' : ''}<span class="lv${i+1}">${esc(p)}</span>`).join('');
   el.hidden = false;
 }
-async function searchPlaces(q){
+async function searchPlaces(q, signal){
   if(VW.key && VW.ok !== false){ try { const v = await vwSearch(q); if(v.length) return v; } catch(_){} }
+  signal?.throwIfAborted();
   let vb = '';
   try { const b = map.getBounds(); vb = `&viewbox=${[b.getWest(), b.getNorth(), b.getEast(), b.getSouth()].map(v => v.toFixed(4)).join(',')}`; } catch(_){}
-  const r = await fetch(`${NOMI}/search?format=jsonv2&q=${encodeURIComponent(q)}&accept-language=ko&limit=7&addressdetails=1${vb}`);
+  const r = await fetch(`${NOMI}/search?format=jsonv2&q=${encodeURIComponent(q)}&accept-language=ko&limit=7&addressdetails=1${vb}`, {signal});
   if(!r.ok) throw new Error('http');
   const j = await r.json();
-  return j.map(x => ({name: x.name || String(x.display_name||'').split(',')[0], lat: +x.lat, lng: +x.lon, addr: x.display_name || ''})).filter(x => Number.isFinite(x.lat));
+  return j.map(x => ({name: x.name || String(x.display_name||'').split(',')[0], lat: +x.lat, lng: +x.lon, addr: x.display_name || ''})).filter(x => Number.isFinite(x.lat) && Number.isFinite(x.lng) && Math.abs(x.lat) <= 90 && Math.abs(x.lng) <= 180);
 }
 
 /* ---------------- VWorld (국가공간정보) ---------------- */
@@ -1808,10 +1809,10 @@ function applyExif(ex, heic){
 async function resizeImage(file){
   let bmp;
   try { bmp = await createImageBitmap(file, {imageOrientation: 'from-image'}); }
-  catch(_){ bmp = await new Promise((res, rej) => { const img = new Image(); img.onload = () => res(img); img.onerror = rej; img.src = URL.createObjectURL(file); }); }
+  catch(_){ bmp = await new Promise((res, rej) => { const img = new Image(); const u = URL.createObjectURL(file); img.onload = () => { URL.revokeObjectURL(u); res(img); }; img.onerror = e => { URL.revokeObjectURL(u); rej(e); }; img.src = u; }); }
   const W = bmp.width, H = bmp.height, k = Math.min(1, 1800/Math.max(W, H));
   const cv = document.createElement('canvas'); cv.width = Math.round(W*k); cv.height = Math.round(H*k);
-  cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height);
+  try { cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height); } finally { bmp.close?.(); }
   return await new Promise((res, rej) => cv.toBlob(b => b ? res(b) : rej(new Error('encode')), 'image/jpeg', 0.84));
 }
 async function addPhotos(files){
@@ -2003,6 +2004,7 @@ function renderEditor(){
 function showErr(msg){ const el = $('#ferr'); if(el){ el.textContent = msg; el.hidden = !msg; if(msg) el.scrollIntoView({block:'nearest'}); } }
 async function saveDraft(){
   const d = S.draft;
+  if(!d || d.saving) return;
   if(d.type === 'obs' && !d.name.trim()) d.name = `${d.obs.who} ${d.obs.n > 1 ? d.obs.n + '명 ' : ''}${d.obs.acts[0] || '관찰'}`;
   if(!d.name.trim()) return showErr('장소 이름을 적어 주세요.');
   if(!hasLoc(d)) return showErr('위치를 정해 주세요. "지도에서 건물 고르기"를 누르고 건물을 탭하면 돼요.');
@@ -2024,6 +2026,9 @@ async function saveDraft(){
     path: d.type === 'obs' && Array.isArray(d.path) && d.path.length >= 2 ? d.path : null,
     createdAt: prev ? (prev.createdAt || Date.now()) : Date.now(), updatedAt: Date.now(),
   };
+  d.saving = true;
+  const saveBtn = $('#saveBtn');
+  if(saveBtn){ saveBtn.disabled = true; saveBtn.textContent = '저장 중…'; }
   try {
     await DB.putRec(rec);
     for(const pid of d.removed){ try { await DB.delPhoto(pid); } catch(_){} }
@@ -2031,9 +2036,11 @@ async function saveDraft(){
     await reload(); openPanel('detail');
     toast(prev ? '수정했어요' : '기록했어요');
   } catch(_){ showErr('저장하지 못했어요. 브라우저 저장 공간을 확인해 주세요.'); }
+  finally { d.saving = false; if(saveBtn?.isConnected){ saveBtn.disabled = false; saveBtn.textContent = '다시 저장'; } }
 }
 async function cancelEdit(){
   const d = S.draft;
+  if(d?.saving){ toast('저장 중이에요. 잠시만 기다려 주세요.'); return; }
   if(d) for(const id of d.uploaded){ try { await DB.delPhoto(id); } catch(_){} }
   S.draft = null;
   if(d && d.id && S.recs.some(r => r.id === d.id)){ S.selId = d.id; openPanel('detail'); } else closePanel();
@@ -2056,11 +2063,22 @@ function renderSearch(){
   </div>`;
   setTimeout(() => { const q = $('#sQ'); if(q && !searchRes.length) q.focus(); }, 60);
 }
+let searchController = null;
 async function doSearch(q){
-  searchQ = q.trim(); if(!searchQ) return;
-  searchMsg = '찾는 중…'; searchRes = []; renderSearch();
-  try { searchRes = await searchPlaces(searchQ); searchMsg = searchRes.length ? '' : '찾은 곳이 없어요. 이름을 줄이거나 지역 이름을 함께 적어 보세요. 못 찾으면 지도를 직접 움직여 건물을 탭해도 돼요.'; }
-  catch(_){ searchMsg = '검색하지 못했어요. 인터넷 연결을 확인하고 잠시 후 다시 시도해 주세요.'; }
+  searchController?.abort();
+  const ctl = searchController = new AbortController();
+  searchQ = q.trim(); searchRes = []; searchMsg = '';
+  if(!searchQ){ if(S.panel === 'search') renderSearch(); return; }
+  searchMsg = '찾는 중…'; renderSearch();
+  try {
+    const results = await searchPlaces(searchQ, ctl.signal);
+    if(ctl !== searchController) return;
+    searchRes = results;
+    searchMsg = searchRes.length ? '' : '찾은 곳이 없어요. 이름을 줄이거나 지역 이름을 함께 적어 보세요. 못 찾으면 지도를 직접 움직여 건물을 탭해도 돼요.';
+  } catch(_){
+    if(ctl !== searchController) return;
+    searchMsg = '검색하지 못했어요. 인터넷 연결을 확인하고 잠시 후 다시 시도해 주세요.';
+  }
   if(S.panel === 'search') renderSearch();
 }
 
