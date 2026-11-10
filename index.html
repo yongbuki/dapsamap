@@ -336,6 +336,14 @@ body.placing .toast{bottom:auto;top:calc(66px + env(safe-area-inset-top,0px))}
 /* Mobile: reachable navigation, a compact map toolbar, and keyboard-aware sheets. */
 .primary-nav{display:contents}
 .nav-label,.tools-toggle{display:none}
+.mobile-only{display:none}
+.walk-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:12px 0}
+.walk-metrics>div{display:grid;gap:3px;padding:9px 6px;border:1px solid var(--hair);border-radius:8px;background:var(--paper);text-align:center;font-size:11px;color:var(--ink-2)}
+.walk-metrics b{font-size:15px;color:var(--ink)}
+.walk-route{width:100%;border:0;background:none;text-align:left;padding:6px 3px;font-size:12px;color:var(--ink);white-space:normal}
+.walk-route[aria-pressed="true"]{color:var(--accent);font-weight:600}
+.walk-origin{margin:10px 0;line-height:1.6}
+.rtab.wk{table-layout:fixed}.rtab.wk th:first-child{width:19%}.rtab.wk th:nth-child(2),.rtab.wk th:nth-child(3),.rtab.wk th:nth-child(4){width:10%}
 .ib:disabled{opacity:.4;cursor:default}
 @media (max-width:899.98px){
   :root{--nav-height:calc(64px + env(safe-area-inset-bottom,0px));--header-height:60px;--viewport-height:100dvh;--viewport-top:0px;--viewport-bottom:0px}
@@ -364,6 +372,8 @@ body.placing .toast{bottom:auto;top:calc(66px + env(safe-area-inset-top,0px))}
   .zhint{top:auto;bottom:86px;max-width:calc(100% - 32px);white-space:normal;text-align:center}
   .panel{bottom:calc(var(--viewport-bottom) + var(--nav-height));height:min(72dvh,calc(var(--viewport-height) - var(--header-height) - var(--nav-height) - 8px));max-height:calc(var(--viewport-height) - var(--header-height) - var(--nav-height) - 8px);padding-bottom:0;border-radius:20px 20px 0 0}
   .panel[data-kind="edit"],body.keyboard-open .panel{height:calc(var(--viewport-height) - var(--header-height) - var(--nav-height) - 8px)}
+  .panel.map-focus[data-kind="studio"]{height:min(40dvh,calc(var(--viewport-height) - var(--header-height) - var(--nav-height) - 8px))}
+  .mobile-only{display:inline-flex}
   .panel .scroll{padding:6px 16px 24px;scroll-padding:16px;overflow-x:hidden}
   .p-head{padding:8px 10px 6px 16px;flex:none}.grab{flex:none}
   .formbar{padding:10px 16px;flex:none}
@@ -1827,6 +1837,7 @@ function closePanel(){ panel.hidden = true; S.panel = null; applyPerm(); }
 function keepScroll(fn){ const sc = panel.querySelector('.scroll'); const top = sc ? sc.scrollTop : 0; fn(); const sc2 = panel.querySelector('.scroll'); if(sc2) sc2.scrollTop = top; }
 function applyPerm(){
   document.body.classList.toggle('panel-open', !panel.hidden);
+  panel.classList.toggle('map-focus', !!S.mapFocus && S.panel === 'studio');
   panel.dataset.kind = S.panel || '';
   for(const [id, kinds] of [['bStudio',['studio','section','plan']],['bSearch',['search']],['bList',['list','detail']],['bMenu',['menu']]]){
     const b = $('#' + id);
@@ -1862,7 +1873,7 @@ if(window.visualViewport){
 document.addEventListener('focusin', syncMobileViewport);
 document.addEventListener('focusout', () => requestAnimationFrame(syncMobileViewport));
 syncMobileViewport();
-const head = (kicker) => `<div class="grab"></div><div class="p-head"><div class="p-kicker">${kicker}</div><button class="x" data-act="close" aria-label="닫기">×</button></div>`;
+const head = (kicker) => `<div class="grab"></div><div class="p-head"><div class="p-kicker">${kicker}</div>${S.panel === 'studio' && S.radiusRes ? `<button class="btn sm mobile-only" data-act="mapFocus" aria-pressed="${!!S.mapFocus}">${S.mapFocus ? '결과 넓게' : '지도 넓게'}</button>` : ''}<button class="x" data-act="close" aria-label="닫기">×</button></div>`;
 
 function selectRec(id){
   const r = S.recs.find(x => x.id === id); if(!r) return;
@@ -2225,7 +2236,7 @@ async function importBackup(file){
   const existingIds = new Set(S.recs.map(r => r.id));
   for(const id of changes.recs.keys()) existingIds.has(id) ? upd++ : add++;
   if(Array.isArray(j.hfix)){ let n = 0; for(const f of j.hfix){ if(!f || coord(f.lng, 180) === null || coord(f.lat, 90) === null || !(+f.h >= 2 && +f.h <= 700)) continue; if(HFIX.list.some(x => Math.abs(x.lng - f.lng) < 1e-7 && Math.abs(x.lat - f.lat) < 1e-7)) continue; HFIX.list.push({lng: +f.lng, lat: +f.lat, h: +f.h, fl: f.fl > 0 ? Math.round(+f.fl) : null, osm: f.osm ?? null, t: +f.t || Date.now()}); n++; } if(n){ hfixSave(); applyHfix(); } }
-  if(siteN){ await loadSites(); renderStudioMap(); }
+  if(siteN){ resetWalk(); await loadSites(); renderStudioMap(); }
   await reload(); fitAll(true);
   toast(`새 기록 ${add}개, 갱신 ${upd}개${same ? `, 이미 최신 ${same}개` : ''}${nophoto ? ` · 사진 ${nophoto}장은 파일에 없어 빠졌어요` : ''}`, 5000);
 }
@@ -2323,7 +2334,8 @@ panel.addEventListener('click', async e => {
     case 'radClear': walkClear(); break;
     case 'radRoute': walkRoute(b.dataset.cat); break;
     case 'radSvg': if(S.radiusRes) download(new Blob([walkSVG(S.radiusRes)], {type:'image/svg+xml'}), `도보권-${fileStamp()}.svg`); break;
-    case 'walkPace': WALK.pace = b.dataset.v === 'slow' ? 'slow' : 'norm'; try { localStorage.setItem('dapsa3d.walkPace', WALK.pace); } catch(_){} if(S.radiusRes) radiusAnalysis(); else keepScroll(renderStudio); break;
+    case 'walkPace': WALK.pace = b.dataset.v === 'slow' ? 'slow' : 'norm'; try { localStorage.setItem('dapsa3d.walkPace', WALK.pace); } catch(_){} if(S.radiusRes) radiusAnalysis(S.radiusRes.c); else keepScroll(renderStudio); break;
+    case 'mapFocus': S.mapFocus = !S.mapFocus; applyPerm(); keepScroll(renderStudio); break;
     case 'style': setStyleMode(b.dataset.v); keepScroll(renderStudio); break;
     case 'png': exportPNG(); break;
     case 'render': if(window.innerWidth < 900) closePanel(); renderShot(); break;
@@ -2374,6 +2386,8 @@ panel.addEventListener('input', e => {
 });
 panel.addEventListener('change', async e => {
   const tg = e.target;
+  if(tg.dataset.act2 === 'walkAvoidSteps'){ WALK.avoidSteps = tg.checked; try { localStorage.setItem('dapsa3d.walkAvoidSteps', WALK.avoidSteps ? '1' : '0'); } catch(_){} if(S.radiusRes) radiusAnalysis(S.radiusRes.c); return; }
+  if(tg.dataset.act2 === 'walkRings'){ WALK.rings = tg.checked; if(S.radiusRes) walkShow(S.radiusRes); return; }
   if(tg.dataset && tg.dataset.proj){ const nw = $('#' + tg.id + 'New'); if(tg.value === '__new'){ if(nw){ nw.hidden = false; const i = $('#' + tg.id + 'Name'); if(i) i.focus(); } return; } setProject(tg.value); if(S.panel === 'studio') renderStudio(); else if(S.panel === 'list') renderList(); return; }
   if(tg.dataset && tg.dataset.site){ const cs = curSite(); if(!cs) return; const k = tg.dataset.site; cs[k] = k === 'name' ? (tg.value.trim() || cs.name) : Math.max(0, Math.round(+tg.value || 0)); await saveSite(cs); if(k !== 'name') refreshMassStats(); return; }
   if(tg.dataset && tg.dataset.mass != null && tg.dataset.k){ const cs = curSite(); if(!cs) return; const m = cs.masses[+tg.dataset.mass]; if(!m) return; if(tg.dataset.k === 'name') m.name = tg.value.trim().slice(0, 30); else m.fh = Math.max(2.2, Math.min(8, +tg.value || 3)); SUNCTX = null; await saveSite(cs); refreshMassStats(); return; }
@@ -2413,6 +2427,7 @@ function addExtraProject(v){ try { const a = JSON.parse(localStorage.getItem('da
 async function addMass(ring){ const cs = curSite(); if(!cs) return; cs.masses = cs.masses || []; cs.masses.push({id: newId(), name: `매스 ${cs.masses.length + 1}`, ring, floors: 3, fh: 3.0, base: 0}); SUNCTX = null; await saveSite(cs); refreshMassStats(); if(!S.is3D) $('#t3d').click(); }
 async function updateSiteShape(id, sh, parcels){
   const cs = S.sites.find(x => x.id === id); if(!cs) return;
+  if(cs.id === S.siteId) resetWalk();
   cs.polys = sh.polys.map(p => ({ring: p.ring})); cs.area = sh.area; if(parcels.length) cs.parcels = parcels.map(p => ({key: p.key, jibun: p.jibun, addr: p.addr, jiga: p.jiga}));
   cs.stats = null; SUNCTX = null; S.sunRes = null; setData('st-sun', []);
   const [lng, lat] = shapeCenter(cs.polys); if(VW.key) cs.zoning = await zoningAt(lat, lng) || cs.zoning;
@@ -2484,7 +2499,20 @@ const cellRing = (x, y, s, L) => [[x-s/2,y-s/2],[x+s/2,y-s/2],[x+s/2,y+s/2],[x-s
 function circleRing(lng, lat, m, n = 72){ const L = mkLocal(lng, lat), out = []; for(let i = 0; i <= n; i++){ const a = i/n*2*Math.PI; out.push(L.b(Math.sin(a)*m, Math.cos(a)*m)); } return out; }
 function elevF(lng, lat){ return demSample(lng, lat, 'raw'); } // metres above sea level, independent of view and zoom
 function waitIdle(ms = 9000){ return new Promise(res => { let done = false; const fin = () => { if(!done){ done = true; clearTimeout(t); res(); } }; const t = setTimeout(fin, ms); map.once('idle', fin); }); }
-function padForPanel(){ const wide = window.innerWidth >= 900 && !panel.hidden; return wide ? {top:70, bottom:70, left:50, right:450} : {top:70, bottom: panel.hidden ? 160 : Math.round(window.innerHeight*0.55), left:30, right:30}; }
+function fitPadding(view, sheet, wide){
+  const p = {top:40, bottom:40, left:24, right:24};
+  if(sheet && sheet.bottom > view.top && sheet.top < view.bottom && sheet.right > view.left && sheet.left < view.right){
+    if(wide) p.right = Math.max(24, view.right - sheet.left + 16);
+    else p.bottom = Math.max(40, view.bottom - sheet.top + 16);
+  }
+  // Keep a usable map area even on a short landscape screen.
+  p.top = Math.min(p.top, Math.max(0, view.height/4));
+  p.left = Math.min(p.left, Math.max(0, view.width/4));
+  p.bottom = Math.min(p.bottom, Math.max(0, view.height - p.top - 80));
+  p.right = Math.min(p.right, Math.max(0, view.width - p.left - 100));
+  return p;
+}
+function padForPanel(){ return fitPadding(map.getContainer().getBoundingClientRect(), panel.hidden ? null : panel.getBoundingClientRect(), window.innerWidth >= 900); }
 async function viewBounds(b, maxZoom = 18){ map.fitBounds(b, {padding: padForPanel(), maxZoom, duration: 0}); await waitIdle(); }
 async function needTerrain(){ if(!S.hasDem) return false; if(!S.terrain){ setTerrain(true); await waitIdle(); } return true; }
 function boundsOfRings(rings, padM = 0){ const b = new maplibregl.LngLatBounds(); for(const r of rings) for(const c of r) b.extend(c); if(padM){ const c = b.getCenter(), L = mkLocal(c.lng, c.lat); const sw = L.f(b.getWest(), b.getSouth()), ne = L.f(b.getEast(), b.getNorth()); b.extend(L.b(sw[0]-padM, sw[1]-padM)); b.extend(L.b(ne[0]+padM, ne[1]+padM)); } return b; }
@@ -2493,7 +2521,7 @@ function boundsOfRings(rings, padM = 0){ const b = new maplibregl.LngLatBounds()
 try { S.project = localStorage.getItem('dapsa3d.project') || ''; } catch(_){ S.project = ''; }
 S.sites = []; S.siteId = null; S.envOn = false; S.styleMode = 'base';
 function projectList(){ let extra = []; try { extra = JSON.parse(localStorage.getItem('dapsa3d.projects') || '[]'); } catch(_){} return [...new Set([...S.recs.map(r => r.project), ...S.sites.map(s => s.project), ...extra, S.project].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko')); }
-function setProject(p){ S.project = p || ''; try { localStorage.setItem('dapsa3d.project', S.project); } catch(_){} if(S.siteId && !siteInProject(curSite())) S.siteId = null; renderAll(); renderStudioMap(); }
+function setProject(p){ resetWalk(); S.project = p || ''; try { localStorage.setItem('dapsa3d.project', S.project); } catch(_){} if(S.siteId && !siteInProject(curSite())) S.siteId = null; renderAll(); renderStudioMap(); }
 const siteInProject = s => !!s && (!S.project || s.project === S.project);
 function projectSelectHTML(id){
   const ps = projectList();
@@ -2505,7 +2533,7 @@ function projectSelectHTML(id){
 async function loadSites(){ try { S.sites = (await DB.allSites()).filter(s => s && s.id); } catch(_){ S.sites = []; } for(const x of S.sites) if(x.stats && x.stats.v !== 3) x.stats = null; /* heights saved before the absolute-elevation fix */ try { const k = localStorage.getItem('dapsa3d.siteId'); if(k && S.sites.some(s => s.id === k)) S.siteId = k; } catch(_){} }
 const curSite = () => S.sites.find(s => s.id === S.siteId) || null;
 async function saveSite(s){ s.updatedAt = Date.now(); await DB.putSite(s); const i = S.sites.findIndex(x => x.id === s.id); if(i >= 0) S.sites[i] = s; else S.sites.push(s); renderStudioMap(); }
-function selectSite(id){ S.siteId = id; try { localStorage.setItem('dapsa3d.siteId', id || ''); } catch(_){} renderStudioMap(); }
+function selectSite(id){ if(S.siteId !== id) resetWalk(); S.siteId = id; try { localStorage.setItem('dapsa3d.siteId', id || ''); } catch(_){} renderStudioMap(); }
 function siteRings(s){ return (s && s.polys || []).map(p => p.ring); }
 function siteCenter(s){ const c = shapeCenter(s.polys); return {lng: c[0], lat: c[1]}; }
 
@@ -5177,8 +5205,9 @@ $('#kkoSeg').onclick = e => { const b = e.target.closest('button[data-k]'); if(b
 
 
 /* ---------- 걸어서 닿는 범위: real streets and stairs, slowed by slopes (Tobler's hiking function) ---------- */
-const WALK = {pace: 'norm', busy: false, cache: null};
+const WALK = {pace: 'norm', avoidSteps: false, rings: false, busy: false, cache: null, seq: 0, ctl: null};
 try { if(localStorage.getItem('dapsa3d.walkPace') === 'slow') WALK.pace = 'slow'; } catch(_){}
+try { WALK.avoidSteps = localStorage.getItem('dapsa3d.walkAvoidSteps') === '1'; } catch(_){}
 const WALK_R = 1300, WALK_CELL = 10, WALK_MINS = [5, 10, 15];
 const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter'];
 function walkTime(d, dz, steps, slow){ // seconds to cover d metres on the map while climbing dz metres
@@ -5221,14 +5250,16 @@ function walkParse(j){
   }
   return {pois, lines, src: 'osm'};
 }
-async function walkFetch(c){
+async function walkFetch(c, signal){
   const A = `(around:${WALK_R},${c.lat.toFixed(6)},${c.lng.toFixed(6)})`;
   const q = `[out:json][timeout:40];(nwr${A}[amenity~"^(hospital|clinic|doctors|dentist|pharmacy|social_facility|community_centre|townhall|library|post_office|police|marketplace|bus_station|school|kindergarten|college|university|restaurant|cafe|fast_food)$"];nwr${A}[shop~"^(supermarket|convenience|greengrocer|butcher|bakery|mall|department_store|grocery|seafood)$"];nwr${A}[highway~"^(bus_stop|elevator)$"];nwr${A}[railway~"^(station|halt|subway_entrance|funicular|monorail)$"];nwr${A}[public_transport=station];nwr${A}[leisure~"^(park|playground)$"];nwr${A}[aerialway];);out center tags 1200;way${A}[highway~"^(footway|path|steps|pedestrian|living_street|residential|service|unclassified|tertiary|tertiary_link|secondary|secondary_link|primary|primary_link|track|corridor|road)$"];out tags geom qt;`;
   let last = null;
   for(const url of OVERPASS){
+    if(signal && signal.aborted) throw new DOMException('분석 취소', 'AbortError');
     const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 35000);
+    const abort = () => ctl.abort(); if(signal) signal.addEventListener('abort', abort, {once:true});
     try { const r = await fetch(url, {method: 'POST', body: new URLSearchParams({data: q}), signal: ctl.signal}); if(!r.ok) throw new Error('HTTP ' + r.status); const d = walkParse(await r.json()); if(d.lines.length) return d; throw new Error('empty'); }
-    catch(e){ last = e; } finally { clearTimeout(t); }
+    catch(e){ if(signal && signal.aborted) throw e; last = e; } finally { clearTimeout(t); if(signal) signal.removeEventListener('abort', abort); }
   }
   throw last || new Error('overpass');
 }
@@ -5243,26 +5274,40 @@ function walkFromTiles(){ // offline-ish fallback: the streets and places alread
     const cat = poiCat(t); if(cat) pois.push({cat, name: t.name || '', lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0]}); } } catch(_){}
   return {pois, lines, src: 'tiles'};
 }
-function walkCompute(c, data, slow, zfn){
+function walkCompute(c, data, slow, zfn, opts = {}){
   const L = mkLocal(c.lng, c.lat), SN = 1.2, key = new Map(), X = [], Y = [], Zn = [], adj = [], E = [];
-  const zAt = zfn || ((x, y) => { const q = L.b(x, y); return demSample(q[0], q[1], 'dtm', false); });
+  const sample = zfn || ((x, y) => { const q = L.b(x, y); return demSample(q[0], q[1], 'dtm', false); });
+  let elevationTotal = 0, elevationKnown = 0;
+  const zAt = (x, y) => { elevationTotal++; const z = sample(x, y); if(Number.isFinite(z)){ elevationKnown++; return z; } return null; };
   const zc0 = zAt(0, 0), zc = zc0 ?? 0, zz = i => Zn[i] ?? zc;
   const node = p => { const q = L.f(p[0], p[1]); if(Math.abs(q[0]) > WALK_R + 300 || Math.abs(q[1]) > WALK_R + 300) return -1;
     const k = Math.round(q[0]/SN) + ':' + Math.round(q[1]/SN); let i = key.get(k); if(i === undefined){ i = X.length; key.set(k, i); X.push(q[0]); Y.push(q[1]); Zn.push(zAt(q[0], q[1])); adj.push([]); } return i; };
   const addEdge = (a, b, st) => { const dx = X[b] - X[a], dy = Y[b] - Y[a], d = Math.hypot(dx, dy); if(d < 0.05) return;
     const n = Math.max(1, Math.ceil(d/20)); let tab = 0, tba = 0, zp = zz(a);
     for(let k = 1; k <= n; k++){ const zk = k === n ? zz(b) : (zAt(X[a] + dx*k/n, Y[a] + dy*k/n) ?? zp); tab += walkTime(d/n, zk - zp, st, slow); tba += walkTime(d/n, zp - zk, st, slow); zp = zk; }
-    const e = E.length; E.push({a, b, tab, tba, d, st}); adj[a].push(e); adj[b].push(e); };
-  for(const l of data.lines){ let prev = -1; for(const p of l.pts){ const i = node(p); if(i >= 0 && prev >= 0 && i !== prev) addEdge(prev, i, l.steps); prev = i; } }
+    E.push({a, b, tab, tba, d, st}); };
+  for(const l of data.lines){ if(opts.avoidSteps && l.steps) continue; let prev = -1; for(const p of l.pts){ const i = node(p); if(i >= 0 && prev >= 0 && i !== prev) addEdge(prev, i, l.steps); prev = i; } }
   if(!E.length) return null;
-  const N = X.length, T = new Float64Array(N).fill(Infinity), pred = new Int32Array(N).fill(-1), VOFF = slow ? 0.6 : 0.85;
   const off = (d, dz) => walkTime(d, dz, false, slow)*1.2; // across a courtyard or vacant lot: a little slower than the street
   let best = null;
-  E.forEach(e => { const xa = X[e.a], ya = Y[e.a], dx = X[e.b] - xa, dy = Y[e.b] - ya, L2 = dx*dx + dy*dy; let f = L2 ? -(xa*dx + ya*dy)/L2 : 0; f = f < 0 ? 0 : f > 1 ? 1 : f; const d = Math.hypot(xa + dx*f, ya + dy*f); if(!best || d < best.d) best = {e, f, d}; });
+  E.forEach((e, ei) => { const xa = X[e.a], ya = Y[e.a], dx = X[e.b] - xa, dy = Y[e.b] - ya, L2 = dx*dx + dy*dy; let f = L2 ? -(xa*dx + ya*dy)/L2 : 0; f = f < 0 ? 0 : f > 1 ? 1 : f; const d = Math.hypot(xa + dx*f, ya + dy*f); if(!best || d < best.d) best = {e, ei, f, d}; });
   if(!best || best.d > 300) return null;
+  // Insert the street entry point into the graph. Seeding only the two original
+  // endpoints forces trips near the middle of a long street to double back.
+  let start;
+  const entryX = X[best.e.a] + (X[best.e.b] - X[best.e.a])*best.f;
+  const entryY = Y[best.e.a] + (Y[best.e.b] - Y[best.e.a])*best.f;
+  if(best.f <= 1e-8) start = best.e.a;
+  else if(best.f >= 1 - 1e-8) start = best.e.b;
+  else {
+    start = X.length; X.push(entryX); Y.push(entryY);
+    Zn.push(zAt(entryX, entryY) ?? (zz(best.e.a)*(1-best.f) + zz(best.e.b)*best.f)); adj.push([]);
+    E.splice(best.ei, 1); addEdge(best.e.a, start, best.e.st); addEdge(start, best.e.b, best.e.st);
+  }
+  E.forEach((e, i) => { adj[e.a].push(i); adj[e.b].push(i); });
+  const N = X.length, T = new Float64Array(N).fill(Infinity), pred = new Int32Array(N).fill(-1), VOFF = slow ? 0.6 : 0.85;
   const heap = new MinHeap(), seed = (i, t) => { if(t < T[i]){ T[i] = t; pred[i] = -1; heap.push(t, i); } };
-  { const e = best.e, zP = zz(e.a)*(1 - best.f) + zz(e.b)*best.f, t0 = off(best.d, zP - zc); seed(e.a, t0 + best.f*e.tba); seed(e.b, t0 + (1 - best.f)*e.tab); }
-  for(let i = 0; i < N; i++){ const d = Math.hypot(X[i], Y[i]); if(d < 40) seed(i, off(d, zz(i) - zc)); }
+  seed(start, off(best.d, zz(start) - zc));
   while(heap.size){ const [t, i] = heap.pop(); if(t > T[i]) continue; if(t > 1800) break;
     for(const ei of adj[i]){ const e = E[ei], fw = e.a === i, j = fw ? e.b : e.a, nt = t + (fw ? e.tab : e.tba); if(nt < T[j]){ T[j] = nt; pred[j] = i; heap.push(nt, j); } } }
   // time field on a 10 m grid: along the street, then a short way off it
@@ -5283,26 +5328,40 @@ function walkCompute(c, data, slow, zfn){
   const H = new Map(), HS = 60;
   E.forEach((e, ei) => { const x0 = Math.floor(Math.min(X[e.a], X[e.b])/HS), x1 = Math.floor(Math.max(X[e.a], X[e.b])/HS), y0 = Math.floor(Math.min(Y[e.a], Y[e.b])/HS), y1 = Math.floor(Math.max(Y[e.a], Y[e.b])/HS);
     for(let a = x0; a <= x1; a++) for(let b2 = y0; b2 <= y1; b2++){ const k = a + ':' + b2; let l = H.get(k); if(!l){ l = []; H.set(k, l); } l.push(ei); } });
-  const reach = (x, y) => { let bst = null; const ci = Math.floor(x/HS), cj = Math.floor(y/HS);
-    for(let a = ci - 1; a <= ci + 1; a++) for(let b2 = cj - 1; b2 <= cj + 1; b2++){ const l = H.get(a + ':' + b2); if(!l) continue;
-      for(const ei of l){ const e = E[ei], xa = X[e.a], ya = Y[e.a], dx = X[e.b] - xa, dy = Y[e.b] - ya, L2 = dx*dx + dy*dy; let f = L2 ? ((x - xa)*dx + (y - ya)*dy)/L2 : 0; f = f < 0 ? 0 : f > 1 ? 1 : f;
+  const reach = (x, y) => { let bst = null, nearest = Infinity; const candidates = [], seen = new Set(), ci = Math.floor(x/HS), cj = Math.floor(y/HS);
+    for(let a = ci - 2; a <= ci + 2; a++) for(let b2 = cj - 2; b2 <= cj + 2; b2++){ const l = H.get(a + ':' + b2); if(!l) continue;
+      for(const ei of l){ if(seen.has(ei)) continue; seen.add(ei); const e = E[ei], xa = X[e.a], ya = Y[e.a], dx = X[e.b] - xa, dy = Y[e.b] - ya, L2 = dx*dx + dy*dy; let f = L2 ? ((x - xa)*dx + (y - ya)*dy)/L2 : 0; f = f < 0 ? 0 : f > 1 ? 1 : f;
         const px = xa + dx*f, py = ya + dy*f, dd = Math.hypot(px - x, py - y); if(dd > 90) continue;
         const viaA = T[e.a] + f*e.tab, viaB = T[e.b] + (1 - f)*e.tba, t = Math.min(viaA, viaB) + dd/VOFF;
-        if(!bst || t < bst.t) bst = {t, node: viaA <= viaB ? e.a : e.b, px, py}; } }
-    const d0 = Math.hypot(x, y); if(d0 < 60){ const t = off(d0, 0); if(!bst || t < bst.t) bst = {t, node: -1}; }
+        nearest = Math.min(nearest, dd); candidates.push({t, d:dd, node: viaA <= viaB ? e.a : e.b, px, py}); } }
+    // Attach a facility to its nearest street, rather than crossing to an
+    // unconnected parallel street just because that street has a faster route.
+    for(const p of candidates) if(p.d <= nearest + 1 && Number.isFinite(p.t) && (!bst || p.t < bst.t)) bst = p;
     return bst; };
   const pois = data.pois.map(p => { const q = L.f(p.lng, p.lat), r = reach(q[0], q[1]); return {...p, x: q[0], y: q[1], dl: Math.hypot(q[0], q[1]), t: r ? r.t : Infinity, via: r}; });
   const pathOf = p => { const v = p.via; if(!v) return null; const pts = [[p.x, p.y]];
     if(v.node >= 0){ pts.push([v.px, v.py]); let i = v.node, g = 0; while(i >= 0 && g++ < 200000){ pts.push([X[i], Y[i]]); i = pred[i]; } }
     pts.push([0, 0]); pts.reverse();
-    let len = 0, up = 0, zp = zc; for(let k = 1; k < pts.length; k++){ len += Math.hypot(pts[k][0] - pts[k-1][0], pts[k][1] - pts[k-1][1]); const z = zAt(pts[k][0], pts[k][1]) ?? zp; if(z > zp) up += z - zp; zp = z; }
+    let len = 0, up = 0, zp = zc;
+    for(let k = 1; k < pts.length; k++){
+      const a = pts[k-1], b = pts[k], d = Math.hypot(b[0]-a[0], b[1]-a[1]), n = Math.max(1, Math.ceil(d/20)); len += d;
+      for(let j = 1; j <= n; j++){ const z = zAt(a[0]+(b[0]-a[0])*j/n, a[1]+(b[1]-a[1])*j/n) ?? zp; if(z > zp) up += z-zp; zp = z; }
+    }
     return {ll: pts.map(q => L.b(q[0], q[1])), len, up}; };
   const rows = POI_CATS.map(k => { const its = pois.filter(p => p.cat === k.id && p.t <= 900).sort((a, b) => a.t - b.t), near = its[0] || null;
     return {id: k.id, name: k.name, col: k.col, n: WALK_MINS.map(m => its.filter(p => p.t <= m*60).length), near: near ? {name: near.name, t: near.t, dl: near.dl, lng: near.lng, lat: near.lat} : null, path: near ? pathOf(near) : null}; });
-  const net = []; for(const e of E){ const t = Math.min(T[e.a], T[e.b]); if(Math.abs(X[e.a]) > Rr && Math.abs(X[e.b]) > Rr) continue; net.push([X[e.a], Y[e.a], X[e.b], Y[e.b], Number.isFinite(t) ? t : 9999, e.st ? 1 : 0]); }
+  const net = []; for(const e of E){
+    const n = Math.max(1, Math.ceil(e.d/25)), xa = X[e.a], ya = Y[e.a], dx = X[e.b]-xa, dy = Y[e.b]-ya;
+    for(let k = 0; k < n; k++){
+      const f0 = k/n, f1 = (k+1)/n, fm = (f0+f1)/2;
+      const t = Math.min(T[e.a] + fm*e.tab, T[e.b] + (1-fm)*e.tba);
+      net.push([xa+dx*f0, ya+dy*f0, xa+dx*f1, ya+dy*f1, Number.isFinite(t) ? t : 9999, e.st ? 1 : 0]);
+    }
+  }
   const vflat = (slow ? 1/1.45 : 1)*6*Math.exp(-0.175)/3.6;
   return {c: {lng: c.lng, lat: c.lat}, slow, src: data.src, rows, bands, net, pois: pois.filter(p => p.t <= 900).map(p => ({cat: p.cat, name: p.name, lng: p.lng, lat: p.lat, x: p.x, y: p.y, t: p.t})),
-    zc: zc0, area15: bands[2].area, ideal15: Math.PI*(vflat*900)**2, rIdeal: vflat*900, nodes: N, edges: E.length, steps: E.filter(e => e.st).length, sel: null};
+    zc: zc0, area15: bands[2].area, ideal15: Math.PI*(vflat*900)**2, rIdeal: vflat*900, nodes: N, edges: E.length, steps: E.filter(e => e.st).length, sel: null,
+    avoidSteps: !!opts.avoidSteps, entryDistance: best.d, terrainCoverage: elevationTotal ? elevationKnown/elevationTotal : 0};
 }
 function walkContext(res){ // what stands within 400 m: building count, height, density, and the lie of the land
   const c = res.c, L = mkLocal(c.lng, c.lat), R4 = 400;
@@ -5316,66 +5375,96 @@ function walkContext(res){ // what stands within 400 m: building count, height, 
   return {n: g.n, cov: g.area/(Math.PI*R4*R4)*100, med: g.fl.length ? g.fl[Math.floor(g.fl.length/2)] : null, max: g.fl.length ? g.fl[g.fl.length - 1] : null, src: g === vw ? 'vw' : 'osm', zmin: Number.isFinite(zmin) ? zmin : null, zmax: Number.isFinite(zmax) ? zmax : null};
 }
 function setupWalkLayers(underB){
-  for(const id of ['st-iso', 'st-route']) if(!map.getSource(id)) map.addSource(id, {type:'geojson', data: FC()});
+  for(const id of ['st-iso', 'st-route', 'st-walknet', 'st-walkpoints']) if(!map.getSource(id)) map.addSource(id, {type:'geojson', data: FC()});
   map.addLayer({id:'st-iso', type:'fill', source:'st-iso', paint:{'fill-color': cssVar('--accent'), 'fill-opacity': ['match', ['get','m'], 5, 0.16, 10, 0.1, 0.06]}}, underB);
   map.addLayer({id:'st-iso-line', type:'line', source:'st-iso', layout:{'line-join':'round'}, paint:{'line-color': cssVar('--accent'), 'line-width': ['match', ['get','m'], 5, 2, 10, 1.4, 1], 'line-opacity': 0.85}}, underB);
+  map.addLayer({id:'st-walknet', type:'line', source:'st-walknet', layout:{'line-cap':'round','line-join':'round'}, paint:{'line-color':['step',['get','t'],'#1F3AA8',301,'#4E6BD6',601,'#93A6EA'], 'line-width':3, 'line-opacity':0.9}});
   map.addLayer({id:'st-route', type:'line', source:'st-route', layout:{'line-cap':'round', 'line-join':'round'}, paint:{'line-color': cssVar('--site'), 'line-width': 4, 'line-opacity': 0.9}});
+  map.addLayer({id:'st-walkpoints', type:'circle', source:'st-walkpoints', paint:{'circle-radius':7, 'circle-color':['match',['get','kind'],'start',cssVar('--accent'),cssVar('--site')], 'circle-stroke-color':cssVar('--sheet'), 'circle-stroke-width':3}});
   const sym = (map.getStyle().layers || []).find(l => l.type === 'symbol' && l.layout && Array.isArray(l.layout['text-font']));
+  map.addLayer({id:'st-walkpoints-lbl', type:'symbol', source:'st-walkpoints', layout:{'text-field':['get','label'],'text-font':sym ? sym.layout['text-font'] : ['Noto Sans Regular'],'text-size':12,'text-offset':[0,1.1],'text-anchor':'top','text-allow-overlap':true}, paint:{'text-color':cssVar('--ink'),'text-halo-color':cssVar('--paper'),'text-halo-width':2}});
   map.addLayer({id:'st-poi-lbl', type:'symbol', source:'st-poi', filter:['has', 'lbl'], layout:{'text-field':['get','lbl'], 'text-font': sym ? sym.layout['text-font'] : ['Noto Sans Regular'], 'text-size': 11.5, 'text-offset':[0, 0.9], 'text-anchor':'top', 'text-optional': true},
     paint:{'text-color': cssVar('--ink'), 'text-halo-color': cssVar('--paper'), 'text-halo-width': 1.6}});
 }
 const fmtMin = t => !Number.isFinite(t) ? '—' : t < 60 ? '1분 이내' : `${Math.round(t/60)}분`;
 function walkShow(res){
   const c = res.c;
-  setData('st-radius', [400, 800, 1200].map(m => ({type:'Feature', properties:{m}, geometry:{type:'LineString', coordinates: circleRing(c.lng, c.lat, m)}})));
+  setData('st-radius', WALK.rings ? [400, 800, 1200].map(m => ({type:'Feature', properties:{m}, geometry:{type:'LineString', coordinates: circleRing(c.lng, c.lat, m)}})) : []);
+  setData('st-walknet', walkNetworkFeatures(res));
   setData('st-iso', res.bands.slice().reverse().flatMap(b => b.polys.map(pg => ({type:'Feature', properties:{m: b.m}, geometry:{type:'Polygon', coordinates: pg}}))));
   const nearest = new Set(res.rows.filter(r => r.near).map(r => r.id + '|' + r.near.lng + '|' + r.near.lat));
   setData('st-poi', res.pois.map(p => { const k = POI_CATS.find(x => x.id === p.cat) || {}, props = {col: k.col || '#888'}; if(nearest.has(p.cat + '|' + p.lng + '|' + p.lat)) props.lbl = `${p.name || k.name} ${fmtMin(p.t)}`; return {type:'Feature', properties: props, geometry:{type:'Point', coordinates:[p.lng, p.lat]}}; }));
-  setData('st-route', []);
+  const selected = res.rows.find(r => r.id === res.sel);
+  setData('st-route', selected && selected.path ? [{type:'Feature',properties:{},geometry:{type:'LineString',coordinates:selected.path.ll}}] : []);
+  walkPoints(res, selected);
 }
-function walkClear(){ for(const id of ['st-radius', 'st-poi', 'st-iso', 'st-route']) setData(id, []); S.radiusRes = null; keepScroll(renderStudio); }
+function walkNetworkFeatures(res){ const L = mkLocal(res.c.lng,res.c.lat); return res.net.filter(e => e[4] <= 900).map(e => ({type:'Feature',properties:{t:e[4]},geometry:{type:'LineString',coordinates:[L.b(e[0],e[1]),L.b(e[2],e[3])]}})); }
+function walkPoints(res, row){
+  const pts = [{type:'Feature',properties:{kind:'start',label:'분석 출발점'},geometry:{type:'Point',coordinates:[res.c.lng,res.c.lat]}}];
+  if(row && row.near) pts.push({type:'Feature',properties:{kind:'end',label:row.near.name || row.name},geometry:{type:'Point',coordinates:[row.near.lng,row.near.lat]}});
+  setData('st-walkpoints',pts);
+}
+function resetWalk(){
+  if(WALK.busy) $('#toast').hidden = true;
+  WALK.seq++; if(WALK.ctl) WALK.ctl.abort(); WALK.ctl = null; WALK.busy = false;
+  for(const id of ['st-radius','st-poi','st-iso','st-route','st-walknet','st-walkpoints']) setData(id, []);
+  S.radiusRes = null; S.mapFocus = false; panel.classList.remove('map-focus');
+}
+function walkClear(){ resetWalk(); keepScroll(renderStudio); }
 function walkRoute(cat){
   const res = S.radiusRes; if(!res) return; const r = res.rows.find(x => x.id === cat);
   if(!r || !r.path){ toast(`15분 안에 ${r ? r.name : '그런 곳'}이 없어요`); return; }
   res.sel = res.sel === cat ? null : cat;
   setData('st-route', res.sel ? [{type:'Feature', properties:{}, geometry:{type:'LineString', coordinates: r.path.ll}}] : []);
+  walkPoints(res, res.sel ? r : null);
+  S.mapFocus = !!res.sel; applyPerm(); keepScroll(renderStudio);
   if(res.sel){ try { map.fitBounds(boundsOfRings([r.path.ll], 30), {padding: padForPanel(), maxZoom: 17.5, duration: 600}); } catch(_){} toast(`${r.near.name || r.name}까지 길 따라 ${Math.round(r.path.len)}m${r.path.up >= 3 ? ` · 오르막 ${Math.round(r.path.up)}m` : ''} · 걸어서 ${fmtMin(r.near.t)}`, 4500); }
-  keepScroll(renderStudio);
 }
-async function radiusAnalysis(){
+async function radiusAnalysis(origin){
   if(WALK.busy || !S.mapReady) return; WALK.busy = true;
-  const s = curSite(), c0 = s ? siteCenter(s) : map.getCenter(), c = {lng: c0.lng, lat: c0.lat}, slow = WALK.pace === 'slow';
+  const run = ++WALK.seq, ctl = new AbortController(); WALK.ctl = ctl;
+  const s = curSite(), c0 = origin || (s ? siteCenter(s) : map.getCenter()), c = {lng: c0.lng, lat: c0.lat}, slow = WALK.pace === 'slow', avoidSteps = WALK.avoidSteps;
   const bb = boundsOfRings([circleRing(c.lng, c.lat, WALK_R + 100)]);
+  if(S.panel === 'studio') keepScroll(renderStudio);
   try {
     let data = WALK.cache && hav(WALK.cache.c, c) < 1 ? WALK.cache.data : null;
     if(!data){
       toast('길과 시설 자료를 불러오는 중… 10초쯤 걸려요', 20000);
       await viewBounds(bb, 16); await demPrefetchB(bb);
-      try { data = await walkFetch(c); } catch(_){ data = walkFromTiles(); }
+      if(run !== WALK.seq || ctl.signal.aborted) return;
+      try { data = await walkFetch(c, ctl.signal); } catch(_){ if(ctl.signal.aborted) return; data = walkFromTiles(); }
+      if(run !== WALK.seq || ctl.signal.aborted) return;
       if(!data.lines.length){ toast('주변 길 자료를 불러오지 못했어요 · 인터넷 연결을 확인해 주세요', 5000); return; }
       WALK.cache = {c, data};
     }
     toast('경사와 계단을 따라 걷는 시간을 계산하는 중…', 10000);
     await new Promise(r => setTimeout(r, 30));
-    const res = walkCompute(c, data, slow);
-    if(!res){ toast('시작점 300m 안에 길이 없어요', 4000); return; }
+    if(run !== WALK.seq || ctl.signal.aborted) return;
+    const res = walkCompute(c, data, slow, undefined, {avoidSteps});
+    if(!res){ toast(avoidSteps ? '시작점 300m 안에 계단을 제외한 길이 없어요' : '시작점 300m 안에 길이 없어요', 4000); return; }
+    res.originLabel = s ? s.name : '분석 당시 지도 중심';
     res.ctx = walkContext(res);
     S.radiusRes = res; walkShow(res); $('#toast').hidden = true;
-  } finally { WALK.busy = false; }
-  if(S.panel !== 'studio') openPanel('studio'); else keepScroll(renderStudio);
+  } catch(_){ if(run === WALK.seq && !ctl.signal.aborted) toast('도보 분석을 완료하지 못했어요. 잠시 후 다시 시도해 주세요.',5000); }
+  finally { if(run === WALK.seq){ WALK.busy = false; WALK.ctl = null; if(S.panel === 'studio') keepScroll(renderStudio); } }
 }
 function walkCardHTML(){
   const rr = S.radiusRes;
   let h = `<h4 class="sub">걸어서 닿는 범위</h4>
-    <div class="seg" role="group" aria-label="걷는 속도"><button data-act="walkPace" data-v="norm" aria-pressed="${WALK.pace !== 'slow'}">보통 걸음</button><button data-act="walkPace" data-v="slow" aria-pressed="${WALK.pace === 'slow'}">천천히 · 어르신·유모차</button></div>
-    <div class="menu-list row"><button class="btn sm pri" data-act="radius">${rr ? '다시 분석' : '도보 5·10·15분 분석'}</button>${rr ? '<button class="btn sm" data-act="radSvg">다이어그램 SVG</button><button class="btn sm ghost" data-act="radClear">지우기</button>' : ''}</div>`;
-  if(!rr) return h + `<p class="hint">실제 길(골목·계단 포함)을 따라, 오르막에서는 느려지게 걷는 시간을 계산해요. 산복도로처럼 경사진 동네에서는 직선 반경보다 훨씬 정확해요.</p>`;
+    <div class="seg" role="group" aria-label="걷는 속도"><button data-act="walkPace" data-v="norm" aria-pressed="${WALK.pace !== 'slow'}" ${WALK.busy ? 'disabled' : ''}>보통 걸음</button><button data-act="walkPace" data-v="slow" aria-pressed="${WALK.pace === 'slow'}" ${WALK.busy ? 'disabled' : ''}>천천히 걷기</button></div>
+    <label class="tgl"><input type="checkbox" data-act2="walkAvoidSteps" ${WALK.avoidSteps ? 'checked' : ''} ${WALK.busy ? 'disabled' : ''}> 계단을 제외하고 분석</label>
+    <div class="menu-list row"><button class="btn sm pri" data-act="radius" ${WALK.busy ? 'disabled' : ''}>${WALK.busy ? '도보 분석 중…' : rr ? '현재 기준점으로 다시 분석' : '도보 5·10·15분 분석'}</button>${rr || WALK.busy ? '<button class="btn sm ghost" data-act="radClear">지우기·취소</button>' : ''}${rr ? '<button class="btn sm" data-act="radSvg">다이어그램 SVG</button>' : ''}</div>`;
+  if(!rr) return h + `<p class="hint">${WALK.busy ? '길과 지형 자료를 확인하고 있어요. 지우기·취소를 누르면 중단할 수 있어요.' : '대지가 있으면 대지 중심, 없으면 현재 지도 중심에서 출발해요. 등록된 길과 지형으로 이동 시간을 추정하고, 5·10·15분 이내에 닿는 길과 시설을 표시해요.'}</p>`;
   const x = rr.ctx || {}, pct = rr.ideal15 ? Math.round(rr.area15/rr.ideal15*100) : null;
-  h += `<table class="rtab wk"><thead><tr><th></th><th>5분</th><th>10분</th><th>15분</th><th>가장 가까운 곳 · 누르면 길 표시</th></tr></thead><tbody>${rr.rows.map(r => `<tr data-act="radRoute" data-cat="${r.id}" class="${rr.sel === r.id ? 'on' : ''}"><td><i style="background:${r.col}"></i>${esc(r.name)}</td><td>${r.n[0]}</td><td>${r.n[1]}</td><td>${r.n[2]}</td><td>${r.near ? `${esc(r.near.name || '이름 없음')}<br><small>걸어서 ${fmtMin(r.near.t)} · 길 ${Math.round(r.path ? r.path.len : r.near.dl)}m${r.path && r.path.up >= 3 ? ` · 오르막 ${Math.round(r.path.up)}m` : ''}</small>` : '<small>15분 안에 없음</small>'}</td></tr>`).join('')}</tbody></table>
+  h += `<p class="note walk-origin"><b>분석 출발점 · ${esc(rr.originLabel || '지도 중심')}</b><br>${fmtCoord(rr.c.lat,rr.c.lng)}<br>${rr.slow ? '천천히 걷기' : '보통 걸음'} · ${rr.avoidSteps ? '계단 제외' : '계단 포함'}${rr.entryDistance >= 20 ? ` · 길까지 연결 거리 약 ${Math.round(rr.entryDistance)}m` : ''}</p>
+    <div class="legend" aria-label="도로 색상별 도보 시간"><span><i style="background:#1F3AA8"></i>5분 이내</span><span><i style="background:#4E6BD6"></i>10분 이내</span><span><i style="background:#93A6EA"></i>15분 이내</span></div>
+    <div class="walk-metrics">${rr.bands.map((b,i) => `<div><span>${b.m}분 이내</span><b>시설 ${rr.rows.reduce((n,r)=>n+r.n[i],0)}곳</b><span>도보권 ${(b.area/1e6).toFixed(2)}㎢</span></div>`).join('')}</div>
+    <label class="tgl"><input type="checkbox" data-act2="walkRings" ${WALK.rings ? 'checked' : ''}> 비교용 직선 거리 원 표시 · 400·800·1200m</label>
+    <table class="rtab wk"><thead><tr><th scope="col">시설</th><th scope="col">5분</th><th scope="col">10분</th><th scope="col">15분</th><th scope="col">가장 가까운 곳 · 길 보기</th></tr></thead><tbody>${rr.rows.map(r => `<tr class="${rr.sel === r.id ? 'on' : ''}"><td><i style="background:${r.col}"></i>${esc(r.name)}</td><td>${r.n[0]}</td><td>${r.n[1]}</td><td>${r.n[2]}</td><td>${r.near ? `<button class="walk-route" data-act="radRoute" data-cat="${r.id}" aria-pressed="${rr.sel === r.id}" aria-label="${esc(r.near.name || r.name)}까지 경로 ${rr.sel === r.id ? '숨기기' : '보기'}">${esc(r.near.name || '이름 없음')}<br><small>걸어서 ${fmtMin(r.near.t)} · 길 ${Math.round(r.path ? r.path.len : r.near.dl)}m${r.path && r.path.up >= 3 ? ` · 오르막 ${Math.round(r.path.up)}m` : ''}</small></button>` : '<small>도달한 시설 없음</small>'}</td></tr>`).join('')}</tbody></table>
     <dl class="spec tight"><dt>15분 도보권</dt><dd>${(rr.area15/1e6).toFixed(2)}㎢${pct != null ? ` · 평지라면 닿을 원(반지름 ${(rr.rIdeal/1000).toFixed(2)}km)의 ${pct}%` : ''}</dd>
       ${x.n ? `<dt>주변 400m</dt><dd>건물 ${x.n.toLocaleString('ko-KR')}동 · 보통 ${x.med}층 · 가장 높은 ${x.max}층 · 건폐 밀도 ${x.cov.toFixed(0)}%</dd>` : ''}
       ${x.zmin != null ? `<dt>표고</dt><dd>${rr.zc != null ? `기준점 ${rr.zc.toFixed(0)}m · ` : ''}400m 안 ${x.zmin.toFixed(0)}~${x.zmax.toFixed(0)}m (차이 ${(x.zmax - x.zmin).toFixed(0)}m)</dd>` : ''}</dl>
-    <p class="hint">${rr.slow ? '천천히(평지 시속 3.5km, 계단은 더 느리게)' : '보통 걸음(평지 시속 5km)'} 기준 · 오르막과 급한 내리막은 토블러 보행 함수로 느려지고, 계단은 한 층(3m) 오를 때 약 10초 더 걸리게 했어요. 길 ${rr.edges.toLocaleString('ko-KR')}개 구간 중 계단 ${rr.steps.toLocaleString('ko-KR')}개 · ${rr.src === 'osm' ? '길·시설 © OpenStreetMap 기여자' : '지도 타일에서 길을 읽어 일부 골목·계단이 빠졌을 수 있어요'} · 경사는 지형 자료(30m 간격) 기준이라 옹벽·엘리베이터는 반영되지 않아요.${x.src === 'osm' && x.n ? ' 건물 수는 오픈스트리트맵 기준이에요.' : ''}</p>`;
+    <p class="hint">${rr.slow ? '천천히(평지 시속 약 3.5km)' : '보통 걸음(평지 시속 약 5km)'} 기준 · 길 ${rr.edges.toLocaleString('ko-KR')}개 구간 중 계단 ${rr.steps.toLocaleString('ko-KR')}개 · ${rr.terrainCoverage === 0 ? '지형 자료 없음 · 경사를 반영하지 못해 평지로 계산했어요.' : rr.terrainCoverage < 0.99 ? '지형 일부 누락 · 자료가 없는 구간은 높이를 추정했어요.' : '지형의 오르막·내리막을 반영했어요.'} ${rr.avoidSteps ? '계단 제외는 경사로·턱의 통행 가능 여부까지 판정하지 않아요. ' : ''}${rr.src === 'osm' ? '길·시설 © OpenStreetMap 기여자' : '지도 타일 자료라 일부 골목·계단이 빠졌을 수 있어요.'} 시설은 가장 가까운 길에 연결한 추정이며, 지형 자료(30m 간격)로 옹벽·출입구·엘리베이터는 확인할 수 없어요.${x.src === 'osm' && x.n ? ' 건물 수는 오픈스트리트맵 기준이에요.' : ''}</p>`;
   return h;
 }
 function secCardHTML(){
@@ -5390,6 +5479,8 @@ function walkSVG(res){ // presentation diagram: streets coloured by minutes, ban
   let g = `<rect width="${W}" height="${Hh + 96}" fill="${col.bg}"/><clipPath id="cp"><rect width="${W}" height="${Hh}"/></clipPath><g clip-path="url(#cp)">`;
   for(const b of res.bands.slice().reverse()) g += `<path d="${b.polysL.map(pg => pg.map(r => 'M' + r.map(p => `${X(p[0]).toFixed(1)} ${Y(p[1]).toFixed(1)}`).join('L') + 'Z').join('')).join('')}" fill="${col.acc}" fill-opacity="${b.m === 5 ? 0.16 : b.m === 10 ? 0.1 : 0.06}" fill-rule="evenodd" stroke="${col.acc}" stroke-width="${b.m === 5 ? 1.6 : 1}" stroke-opacity="0.7"/>`;
   for(let i = 3; i >= 0; i--) if(paths[i]) g += `<path d="${paths[i]}" fill="none" stroke="${bandCol[i]}" stroke-width="${bandW[i]}" stroke-linecap="round"/>`;
+  const selected = res.rows.find(r => r.id === res.sel);
+  if(selected && selected.path){ const L = mkLocal(res.c.lng,res.c.lat); g += `<path d="M${selected.path.ll.map(p => { const q = L.f(p[0],p[1]); return `${X(q[0]).toFixed(1)} ${Y(q[1]).toFixed(1)}`; }).join('L')}" fill="none" stroke="${col.site}" stroke-width="3" stroke-linecap="round"/>`; }
   for(const m of [400, 800]) g += `<circle cx="${X(0)}" cy="${Y(0)}" r="${(m*k).toFixed(1)}" fill="none" stroke="${col.ink3}" stroke-width="0.8" stroke-dasharray="4 4"/><text x="${X(0) + 4}" y="${(Y(0) - m*k - 3).toFixed(1)}" font-size="9" fill="${col.ink3}">직선 ${m}m</text>`;
   const s = curSite(); if(s){ const L = mkLocal(res.c.lng, res.c.lat); for(const r of siteRings(s)) g += `<path d="M${r.map(p => { const q = L.f(p[0], p[1]); return `${X(q[0]).toFixed(1)} ${Y(q[1]).toFixed(1)}`; }).join('L')}Z" fill="${col.site}" fill-opacity="0.25" stroke="${col.site}" stroke-width="1.6"/>`; }
   for(const p of res.pois){ const kc = POI_CATS.find(x => x.id === p.cat) || {}; g += `<circle cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="3.2" fill="${kc.col || '#888'}" stroke="#fff" stroke-width="0.8"/>`; }
@@ -5398,7 +5489,7 @@ function walkSVG(res){ // presentation diagram: streets coloured by minutes, ban
   g += `<g transform="translate(${W - 34},34)"><path d="M0 -16 L7 10 L0 5 L-7 10Z" fill="${col.ink}"/><text y="-20" text-anchor="middle" font-size="11" font-weight="700" fill="${col.ink}">N</text></g>`;
   const sb = 500*k; g += `<g transform="translate(16,${Hh - 18})"><rect width="${sb.toFixed(1)}" height="5" fill="${col.ink}"/><rect width="${(sb/2).toFixed(1)}" height="5" fill="#fff" stroke="${col.ink}" stroke-width="0.6"/><text y="-4" font-size="10" fill="${col.ink}">0</text><text x="${sb.toFixed(1)}" y="-4" text-anchor="end" font-size="10" fill="${col.ink}">500m</text></g>`;
   let lx = 16, ly = Hh + 22;
-  g += `<text x="16" y="${ly - 4}" font-size="13" font-weight="700" fill="${col.ink}">걸어서 5·10·15분 · ${res.slow ? '천천히 걷기(어르신·유모차)' : '보통 걸음'} · 경사·계단 반영</text>`;
+  g += `<text x="16" y="${ly - 4}" font-size="13" font-weight="700" fill="${col.ink}">걸어서 5·10·15분 · ${res.slow ? '천천히 걷기' : '보통 걸음'} · ${res.avoidSteps ? '계단 제외' : '계단 포함'}${res.terrainCoverage === 0 ? ' · 평지 가정' : ''}</text>`;
   ly += 18;
   for(const [i, lb] of ['5분', '10분', '15분', '그 밖'].entries()){ g += `<line x1="${lx}" x2="${lx + 18}" y1="${ly}" y2="${ly}" stroke="${bandCol[i]}" stroke-width="3"/><text x="${lx + 22}" y="${ly + 3.5}" font-size="10" fill="${col.ink}">${lb}</text>`; lx += 64; }
   lx = 16; ly += 20;
@@ -5596,7 +5687,7 @@ function planDXF(P){
 }
 
 /* ---------------- boot ---------------- */
-if(/[?&]debug/.test(location.search)) window.__dbg = {planBuild, mkLocal, M3, planLive, makePlan, planCut, planSVG, planDXF, planApply3d, planSlice, renderPlan, PLANHIDE, walkTime, walkCompute, walkParse, walkSVG, nestRings, MinHeap, WALK, POI_CATS, demFilter, demFilterOff, morph, mkQuiet, onZoom, REG, KK, VW, regParse, regItem, regMatch, regHeight, regPnuCands, regDongKey, regApply, regFetch, regPick, regSave, regWorkerCode, regStatText, flushVwBldg, vwIdxAdd, kkoOpen, kkoClose, kkoMode, kkoLevel, bldMeta, smoothDem, topoTileHit, decodeTerrarium, encodeTerrarium, cmExport, rhinoContours, cmPreview, TOPO, CRSDEF, crsOf, crsInv, tmF, makeConv, detectCrs, prjToCrs, parseTopoDXF, parseShp, parseDbf, parseShpLayer, unzipFiles, readTopoFiles, buildTopoDem, localDemAt, isoLines, simplifyPL, cmCompute, cmLayers, cmPack, cmSVG, cmDXF, cmInfoText, cmCardHTML, topoCardHTML, topoActivate, importTopo, renderLook, applyBldMode, vwFillMissing, topoFloorsAt, vwEstimate, floorTap, heightCounts, demSample, DEMT, demXY, sunTimes, sunDir, shadowObj, shadowPoly, projPt, terrBlocked, sunDateStr, renderSunbar, elevAsync, migrateElev, cleanRec, S, openPanel, blankObsDraft, sectionSVG, renderStudio, saveSite, curSite, selectSite, envelopeCells, massStats, refreshMassStats, startPlacing, measureMsg, measureFeatures, rectFrom, parseDXF, inv5187, tm5187, modelAreas, cleanSite, objCardHTML, startObjEdit, hav, ringAreaM2, mkLocal, numAdd, finishDraft, useInfo, vwIdxAdd, vwBldgAt, innerPoint, liveBld, HFIX, hfixPut, vwApplyFixes, VW, renderDraft};
+if(/[?&]debug/.test(location.search)) window.__dbg = {planBuild, mkLocal, M3, planLive, makePlan, planCut, planSVG, planDXF, planApply3d, planSlice, renderPlan, PLANHIDE, walkTime, walkCompute, walkParse, walkSVG, walkCardHTML, walkShow, walkNetworkFeatures, walkClear, walkRoute, radiusAnalysis, resetWalk, fitPadding, nestRings, MinHeap, WALK, POI_CATS, demFilter, demFilterOff, morph, mkQuiet, onZoom, REG, KK, VW, regParse, regItem, regMatch, regHeight, regPnuCands, regDongKey, regApply, regFetch, regPick, regSave, regWorkerCode, regStatText, flushVwBldg, vwIdxAdd, kkoOpen, kkoClose, kkoMode, kkoLevel, bldMeta, smoothDem, topoTileHit, decodeTerrarium, encodeTerrarium, cmExport, rhinoContours, cmPreview, TOPO, CRSDEF, crsOf, crsInv, tmF, makeConv, detectCrs, prjToCrs, parseTopoDXF, parseShp, parseDbf, parseShpLayer, unzipFiles, readTopoFiles, buildTopoDem, localDemAt, isoLines, simplifyPL, cmCompute, cmLayers, cmPack, cmSVG, cmDXF, cmInfoText, cmCardHTML, topoCardHTML, topoActivate, importTopo, renderLook, applyBldMode, vwFillMissing, topoFloorsAt, vwEstimate, floorTap, heightCounts, demSample, DEMT, demXY, sunTimes, sunDir, shadowObj, shadowPoly, projPt, terrBlocked, sunDateStr, renderSunbar, elevAsync, migrateElev, cleanRec, S, openPanel, blankObsDraft, sectionSVG, renderStudio, saveSite, curSite, selectSite, envelopeCells, massStats, refreshMassStats, startPlacing, measureMsg, measureFeatures, rectFrom, parseDXF, inv5187, tm5187, modelAreas, cleanSite, objCardHTML, startObjEdit, hav, ringAreaM2, mkLocal, numAdd, finishDraft, useInfo, vwIdxAdd, vwBldgAt, innerPoint, liveBld, HFIX, hfixPut, vwApplyFixes, VW, renderDraft};
 (async function boot(){
   if(!window.maplibregl){ $('#offline').hidden = false; }
   const ok = await DB.open();
