@@ -15,6 +15,7 @@
 <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAAEGklEQVR42u3cvWoUURiA4c0yhVdgaWmjEEiR9PZbeQGKlYgXYCd2XoCFpV6A1ZZChBSCFoKgjaVlIKTU0mIgibM/yc6cmTnfnOftIriuO0++mXN2dvfOzk9n0rrmXgLBITgEh+AQHIJDcAgOwSE4JDgEh+AQHIJDcAgOwSE4BIcEh+AQHIJDcAgOwSE4BIfgkOAQHIJDcAgOwSE41EuLt4/g0EYZPfmAQ3BM/YTSx/CAQ3AUcB2afHjAITjKWL6mHR5wTEdGch9wCI4yxkba4QGH4ChmbCQcHnBMUEYqH9X0XsS/L18kf8yPJ58Xn06cVshYIyPc2EgyPCosMmdhcpDR1wDo8ncrLAyMaU6OEmR0X3S0foQ5GdOW0eVxKiycSqYzOcqRkfb99xaPVmFhQoSfHKXJ6OOG4V0fM8zkOP3xs6jf2uXT91d/3D84vPrj929fTQ5dahgGBByBiQw2NuCI6gOOcmtcYVit6D8Z+weHoxOpHIwQI2T4q1GTI8YJZRQZcAgOYwMOwWFsWK0U1oWDTDY5TI5MlQy8TQ5H1EECh1yQ6mbXoXDo8m0UOALX96eoc3ibzVI2IxarGvYPDnO4DjU5spORyQrF5Bj/PGK1QkbgsQHHODNj1UGGMpxWRjuV1Bpy3uQwOUa+yMjkPRSTI9Nrz2xlmBxWJdvaOzs/jfi8W3+u+tar16M84dw2uKaJI8nH7Wsigx2wcT9hUASO5N/CcLQ8HuaYjfIZ+YKuOfr4fo4viwdrD16vMvJfwUaaHH2wGGyERNkMjbeU/f1wMZvNbt+/1/c/VI+Qo+VxfSzDXTmWiOPOh2VNpG8fF5PD2Ah5QdoTkVUWux68u2/erf7hr+ePQ1+KxlutJPdxsaBtd/zWsthOBI7Ek7nxgiYh0tgK237wVp/DtSxWidgE6+ucvfqytiayZYd00/FrPI2dZDRGCBx9Xc11JNJu47zxNP48edbuvxPRRyQcm8b+tUS6vJ9y9Wm0lhHUxzy6jHrFu+UrbFPJKLAcJ0fr7YHGCOn+BmzCsRFxeFSTkVGPkHpTtd49616Im/lKnxyjLwJbrFAmMDxyvOZofM+3dzrgWD/SySgax5YzOhlF48j8OwjgyGJm5PkdBHDkvo5VcThi3QiTav0ZaxNsToYywhFURvdfem+8XZ8JEaUxt88j3jzXeh894v0cY65WIu6BtjvG7gQrqBb3kMKx8fQxyeuMm999Dsd0Liy6E4nOYggcGd6ZoXwvSG2Qw7HRgckBBxlwkAHHrnEwjQZareBicqwfIWSYHDI5BIcEh+AQHIJDcAgOwSE4BIfgEBwSHIJDcAgOwSE4BIfgEByCQ4JDcAgOwSE4BIfgEByCQ3BIcAgOwSE4BIfgEByCQ3AIDsEhwSE4BIfg0Dj9A7Gg6HD7zUphAAAAAElFTkSuQmCC">
 <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<link rel="stylesheet" href="studio-editor.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
@@ -2301,6 +2302,7 @@ panel.addEventListener('click', async e => {
     case 'siteStats': computeSiteStats(curSite()); toast('지형에서 표고를 읽는 중…'); break;
     case 'massAdd': if(!curSite()) break; closePanel(); startPlacing('mass'); break;
     case 'drawNew': if(!curSite()) break; closePanel(); startPlacing('draw'); break;
+    case 'designEditor': await openDesignEditor(); break;
     case 'modelUp': $('#fModel').click(); break;
     case 'planUp': $('#fPlan').click(); break;
     case 'objEdit': startObjEdit(b.dataset.id); break;
@@ -3859,10 +3861,24 @@ function objCardHTML(s){
   };
   return `<section class="card"><h3>내 도면 · 모델</h3>
     ${objs.map(row).join('') || '<p class="hint">평면을 길이·각도로 정확히 그리거나, 캐드 DXF·도면 이미지를 깔고, 라이노·스케치업·블렌더에서 내보낸 GLB·OBJ 모델을 대지 위에 세워 볼 수 있어요.</p>'}
-    <div class="menu-list row"><button class="btn sm pri" data-act="drawNew">도면 그리기</button><button class="btn sm" data-act="modelUp">3D 모델 올리기</button><button class="btn sm" data-act="planUp">도면 파일 (DXF·이미지)</button></div>
+    <div class="menu-list row"><button class="btn sm pri" data-act="designEditor">도면·매스 편집기 열기</button><button class="btn sm" data-act="drawNew">지도에 선 그리기</button><button class="btn sm" data-act="modelUp">3D 모델 올리기</button><button class="btn sm" data-act="planUp">도면 파일 (DXF·이미지)</button></div>
     <label class="tgl"><input type="checkbox" data-act2="hideEx" ${S.hideEx ? 'checked' : ''}> 대지 안 기존 건물 숨기기</label>
     <p class="hint">모델은 GLB 한 파일이 가장 잘 맞아요(OBJ도 돼요). 발밑의 가장 낮은 땅에 세우고, 건폐율·용적률·그림자·단면·내보내기에 함께 들어가요. 면적은 지붕 평면(건축면적)과 층마다 높이 3/4 지점을 자른 단면(바닥면적, 외벽 바깥면 기준)으로 계산해요. 파일은 이 기기에만 저장돼요.</p>
   </section>`;
+}
+
+async function openDesignEditor(){
+  let target=curSite(); if(!target){toast('대지를 먼저 정해 주세요');return;}
+  const c=siteCenter(target),L=mkLocal(c.lng,c.lat);let expected=JSON.stringify(target.masses||[]);
+  try {
+    const {openEditor}=await import('./studio-editor.mjs');
+    const points=ring=>{const p=ring.map(q=>L.f(...q));if(p.length>1&&Math.hypot(p[0][0]-p.at(-1)[0],p[0][1]-p.at(-1)[1])<0.00001)p.pop();return p;};
+    openEditor({name:target.name,siteRings:siteRings(target).map(points),items:(target.masses||[]).map(m=>({id:m.id,name:m.name||'매스',points:points(m.ring),floors:+m.floors||1,fh:+m.fh||3,base:+m.base||0})),onSave:async items=>{
+      const current=curSite();if(!current||current.id!==target.id||JSON.stringify(current.masses||[])!==expected)throw Error('다른 작업으로 대지가 변경됐습니다. 닫고 편집기를 다시 열어 주세요.');
+      const masses=items.map(o=>{const ring=o.points.map(p=>L.b(...p).map(v=>+v.toFixed(8)));ring.push(ring[0].slice());return {id:o.id,name:o.name.slice(0,30),ring,floors:o.floors,fh:o.fh,base:o.base};});
+      const next={...current,masses};await saveSite(next);target=next;expected=JSON.stringify(next.masses);SUNCTX=null;S.sunRes=null;refreshMassStats().catch(()=>{});
+    }});
+  } catch(e){toast(e.message||'편집기를 불러오지 못했어요',5000);}
 }
 
 /* ---------- import / export sanitising ---------- */
