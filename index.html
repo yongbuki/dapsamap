@@ -2540,7 +2540,7 @@ function gridCells(rings, s){ // rings in local metres → cell centres inside
 const cellRing = (x, y, s, L) => [[x-s/2,y-s/2],[x+s/2,y-s/2],[x+s/2,y+s/2],[x-s/2,y+s/2],[x-s/2,y-s/2]].map(p => L.b(p[0], p[1]));
 function circleRing(lng, lat, m, n = 72){ const L = mkLocal(lng, lat), out = []; for(let i = 0; i <= n; i++){ const a = i/n*2*Math.PI; out.push(L.b(Math.sin(a)*m, Math.cos(a)*m)); } return out; }
 function elevF(lng, lat){ return demSample(lng, lat, 'raw'); } // metres above sea level, independent of view and zoom
-function waitIdle(ms = 9000){ return new Promise(res => { let done = false; const fin = () => { if(!done){ done = true; clearTimeout(t); res(); } }; const t = setTimeout(fin, ms); map.once('idle', fin); }); }
+function waitIdle(ms = 9000){ return new Promise(res => { let done = false; const fin = () => { if(!done){ done = true; clearTimeout(t); map.off('idle', fin); res(); } }; const t = setTimeout(fin, ms); map.once('idle', fin); }); }
 function fitPadding(view, sheet, wide){
   const p = {top:40, bottom:40, left:24, right:24};
   if(sheet && sheet.bottom > view.top && sheet.top < view.bottom && sheet.right > view.left && sheet.left < view.right){
@@ -2997,7 +2997,23 @@ function dxfText(entities, layers, insunits){
   p(0, 'ENDSEC'); p(0, 'EOF');
   return L.join('\r\n') + '\r\n';
 }
+let mapExportBusy = false;
+async function withExportView(task){
+  if(mapExportBusy){ toast('내보내는 중이에요. 완료 후 다시 시도해 주세요.'); return; }
+  const exportMap = map;
+  exportMap.stop();
+  const c = exportMap.getCenter();
+  const camera = {center: [c.lng, c.lat], zoom: exportMap.getZoom(), bearing: exportMap.getBearing(), pitch: exportMap.getPitch(), padding: {...exportMap.getPadding()}};
+  mapExportBusy = true;
+  try { return await task(); }
+  catch(e){ console.error('지도 내보내기 실패', e); toast('내보내지 못했어요. 지도 자료와 인터넷 연결을 확인한 뒤 다시 시도해 주세요.', 6000); }
+  finally {
+    mapExportBusy = false;
+    if(map === exportMap) exportMap.jumpTo(camera);
+  }
+}
 async function exportDXF(){
+  return withExportView(async () => {
   const area = exportArea(); toast('DXF를 만드는 중…', 8000);
   await viewBounds(area.bounds, 17.6); await demPrefetchB(area.bounds);
   const ctx = collectContext(area), ents = [], P = (lng, lat) => tm5187(lng, lat), terr = true;
@@ -3018,13 +3034,15 @@ async function exportDXF(){
   for(const r of visible().filter(hasLoc)){ if(!inBounds(area.bounds, r.lng, r.lat)) continue; const q = P(r.lng, r.lat); ents.push({t:'tx', layer:'RECORDS', x: q[0], y: q[1], h: 1.5, s: (r.time || '') + ' ' + (r.name || '')}); }
   const layers = [['SITE', 1], ['MASSES', 5], ['MY_MODEL', 5], ['MY_DRAWING', 6], ['MY_DXF', 4], ['PARKING', 9], ['BUILDINGS', 7], ['BUILDINGS_ON_SITE', 9], ['BUILDING_FLOORS', 8], ['PARCELS', 8], ['PARCEL_NO', 8], ['ROADS_MAIN', 252], ['ROADS', 253], ['ROADS_PATH', 254], ['CONTOUR_MAJOR', 30], ['CONTOUR_MINOR', 31], ['SECTION_LINE', 1], ['RECORDS', 3]];
   if(!ents.length){ toast('내보낼 도형이 없어요. 지도 자료가 표시된 뒤 다시 시도해 주세요.', 6000); return; }
-  const txt = dxfText(ents, layers);
+  const txt = dxfText(ents, layers, 6);
   download(new Blob([txt], {type:'application/dxf'}), `답사지도-${(s && s.name) || '주변'}-${fileStamp()}.dxf`.replace(/[\\/:*?"<>|]/g, ''));
   toast(`DXF 저장 · 건물 ${ctx.bldgs.length} · 필지 ${ctx.parcels.length} · 도로 ${ctx.roads.length} · 등고선 ${ctx.contours.length}`, 5000);
+  });
 }
 let earcutP = null;
 function needEarcut(){ if(window.earcut) return Promise.resolve(window.earcut); if(!earcutP) earcutP = new Promise(res => { const sc = document.createElement('script'); sc.src = 'https://unpkg.com/earcut@2.2.4/dist/earcut.min.js'; sc.onload = () => res(window.earcut || null); sc.onerror = () => res(null); document.head.appendChild(sc); }); return earcutP; }
 async function exportOBJ(){
+  return withExportView(async () => {
   const area = exportArea(); toast('3D 모델을 만드는 중… (지형 포함이면 몇 초 걸려요)', 9000);
   await demPrefetchB(area.bounds);
   await viewBounds(area.bounds, 17.4);
@@ -3075,6 +3093,7 @@ async function exportOBJ(){
   const txt = lines.concat(V, Fc).join('\n') + '\n';
   download(new Blob([txt], {type:'text/plain'}), `답사지도-${(s && s.name) || '주변'}-3D-${fileStamp()}.obj`.replace(/[\\/:*?"<>|]/g, ''));
   toast(`OBJ 저장 · 지형 ${N}×${N} 격자 · 건물 ${ctx.bldgs.length}동${s && s.masses && s.masses.length ? ` · 매스 ${s.masses.length}` : ''}${s && modelFootprints(s).length ? ` · 내 모델 ${modelFootprints(s).length}` : ''}`, 5000);
+  });
 }
 
 /* ---------- observation helpers ---------- */
