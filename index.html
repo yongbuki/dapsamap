@@ -2214,7 +2214,7 @@ function cleanSite(x){
   return {id: s2(x.id).slice(0, 120), name: s2(x.name).slice(0, 80), project: s2(x.project).slice(0, 60), polys, area: +x.area || polys.reduce((t, p) => t + ringAreaM2(p.ring), 0),
     parcels: Array.isArray(x.parcels) ? x.parcels.slice(0, 60).filter(Boolean).map(p => ({key: s2(p.key), jibun: s2(p.jibun).slice(0, 40), addr: s2(p.addr), jiga: +p.jiga || null})) : [],
     zoning: s2(x.zoning).slice(0, 40), region: s2(x.region), dong: s2(x.dong).slice(0, 40), address: s2(x.address), stats: x.stats && typeof x.stats === 'object' && x.stats.v === 3 ? {v: 3, emin: +x.stats.emin, emax: +x.stats.emax, emean: +x.stats.emean, slope: +x.stats.slope, aspect: +x.stats.aspect} : null,
-    masses: Array.isArray(x.masses) ? x.masses.slice(0, 60).filter(Boolean).map(m => { const ring = cleanLine8(m.ring); if(ring && ring.length < 4) return null; return ring ? {id: s2(m.id) || newId(), name: s2(m.name).slice(0, 30), ring, floors: Math.max(1, Math.min(80, Math.round(+m.floors || 1))), fh: Math.max(2, Math.min(10, +m.fh || 3)), base: Math.max(0, Math.min(100, +m.base || 0))} : null; }).filter(Boolean) : [],
+    masses: Array.isArray(x.masses) ? x.masses.slice(0, 60).filter(Boolean).map(m => { const ring = cleanLine8(m.ring); if(ring && ring.length < 4) return null; return ring ? {id: s2(m.id) || newId(), name: s2(m.name).slice(0, 30), level:s2(m.level).slice(0,30),material:s2(m.material).slice(0,60),ring, floors: Math.max(1, Math.min(80, Math.round(+m.floors || 1))), fh: Math.max(2, Math.min(10, +m.fh || 3)), base: Math.max(0, Math.min(100, +m.base || 0))} : null; }).filter(Boolean) : [],
     parking: Array.isArray(x.parking) ? x.parking.slice(0, 80).filter(Boolean).map(k => { const ring = cleanRingArr(k.ring); return ring ? {ring} : null; }).filter(Boolean) : [],
     objects: Array.isArray(x.objects) ? x.objects.slice(0, 40).map(cleanObj).filter(Boolean) : [],
     architecture: cleanArchitecture(x.architecture), brief: cleanBrief(x.brief), households: Math.max(1, Math.round(+x.households || 8)), parkTarget: Math.max(0, Math.round(+x.parkTarget || 0)), createdAt: +x.createdAt || Date.now(), updatedAt: +x.updatedAt || Date.now()};
@@ -2379,6 +2379,8 @@ panel.addEventListener('click', async e => {
     case 'cmRhino': rhinoContours(); break;
     case 'cmClear': CMP = null; setData('cm-prev', []); keepScroll(renderStudio); break;
     case 'dxf': exportDXF(); break;
+    case 'dwg': exportDXF('dwg'); break;
+    case 'dwgConfig': import('./dwg-export.mjs').then(m=>m.configureDWG()).catch(e=>toast(e.message)); break;
     case 'obj': exportOBJ(); break;
     case 'siteRedo': { const cs = curSite(); if(cs){ closePanel(); startPlacing('site', null, {siteId: cs.id}); } break; }
     case 'siteAskDel': $('#siteConfirm').hidden = false; break;
@@ -3006,13 +3008,13 @@ async function withExportView(task){
   const camera = {center: [c.lng, c.lat], zoom: exportMap.getZoom(), bearing: exportMap.getBearing(), pitch: exportMap.getPitch(), padding: {...exportMap.getPadding()}};
   mapExportBusy = true;
   try { return await task(); }
-  catch(e){ console.error('지도 내보내기 실패', e); toast('내보내지 못했어요. 지도 자료와 인터넷 연결을 확인한 뒤 다시 시도해 주세요.', 6000); }
+  catch(e){ console.error('지도 내보내기 실패', e); toast(e.message?.startsWith('DWG')?e.message:'내보내지 못했어요. 지도 자료와 인터넷 연결을 확인한 뒤 다시 시도해 주세요.', 6000); }
   finally {
     mapExportBusy = false;
     if(map === exportMap) exportMap.jumpTo(camera);
   }
 }
-async function exportDXF(){
+async function exportDXF(format='dxf'){
   return withExportView(async () => {
   const area = exportArea(); toast('DXF를 만드는 중…', 8000);
   await viewBounds(area.bounds, 17.6); await demPrefetchB(area.bounds);
@@ -3035,8 +3037,9 @@ async function exportDXF(){
   const layers = [['SITE', 1], ['MASSES', 5], ['MY_MODEL', 5], ['MY_DRAWING', 6], ['MY_DXF', 4], ['PARKING', 9], ['BUILDINGS', 7], ['BUILDINGS_ON_SITE', 9], ['BUILDING_FLOORS', 8], ['PARCELS', 8], ['PARCEL_NO', 8], ['ROADS_MAIN', 252], ['ROADS', 253], ['ROADS_PATH', 254], ['CONTOUR_MAJOR', 30], ['CONTOUR_MINOR', 31], ['SECTION_LINE', 1], ['RECORDS', 3]];
   if(!ents.length){ toast('내보낼 도형이 없어요. 지도 자료가 표시된 뒤 다시 시도해 주세요.', 6000); return; }
   const txt = dxfText(ents, layers, 6);
-  download(new Blob([txt], {type:'application/dxf'}), `답사지도-${(s && s.name) || '주변'}-${fileStamp()}.dxf`.replace(/[\\/:*?"<>|]/g, ''));
-  toast(`DXF 저장 · 건물 ${ctx.bldgs.length} · 필지 ${ctx.parcels.length} · 도로 ${ctx.roads.length} · 등고선 ${ctx.contours.length}`, 5000);
+  const data=format==='dwg'?await (await import('./dwg-export.mjs')).dxfToDWG(txt):txt;
+  download(new Blob([data], {type:format==='dwg'?'application/acad':'application/dxf'}), `답사지도-${(s && s.name) || '주변'}-${fileStamp()}.${format}`.replace(/[\\/:*?"<>|]/g, ''));
+  toast(`${format.toUpperCase()} 저장 · 건물 ${ctx.bldgs.length} · 필지 ${ctx.parcels.length} · 도로 ${ctx.roads.length} · 등고선 ${ctx.contours.length}`, 5000);
   });
 }
 let earcutP = null;
@@ -3234,7 +3237,7 @@ function renderStudio(){
   h += topoCardHTML() + cmCardHTML();
   h += `<section class="card"><h3>도판 · 내보내기</h3>
     <div class="seg" role="group" aria-label="지도 스타일"><button data-act="style" data-v="base" aria-pressed="${S.styleMode === 'base'}">기본</button><button data-act="style" data-v="fg" aria-pressed="${S.styleMode === 'fg'}">도-지</button><button data-act="style" data-v="inv" aria-pressed="${S.styleMode === 'inv'}">반전</button></div>
-    <div class="menu-list"><button class="btn" data-act="render">발표용 렌더 PNG · 흰 모형 + 햇빛·그림자</button><button class="btn" data-act="png">지금 화면을 PNG로 저장 (축척·방위 포함)</button><button class="btn" data-act="dxf">DXF로 내보내기 · 건물·필지·도로·등고선${s ? '·대지·매스' : ''}</button><button class="btn" data-act="obj">3D OBJ로 내보내기 · 지형+건물${s ? '+매스' : ''}</button></div>
+    <div class="menu-list"><button class="btn" data-act="render">발표용 렌더 PNG · 흰 모형 + 햇빛·그림자</button><button class="btn" data-act="png">지금 화면을 PNG로 저장 (축척·방위 포함)</button><button class="btn" data-act="dxf">DXF로 내보내기 · 건물·필지·도로·등고선${s ? '·대지·매스' : ''}</button><button class="btn" data-act="dwg">DWG로 내보내기</button><button class="btn" data-act="dwgConfig">DWG 서버 설정</button><button class="btn" data-act="obj">3D OBJ로 내보내기 · 지형+건물${s ? '+매스' : ''}</button></div>
     <p class="hint">${s ? '대지 주변 150m' : '지금 화면(최대 1.5km)'} 범위를 내보내요. DXF는 동부원점(EPSG:5187) 미터 좌표라 수치지형도와 겹쳐 쓸 수 있고, 건물은 바닥 높이와 두께(높이)가 들어가 캐드에서 입체로 보여요. OBJ는 Y축이 위예요(라이노는 가져올 때 Y→Z 변환).</p>
   </section>`;
   if(s) h += `<div class="p-actions"><button class="btn" data-act="siteRedo">대지 다시 정하기</button><button class="btn danger" data-act="siteAskDel">대지 삭제</button></div><div class="confirm" id="siteConfirm" hidden><p>이 대지와 매스·주차 배치를 삭제할까요? 되돌릴 수 없어요.</p><button class="btn sm" data-act="siteNoDel">취소</button><button class="btn sm danger solid" data-act="siteDel">삭제</button></div>`;
@@ -3928,7 +3931,7 @@ function objCardHTML(s){
   };
   return `<section class="card"><h3>내 도면 · 모델</h3>${architectureSummary(s)}<p class="hint">벽·바닥·문·창은 편집기에서 수정합니다. 생성 모델의 위치·크기는 편집기 기준이며, 과제의 건폐율·용적률 비교는 매스·일반 모델 기준입니다. 기존 일조·그림자는 모델 외곽을 사용해 개구부의 채광을 해석하지 않습니다.</p>
     ${objs.map(row).join('') || '<p class="hint">평면을 길이·각도로 정확히 그리거나, 캐드 DXF·도면 이미지를 깔고, 라이노·스케치업·블렌더에서 내보낸 GLB·OBJ 모델을 대지 위에 세워 볼 수 있어요.</p>'}
-    <div class="menu-list row"><button class="btn sm pri" data-act="designEditor">도면·매스 편집기 열기</button><button class="btn sm" data-act="drawNew">지도에 선 그리기</button><button class="btn sm" data-act="modelUp">3D 모델 올리기</button><button class="btn sm" data-act="planUp">도면 파일 (DXF·이미지)</button></div>
+    <div class="menu-list row"><button class="btn sm pri" data-act="designEditor">CAD·BIM 편집기 열기</button><button class="btn sm" data-act="drawNew">지도에 선 그리기</button><button class="btn sm" data-act="modelUp">3D 모델 올리기</button><button class="btn sm" data-act="planUp">도면 파일 (DXF·이미지)</button></div>
     <label class="tgl"><input type="checkbox" data-act2="hideEx" ${S.hideEx ? 'checked' : ''}> 대지 안 기존 건물 숨기기</label>
     <p class="hint">모델은 GLB 한 파일이 가장 잘 맞아요(OBJ도 돼요). 발밑의 가장 낮은 땅에 세우고, 건폐율·용적률·그림자·단면·내보내기에 함께 들어가요. 면적은 지붕 평면(건축면적)과 층마다 높이 3/4 지점을 자른 단면(바닥면적, 외벽 바깥면 기준)으로 계산해요. 파일은 이 기기에만 저장돼요.</p>
   </section>`;
@@ -3941,10 +3944,10 @@ async function openDesignEditor(){
   try{
     const {openEditor,toOBJ,validate}=await import('./studio-editor.mjs');
     const points=ring=>{const p=ring.map(q=>L.f(...q));if(p.length>1&&Math.hypot(p[0][0]-p.at(-1)[0],p[0][1]-p.at(-1)[1])<0.00001)p.pop();return p;};
-    openEditor({name:target.name,origin:c,sunVector:(ymd,h)=>{const p=sunPos(kstDate(ymd,h),c.lat,c.lng);return [Math.sin(p.az)*Math.cos(p.alt),Math.cos(p.az)*Math.cos(p.alt),Math.sin(p.alt)];},siteRings:siteRings(target).map(points),items:[...(target.masses||[]).map(m=>({id:m.id,type:'mass',name:m.name||'매스',points:points(m.ring),floors:+m.floors||1,fh:+m.fh||3,base:+m.base||0})),...(saved?saved.elements:[])],onSave:async items=>{
+    openEditor({name:target.name,origin:c,sunVector:(ymd,h)=>{const p=sunPos(kstDate(ymd,h),c.lat,c.lng);return [Math.sin(p.az)*Math.cos(p.alt),Math.cos(p.az)*Math.cos(p.alt),Math.sin(p.alt)];},siteRings:siteRings(target).map(points),items:[...(target.masses||[]).map(m=>({id:m.id,type:'mass',name:m.name||'매스',level:m.level||'',material:m.material||'',points:points(m.ring),floors:+m.floors||1,fh:+m.fh||3,base:+m.base||0})),...(saved?saved.elements:[])],onSave:async items=>{
       const current=curSite();if(!current||current.id!==target.id||JSON.stringify([current.masses||[],current.architecture||null])!==expected)throw Error('다른 작업으로 대지가 변경됐습니다. 닫고 편집기를 다시 열어 주세요.');
       validate(items);const elements=items.filter(o=>o.type==='wall'||o.type==='slab');
-      const masses=items.filter(o=>!o.type||o.type==='mass').map(o=>{const ring=o.points.map(p=>L.b(...p).map(v=>+v.toFixed(8)));ring.push(ring[0].slice());return {id:o.id,name:o.name.slice(0,30),ring,floors:o.floors,fh:o.fh,base:o.base};});
+      const masses=items.filter(o=>!o.type||o.type==='mass').map(o=>{const ring=o.points.map(p=>L.b(...p).map(v=>+v.toFixed(8)));ring.push(ring[0].slice());return {id:o.id,name:o.name.slice(0,30),level:String(o.level||'').slice(0,30),material:String(o.material||'').slice(0,60),ring,floors:o.floors,fh:o.fh,base:o.base};});
       const old=objsOf(current).filter(o=>o.source==='architecture'),objects=objsOf(current).filter(o=>o.source!=='architecture');
       if(elements.length&&objects.length>=40)throw Error('도면·모델 목록에 공간이 부족합니다. 사용하지 않는 항목을 정리해 주세요.');
       const photos=new Map();if(elements.length){const all=elements.flatMap(o=>o.points),xs=all.map(p=>p[0]),ys=all.map(p=>p[1]),cx=(Math.min(...xs)+Math.max(...xs))/2,cy=(Math.min(...ys)+Math.max(...ys))/2,ll=L.b(cx,cy),blobId=newId();
@@ -3963,7 +3966,7 @@ function architectureSummary(s){
 }
 function cleanArchitecture(q){
   if(!q||!Array.isArray(q.origin)||q.origin.length!==2||coord(q.origin[0],180)===null||coord(q.origin[1],90)===null||!Array.isArray(q.elements))return null;
-  const elements=q.elements.slice(0,60).filter(o=>o&&['wall','slab'].includes(o.type)&&Array.isArray(o.points)&&o.points.length>=3&&o.points.length<=400&&o.points.every(p=>Array.isArray(p)&&p.length===2&&p.every(v=>typeof v==='number'&&Number.isFinite(v)&&Math.abs(v)<=10000))&&Number.isFinite(o.fh)&&o.fh>0&&o.fh<=10&&Number.isFinite(o.base)&&o.base>=0&&o.base<=100).map(o=>({id:String(o.id||newId()).slice(0,120),type:o.type,name:String(o.name||'').slice(0,30),points:o.points.map(p=>p.slice()),floors:1,fh:o.fh,base:o.base,openings:(Array.isArray(o.openings)?o.openings:[]).slice(0,20).filter(h=>h&&['door','window'].includes(h.kind)&&['offset','width','height','sill'].every(k=>typeof h[k]==='number'&&Number.isFinite(h[k])&&h[k]>=0)).map(h=>({kind:h.kind,offset:h.offset,width:h.width,height:h.height,sill:h.sill}))}));
+  const elements=q.elements.slice(0,60).filter(o=>o&&['wall','slab'].includes(o.type)&&Array.isArray(o.points)&&o.points.length>=3&&o.points.length<=400&&o.points.every(p=>Array.isArray(p)&&p.length===2&&p.every(v=>typeof v==='number'&&Number.isFinite(v)&&Math.abs(v)<=10000))&&Number.isFinite(o.fh)&&o.fh>0&&o.fh<=10&&Number.isFinite(o.base)&&o.base>=0&&o.base<=100).map(o=>({id:String(o.id||newId()).slice(0,120),type:o.type,name:String(o.name||'').slice(0,30),level:String(o.level||'').slice(0,30),material:String(o.material||'').slice(0,60),points:o.points.map(p=>p.slice()),floors:1,fh:o.fh,base:o.base,openings:(Array.isArray(o.openings)?o.openings:[]).slice(0,20).filter(h=>h&&['door','window'].includes(h.kind)&&['offset','width','height','sill'].every(k=>typeof h[k]==='number'&&Number.isFinite(h[k])&&h[k]>=0)).map(h=>({kind:h.kind,offset:h.offset,width:h.width,height:h.height,sill:h.sill}))}));
   return {origin:q.origin.map(Number),elements};
 }
 function disposeModel(id){const it=M3.items.get(id);if(it&&it.root)it.root.traverse(ch=>{ch.geometry?.dispose();for(const m of Array.isArray(ch.material)?ch.material:[ch.material])m?.dispose();});M3.items.delete(id);}

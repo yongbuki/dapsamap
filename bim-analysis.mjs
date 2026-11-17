@@ -1,3 +1,4 @@
+import {quantities} from './cad-tools.mjs';
 import {validate, signedArea, triangulate} from './studio-editor.mjs';
 import {elementType, elementSolids, openingPlan} from './architectural-model.mjs';
 
@@ -25,6 +26,10 @@ export function toIFC(items,{name='Dapsa design',origin}={}){
   const type=elementType(o),rep=shape(o.points,o.floors*o.fh),pos=placement(o.base),common=`${guid()},$,${str(o.name||type)},$,$,${pos},${rep},${str(o.id)}`;
   const entity=add(type==='wall'?`IFCWALL(${common},.NOTDEFINED.)`:type==='slab'?`IFCSLAB(${common},.FLOOR.)`:`IFCBUILDINGELEMENTPROXY(${common},.NOTDEFINED.)`);products.push(entity);
   const props=[add(`IFCPROPERTYSINGLEVALUE('SourceId',$,IFCLABEL(${str(o.id)}),$)`),add(`IFCPROPERTYSINGLEVALUE('ElementKind',$,IFCLABEL(${str(type)}),$)`),add(`IFCPROPERTYSINGLEVALUE('Floors',$,IFCINTEGER(${o.floors}),$)`)];
+  for(const [key,value] of [['Level',o.level||''],['Material',o.material||'']])props.push(add(`IFCPROPERTYSINGLEVALUE(${str(key)},$,IFCLABEL(${str(value)}),$)`));
+  const quantity=quantities([o])[0];
+  props.push(add(`IFCPROPERTYSINGLEVALUE('NetVolume',$,IFCVOLUMEMEASURE(${num(quantity.volume)}),$)`));
+  if(o.material){const material=add(`IFCMATERIAL(${str(o.material)},$,$)`);add(`IFCRELASSOCIATESMATERIAL(${guid()},$,$,$,(${entity}),${material})`);}
   const pset=add(`IFCPROPERTYSET(${guid()},$,'Pset_DapsaDesign',$,(${props.join(',')}))`);add(`IFCRELDEFINESBYPROPERTIES(${guid()},$,$,$,(${entity}),${pset})`);
   for(const [i,h]of (o.openings||[]).entries()){
    const opening=add(`IFCOPENINGELEMENT(${guid()},$,${str((h.kind==='door'?'문':'창')+' 개구부 '+(i+1))},$,$,${placement(o.base+h.sill)},${shape(openingPlan(o,h),h.height)},$,.OPENING.)`);
